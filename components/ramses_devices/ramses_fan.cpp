@@ -124,7 +124,7 @@ void RamsesFan::loop() {
   if (!this->pairing_active_) return;
 
   uint32_t now = millis();
-  if (now - this->pairing_start_time_ > this->pairing_timeout_ms_) {
+  if (now - this->pairing_start_time_ >= this->pairing_timeout_ms_) {
     this->stop_pairing();
     ESP_LOGW(TAG, "Ventilation pairing timed out after %u ms", (unsigned int)this->pairing_timeout_ms_);
     return;

@@ -192,6 +192,19 @@ void test_pairing_handshake_simulation() {
   TEST_ASSERT(fan2.is_pairing(), "Pairing active after start");
   fan2.stop_pairing();
   TEST_ASSERT(!fan2.is_pairing(), "Pairing stopped after stop_pairing()");
+
+  RamsesFan fan3;
+  fan3.set_scheme(HvacScheme::ORCON);
+  fan3.setup();
+  fan3.start_pairing(30000);
+  RamsesMessage wrong_target = parse_msg("070  W --- 32:137527 37:999999 --:------ 1FC9 012 0031D9825FE10031DA825FE1");
+  fan3.on_message(wrong_target);
+  TEST_ASSERT(fan3.is_pairing(), "Accept for another remote is ignored");
+
+  RamsesFan fan_timeout;
+  fan_timeout.start_pairing(0);
+  fan_timeout.loop();
+  TEST_ASSERT(!fan_timeout.is_pairing(), "Zero-duration pairing times out");
 }
 
 void test_chip_id_and_nvs_persistence() {
