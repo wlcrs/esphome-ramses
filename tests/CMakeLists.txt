@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/..
+    ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 add_executable(test_protocol
@@ -14,5 +15,20 @@ add_executable(test_protocol
     ../components/ramses_esp/ramses_message.cpp
 )
 
+add_executable(test_mock
+    test_mock.cpp
+    mock/mock_ramses_esp.cpp
+    ../components/ramses_esp/ramses_codec.cpp
+    ../components/ramses_esp/ramses_message.cpp
+)
+
+add_executable(test_parity_cases
+    test_parity_cases.cpp
+    ../components/ramses_esp/ramses_codec.cpp
+    ../components/ramses_esp/ramses_message.cpp
+)
+
 enable_testing()
 add_test(NAME ProtocolTest COMMAND test_protocol)
+add_test(NAME MockTest COMMAND test_mock)
+add_test(NAME ParityJsonTest COMMAND test_parity_cases "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/parity_cases.json")

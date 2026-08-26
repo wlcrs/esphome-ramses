@@ -1,0 +1,162 @@
+[
+  {
+    "name": "evohome_system_mode_sync",
+    "description": "Evohome controller broadcasting System Mode (Auto) and Sync Timer",
+    "hgi80": "045  I --- 01:145678 --:------ 01:145678 1F09 003 0007D0",
+    "expected": {
+      "verb": "I",
+      "src": "01:145678",
+      "dst": "--:------",
+      "opcode": "1F09",
+      "system_mode": "auto",
+      "system_mode_raw": 0,
+      "remaining_raw": 2000
+    }
+  },
+  {
+    "name": "evohome_zone_0_setpoint",
+    "description": "Zone 0 setpoint set to 21.00 C (2100 = 0x0834)",
+    "hgi80": "045  I --- 01:145678 --:------ 01:145678 2309 003 000834",
+    "expected": {
+      "verb": "I",
+      "src": "01:145678",
+      "dst": "--:------",
+      "opcode": "2309",
+      "zone_index": 0,
+      "setpoint": 21.0
+    }
+  },
+  {
+    "name": "evohome_zone_1_setpoint",
+    "description": "Zone 1 setpoint set to 19.50 C (1950 = 0x079E)",
+    "hgi80": "045  I --- 01:145678 --:------ 01:145678 2309 003 01079E",
+    "expected": {
+      "verb": "I",
+      "src": "01:145678",
+      "dst": "--:------",
+      "opcode": "2309",
+      "zone_index": 1,
+      "setpoint": 19.5
+    }
+  },
+  {
+    "name": "evohome_multi_zone_temperatures",
+    "description": "Controller broadcasting multi-zone temperatures: Zone 0 = 21.20 C, Zone 1 = 18.50 C",
+    "hgi80": "045  I --- 01:145678 --:------ 01:145678 30C9 006 00084801073A",
+    "expected": {
+      "verb": "I",
+      "src": "01:145678",
+      "dst": "--:------",
+      "opcode": "30C9",
+      "temperatures": [
+        {"zone_index": 0, "temperature": 21.2},
+        {"zone_index": 1, "temperature": 18.5}
+      ]
+    }
+  },
+  {
+    "name": "evohome_zone_name_response",
+    "description": "Controller answering RQ 0004 with ASCII name 'Lounge' for Zone 0",
+    "hgi80": "045 RP --- 01:145678 18:005612 --:------ 0004 022 00004C6F756E67650000000000000000000000000000",
+    "expected": {
+      "verb": "RP",
+      "src": "01:145678",
+      "dst": "18:005612",
+      "opcode": "0004",
+      "zone_index": 0,
+      "zone_name": "Lounge"
+    }
+  },
+  {
+    "name": "orcon_fan_status_low",
+    "description": "Orcon MVHR ventilator reporting Fan Status Speed 1 / Low (mode 0x02)",
+    "hgi80": "045  I --- 32:155617 --:------ 32:155617 22F1 003 0002FF",
+    "expected": {
+      "verb": "I",
+      "src": "32:155617",
+      "dst": "--:------",
+      "opcode": "22F1",
+      "scheme": "orcon",
+      "fan_mode_raw": 2,
+      "fan_mode_name": "low"
+    }
+  },
+  {
+    "name": "orcon_fan_status_boost",
+    "description": "Orcon MVHR ventilator reporting Boost mode (mode 0x05)",
+    "hgi80": "045  I --- 32:155617 --:------ 32:155617 22F1 003 0005FF",
+    "expected": {
+      "verb": "I",
+      "src": "32:155617",
+      "dst": "--:------",
+      "opcode": "22F1",
+      "scheme": "orcon",
+      "fan_mode_raw": 5,
+      "fan_mode_name": "boost"
+    }
+  },
+  {
+    "name": "mvhr_oem_signature_orcon",
+    "description": "MVHR device responding to RQ 10E0 with OEM signature 0x67 (Orcon)",
+    "hgi80": "045 RP --- 32:155617 18:005612 --:------ 10E0 038 0000000000006700000000000000000000000000000000000000000000000000000000000000",
+    "expected": {
+      "verb": "RP",
+      "src": "32:155617",
+      "dst": "18:005612",
+      "opcode": "10E0",
+      "oem_code": "0x67",
+      "vendor": "orcon"
+    }
+  },
+  {
+    "name": "trv_heat_demand_35_pct",
+    "description": "TRV radiator valve reporting 35% heat demand (70 / 200 = 0x46)",
+    "hgi80": "045  I --- 04:089123 --:------ 01:145678 3150 002 0046",
+    "expected": {
+      "verb": "I",
+      "src": "04:089123",
+      "dst": "01:145678",
+      "opcode": "3150",
+      "domain_or_zone_index": 0,
+      "demand_pct": 35.0
+    }
+  },
+  {
+    "name": "trv_battery_status_88_pct",
+    "description": "TRV reporting battery level at 88% (0x58)",
+    "hgi80": "045  I --- 04:089123 --:------ 04:089123 1060 003 005801",
+    "expected": {
+      "verb": "I",
+      "src": "04:089123",
+      "dst": "04:089123",
+      "opcode": "1060",
+      "battery_pct": 88,
+      "battery_low": false
+    }
+  },
+  {
+    "name": "opentherm_boiler_modulation",
+    "description": "OpenTherm bridge reporting 40% boiler modulation and flame on",
+    "hgi80": "045  I --- 10:045678 --:------ 10:045678 3220 005 0008005000",
+    "expected": {
+      "verb": "I",
+      "src": "10:045678",
+      "dst": "10:045678",
+      "opcode": "3220",
+      "flame_active": true,
+      "modulation_pct": 40.0
+    }
+  },
+  {
+    "name": "filter_life_remaining_days",
+    "description": "MVHR reporting 180 days filter lifetime remaining (180 = 0xB4) in 6-byte layout",
+    "hgi80": "045 RP --- 32:155617 18:005612 --:------ 10D0 006 00B4B4C80000",
+    "expected": {
+      "verb": "RP",
+      "src": "32:155617",
+      "dst": "18:005612",
+      "opcode": "10D0",
+      "filter_remaining_days": 180
+    }
+  }
+]
