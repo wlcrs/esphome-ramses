@@ -1,12 +1,13 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome import automation, pins
 from esphome.const import (
     CONF_ID,
-    CONF_PORT,
     CONF_ON_MESSAGE,
+    CONF_PORT,
     CONF_TRIGGER_ID,
 )
+
+from esphome import automation, pins
 
 DEPENDENCIES = ["esp32"]
 AUTO_LOAD = ["network"]

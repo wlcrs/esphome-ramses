@@ -6,25 +6,28 @@ Loads test cases from tests/fixtures/parity_cases.json and asserts that:
 2. The C++ test runner decodes the exact same packet to match the expected fields.
 """
 
-from datetime import datetime as dt
-import subprocess
 import json
-import sys
 import os
+import subprocess
+import sys
+from datetime import datetime as dt
+from datetime import timezone
 
-from ramses_tx.packet import Packet
 from ramses_rf.messages import Message
+from ramses_tx.packet import Packet
 
 
 def parse_with_ramses_rf(hgi80_line: str) -> dict:
     """Parse an HGI80 packet line using Python ramses_rf."""
-    pkt = Packet.from_port(dt.now(), hgi80_line)
+    pkt = Packet.from_port(dt.now(timezone.utc), hgi80_line)
     msg = Message(pkt.to_dto() if hasattr(pkt, "to_dto") else pkt)
     return {
         "verb": str(msg.verb).strip(),
         "src": str(msg.src.id) if msg.src else None,
         "dst": str(msg.dst.id) if msg.dst else None,
-        "code": f"{int(msg.code, 16):04X}" if hasattr(msg, "code") and msg.code else None,
+        "code": f"{int(msg.code, 16):04X}"
+        if hasattr(msg, "code") and msg.code
+        else None,
         "payload": getattr(msg, "payload", getattr(msg, "data", {})),
     }
 
@@ -99,21 +102,33 @@ def main():
         parsed = parse_with_ramses_rf(hgi80)
 
         # Assert Header parity
-        assert parsed["code"] == expected["opcode"], f"Opcode mismatch: {parsed['code']} != {expected['opcode']}"
-        assert parsed["src"] == expected["src"], f"Source mismatch: {parsed['src']} != {expected['src']}"
-        assert parsed["verb"] == expected["verb"], f"Verb mismatch: {parsed['verb']} != {expected['verb']}"
+        assert parsed["code"] == expected["opcode"], (
+            f"Opcode mismatch: {parsed['code']} != {expected['opcode']}"
+        )
+        assert parsed["src"] == expected["src"], (
+            f"Source mismatch: {parsed['src']} != {expected['src']}"
+        )
+        assert parsed["verb"] == expected["verb"], (
+            f"Verb mismatch: {parsed['verb']} != {expected['verb']}"
+        )
         assert_semantic_parity(case, parsed)
 
-        print(f"  -> Python ramses_rf decoded: {parsed['verb']} {parsed['code']} from {parsed['src']} (Payload: {parsed['payload']})")
+        print(
+            f"  -> Python ramses_rf decoded: {parsed['verb']} {parsed['code']} from {parsed['src']} (Payload: {parsed['payload']})"
+        )
         py_passed += 1
 
-    print(f"\n[PASS] Python ramses_rf passed all {py_passed}/{len(cases)} parity fixture cases.")
+    print(
+        f"\n[PASS] Python ramses_rf passed all {py_passed}/{len(cases)} parity fixture cases."
+    )
 
     # Run C++ Parity Binary
     cpp_binary = os.path.join(script_dir, "build", "test_parity_cases")
     if os.path.exists(cpp_binary):
         print("\nRunning C++ Parity Test Runner...")
-        res = subprocess.run([cpp_binary, fixture_path], capture_output=True, text=True)
+        res = subprocess.run(
+            [cpp_binary, fixture_path], capture_output=True, text=True, check=False
+        )
         print(res.stdout)
         if res.returncode != 0:
             print(res.stderr)
@@ -121,7 +136,9 @@ def main():
             return res.returncode
         print("[PASS] C++ decoder passed all parity fixture cases.")
     else:
-        print(f"NOTE: C++ binary not yet built at {cpp_binary} (run cmake build to enable).")
+        print(
+            f"NOTE: C++ binary not yet built at {cpp_binary} (run cmake build to enable)."
+        )
 
     print("\n==================================================")
     print("ALL DUAL-SIDED PARITY TESTS PASSED SUCCESSFULLY!")

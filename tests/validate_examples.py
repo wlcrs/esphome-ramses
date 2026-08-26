@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import subprocess
-import sys
 from pathlib import Path
 
 
@@ -12,7 +11,11 @@ def main() -> int:
     root = Path(__file__).resolve().parents[1]
     esphome = root / ".venv/bin/esphome"
     command = [str(esphome)] if esphome.exists() else ["esphome"]
-    examples = ("example-c6.yaml", "example-c6-devices.yaml", "example-c6-discovery.yaml")
+    examples = (
+        "example-c6.yaml",
+        "example-c6-devices.yaml",
+        "example-c6-discovery.yaml",
+    )
     for example in examples:
         result = subprocess.run(
             [*command, "config", example],

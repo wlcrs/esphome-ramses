@@ -4,10 +4,6 @@ from esphome.components import binary_sensor
 from esphome.const import (
     CONF_ID,
     CONF_TYPE,
-    DEVICE_CLASS_BATTERY,
-    DEVICE_CLASS_HEAT,
-    DEVICE_CLASS_PROBLEM,
-    DEVICE_CLASS_WINDOW,
 )
 
 CONF_ZONE = "zone"
@@ -27,9 +23,7 @@ from .. import (
 RamsesBinarySensor = ramses_devices_ns.class_(
     "RamsesBinarySensor", binary_sensor.BinarySensor, cg.Component
 )
-RamsesBinarySensorType = ramses_devices_ns.enum(
-    "RamsesBinarySensorType", is_class=True
-)
+RamsesBinarySensorType = ramses_devices_ns.enum("RamsesBinarySensorType", is_class=True)
 
 BINARY_SENSOR_TYPES = {
     "filter_alarm": RamsesBinarySensorType.FILTER_ALARM,

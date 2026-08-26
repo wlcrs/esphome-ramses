@@ -4,15 +4,6 @@ from esphome.components import sensor
 from esphome.const import (
     CONF_ID,
     CONF_TYPE,
-    DEVICE_CLASS_BATTERY,
-    DEVICE_CLASS_CARBON_DIOXIDE,
-    DEVICE_CLASS_HUMIDITY,
-    DEVICE_CLASS_TEMPERATURE,
-    STATE_CLASS_MEASUREMENT,
-    UNIT_CELSIUS,
-    UNIT_EMPTY,
-    UNIT_PARTS_PER_MILLION,
-    UNIT_PERCENT,
 )
 
 CONF_ZONE = "zone"

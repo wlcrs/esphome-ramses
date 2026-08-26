@@ -12,24 +12,22 @@
 #endif
 #include <cstdio>
 #include <cstring>
-#include <sstream>
-#include <iomanip>
-#include <sys/time.h>
 #include <ctime>
+#include <iomanip>
+#include <sstream>
+#include <sys/time.h>
 
 static const char *TAG = "ramses_esp.msg";
 
 namespace esphome {
 namespace ramses_esp {
 
-static const char *const MSG_TYPE_NAMES[RAMSES_MSG_MAX] = {"RQ", "I", "W", "RP"};
+static const char *const MSG_TYPE_NAMES[RAMSES_MSG_MAX] = {"RQ", "I", "W",
+                                                           "RP"};
 
 static const uint8_t ADDRESS_FLAGS[4] = {
-    RAMSES_F_ADDR0 + RAMSES_F_ADDR1 + RAMSES_F_ADDR2,
-    RAMSES_F_ADDR2,
-    RAMSES_F_ADDR0 + RAMSES_F_ADDR2,
-    RAMSES_F_ADDR0 + RAMSES_F_ADDR1
-};
+    RAMSES_F_ADDR0 + RAMSES_F_ADDR1 + RAMSES_F_ADDR2, RAMSES_F_ADDR2,
+    RAMSES_F_ADDR0 + RAMSES_F_ADDR2, RAMSES_F_ADDR0 + RAMSES_F_ADDR1};
 
 #define HDR_T_MASK 0x30
 #define HDR_T_SHIFT 4
@@ -41,19 +39,24 @@ static const uint8_t ADDRESS_FLAGS[4] = {
 uint8_t ramses_decode_header(uint8_t header) {
   uint8_t fields = (header & HDR_T_MASK) >> HDR_T_SHIFT;
   fields |= ADDRESS_FLAGS[(header & HDR_A_MASK) >> HDR_A_SHIFT];
-  if (header & HDR_PARAM0) fields |= RAMSES_F_PARAM0;
-  if (header & HDR_PARAM1) fields |= RAMSES_F_PARAM1;
+  if (header & HDR_PARAM0)
+    fields |= RAMSES_F_PARAM0;
+  if (header & HDR_PARAM1)
+    fields |= RAMSES_F_PARAM1;
   return fields;
 }
 
 uint8_t ramses_encode_header(uint8_t fields) {
-  uint8_t addresses = fields & (RAMSES_F_ADDR0 + RAMSES_F_ADDR1 + RAMSES_F_ADDR2);
+  uint8_t addresses =
+      fields & (RAMSES_F_ADDR0 + RAMSES_F_ADDR1 + RAMSES_F_ADDR2);
   for (uint8_t i = 0; i < sizeof(ADDRESS_FLAGS); i++) {
     if (addresses == ADDRESS_FLAGS[i]) {
       uint8_t header = i << HDR_A_SHIFT;
       header |= (fields & RAMSES_F_MASK) << HDR_T_SHIFT;
-      if (fields & RAMSES_F_PARAM0) header |= HDR_PARAM0;
-      if (fields & RAMSES_F_PARAM1) header |= HDR_PARAM1;
+      if (fields & RAMSES_F_PARAM0)
+        header |= HDR_PARAM0;
+      if (fields & RAMSES_F_PARAM1)
+        header |= HDR_PARAM1;
       return header;
     }
   }
@@ -61,23 +64,28 @@ uint8_t ramses_encode_header(uint8_t fields) {
 }
 
 std::string RamsesAddress::to_string() const {
-  if (!this->is_valid) return "--:------";
+  if (!this->is_valid)
+    return "--:------";
   char buf[16];
-  snprintf(buf, sizeof(buf), "%02u:%06lu", (unsigned)this->dev_class, (unsigned long)this->id);
+  snprintf(buf, sizeof(buf), "%02u:%06lu", (unsigned)this->dev_class,
+           (unsigned long)this->id);
   return std::string(buf);
 }
 
 RamsesAddress RamsesAddress::from_bytes(const uint8_t *bytes) {
-  if (bytes == nullptr) return RamsesAddress{};
+  if (bytes == nullptr)
+    return RamsesAddress{};
   return RamsesAddress{
       .dev_class = static_cast<uint8_t>((bytes[0] >> 2) & 0x3F),
-      .id = ((uint32_t)(bytes[0] & 0x03) << 16) | ((uint32_t)bytes[1] << 8) | (uint32_t)bytes[2],
+      .id = ((uint32_t)(bytes[0] & 0x03) << 16) | ((uint32_t)bytes[1] << 8) |
+            (uint32_t)bytes[2],
       .is_valid = true,
   };
 }
 
 RamsesAddress RamsesAddress::from_string(const std::string &str) {
-  if (str == "--:------" || str.length() < 9) return RamsesAddress{};
+  if (str == "--:------" || str.length() < 9)
+    return RamsesAddress{};
   unsigned dev_class = 0;
   unsigned long id = 0;
   if (sscanf(str.c_str(), "%u:%lu", &dev_class, &id) == 2) {
@@ -91,7 +99,8 @@ RamsesAddress RamsesAddress::from_string(const std::string &str) {
 }
 
 void RamsesAddress::to_bytes(uint8_t *bytes) const {
-  if (bytes == nullptr) return;
+  if (bytes == nullptr)
+    return;
   bytes[0] = ((this->dev_class << 2) & 0xFC) | ((this->id >> 16) & 0x03);
   bytes[1] = (this->id >> 8) & 0xFF;
   bytes[2] = this->id & 0xFF;
@@ -120,8 +129,10 @@ uint8_t RamsesMessage::calculate_checksum() const {
       sum += this->addr[i][0] + this->addr[i][1] + this->addr[i][2];
     }
   }
-  if (this->fields & RAMSES_F_PARAM0) sum += this->param[0];
-  if (this->fields & RAMSES_F_PARAM1) sum += this->param[1];
+  if (this->fields & RAMSES_F_PARAM0)
+    sum += this->param[0];
+  if (this->fields & RAMSES_F_PARAM1)
+    sum += this->param[1];
   sum += this->opcode[0] + this->opcode[1];
   sum += this->len;
   for (uint8_t i = 0; i < this->len; i++) {
@@ -131,9 +142,13 @@ uint8_t RamsesMessage::calculate_checksum() const {
 }
 
 bool RamsesMessage::is_valid() const {
-  if (this->error != 0) return false;
-  if ((this->rx_fields & (RAMSES_F_OPCODE | RAMSES_F_LEN)) != (RAMSES_F_OPCODE | RAMSES_F_LEN)) return false;
-  if (this->n_payload != this->len) return false;
+  if (this->error != 0)
+    return false;
+  if ((this->rx_fields & (RAMSES_F_OPCODE | RAMSES_F_LEN)) !=
+      (RAMSES_F_OPCODE | RAMSES_F_LEN))
+    return false;
+  if (this->n_payload != this->len)
+    return false;
 
   uint8_t sum = ramses_encode_header(this->fields);
   for (uint8_t i = 0; i < RAMSES_MAX_ADDR; i++) {
@@ -141,8 +156,10 @@ bool RamsesMessage::is_valid() const {
       sum += this->addr[i][0] + this->addr[i][1] + this->addr[i][2];
     }
   }
-  if (this->fields & RAMSES_F_PARAM0) sum += this->param[0];
-  if (this->fields & RAMSES_F_PARAM1) sum += this->param[1];
+  if (this->fields & RAMSES_F_PARAM0)
+    sum += this->param[0];
+  if (this->fields & RAMSES_F_PARAM1)
+    sum += this->param[1];
   sum += this->opcode[0] + this->opcode[1];
   sum += this->len;
   for (uint8_t i = 0; i < this->len; i++) {
@@ -166,7 +183,8 @@ std::string RamsesMessage::to_hgi80() const {
   // Type: "RQ ", " I ", " W ", "RP "
   uint8_t type_idx = static_cast<uint8_t>(this->type);
   if (type_idx < RAMSES_MSG_MAX) {
-    pos += snprintf(buf + pos, sizeof(buf) - pos, "%2s ", MSG_TYPE_NAMES[type_idx]);
+    pos += snprintf(buf + pos, sizeof(buf) - pos, "%2s ",
+                    MSG_TYPE_NAMES[type_idx]);
   } else {
     pos += snprintf(buf + pos, sizeof(buf) - pos, "?? ");
   }
@@ -182,14 +200,16 @@ std::string RamsesMessage::to_hgi80() const {
   for (uint8_t i = 0; i < RAMSES_MAX_ADDR; i++) {
     if (this->fields & (RAMSES_F_ADDR0 << i)) {
       RamsesAddress addr = RamsesAddress::from_bytes(this->addr[i]);
-      pos += snprintf(buf + pos, sizeof(buf) - pos, "%s ", addr.to_string().c_str());
+      pos += snprintf(buf + pos, sizeof(buf) - pos, "%s ",
+                      addr.to_string().c_str());
     } else {
       pos += snprintf(buf + pos, sizeof(buf) - pos, "--:------ ");
     }
   }
 
   // Opcode
-  pos += snprintf(buf + pos, sizeof(buf) - pos, "%02X%02X ", this->opcode[0], this->opcode[1]);
+  pos += snprintf(buf + pos, sizeof(buf) - pos, "%02X%02X ", this->opcode[0],
+                  this->opcode[1]);
 
   // Payload Length
   pos += snprintf(buf + pos, sizeof(buf) - pos, "%03u", this->len);
@@ -222,13 +242,15 @@ bool RamsesMessage::from_hgi80(const std::string &line) {
   // Find the verb index (RQ, I, W, RP)
   int verb_idx = -1;
   for (size_t i = 0; i < tokens.size() && i < 3; i++) {
-    if (tokens[i] == "RQ" || tokens[i] == "I" || tokens[i] == "W" || tokens[i] == "RP") {
+    if (tokens[i] == "RQ" || tokens[i] == "I" || tokens[i] == "W" ||
+        tokens[i] == "RP") {
       verb_idx = static_cast<int>(i);
       break;
     }
   }
 
-  if (verb_idx == -1) return false;
+  if (verb_idx == -1)
+    return false;
 
   // If there is an RSSI token before the verb
   if (verb_idx > 0) {
@@ -239,16 +261,23 @@ bool RamsesMessage::from_hgi80(const std::string &line) {
 
   // Verb: RQ, I, W, RP
   std::string verb = tokens[verb_idx];
-  if (verb == "RQ") this->type = RAMSES_MSG_RQ;
-  else if (verb == "I") this->type = RAMSES_MSG_I;
-  else if (verb == "W") this->type = RAMSES_MSG_W;
-  else if (verb == "RP") this->type = RAMSES_MSG_RP;
-  else return false;
+  if (verb == "RQ")
+    this->type = RAMSES_MSG_RQ;
+  else if (verb == "I")
+    this->type = RAMSES_MSG_I;
+  else if (verb == "W")
+    this->type = RAMSES_MSG_W;
+  else if (verb == "RP")
+    this->type = RAMSES_MSG_RP;
+  else
+    return false;
 
   size_t idx = verb_idx + 1;
 
-  // Optional sequence / Param0 (if not an address e.g. doesn't have ':' and isn't '--:------')
-  if (idx < tokens.size() && tokens[idx].find(':') == std::string::npos && tokens[idx] != "--:------") {
+  // Optional sequence / Param0 (if not an address e.g. doesn't have ':' and
+  // isn't '--:------')
+  if (idx < tokens.size() && tokens[idx].find(':') == std::string::npos &&
+      tokens[idx] != "--:------") {
     if (tokens[idx] != "---" && tokens[idx] != "..." && tokens[idx] != "???") {
       this->param[0] = std::strtoul(tokens[idx].c_str(), nullptr, 10);
       this->fields |= RAMSES_F_PARAM0;
@@ -289,7 +318,8 @@ bool RamsesMessage::from_hgi80(const std::string &line) {
 
   // Length (decimal or hex, typically 3 digits e.g. 003)
   if (idx < tokens.size()) {
-    this->len = static_cast<uint8_t>(std::strtoul(tokens[idx].c_str(), nullptr, 10));
+    this->len =
+        static_cast<uint8_t>(std::strtoul(tokens[idx].c_str(), nullptr, 10));
     this->rx_fields |= RAMSES_F_LEN;
     idx++;
   } else {
@@ -338,8 +368,10 @@ std::vector<uint8_t> RamsesMessage::to_raw_frame() const {
       raw_bytes.push_back(this->addr[i][2]);
     }
   }
-  if (this->fields & RAMSES_F_PARAM0) raw_bytes.push_back(this->param[0]);
-  if (this->fields & RAMSES_F_PARAM1) raw_bytes.push_back(this->param[1]);
+  if (this->fields & RAMSES_F_PARAM0)
+    raw_bytes.push_back(this->param[0]);
+  if (this->fields & RAMSES_F_PARAM1)
+    raw_bytes.push_back(this->param[1]);
   raw_bytes.push_back(this->opcode[0]);
   raw_bytes.push_back(this->opcode[1]);
   raw_bytes.push_back(this->len);

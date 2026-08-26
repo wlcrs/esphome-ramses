@@ -9,11 +9,31 @@ import re
 import sys
 from pathlib import Path
 
-
 SUPPORTED_OPCODES = {
-    "0004", "0005", "0008", "000C", "1060", "10A0", "10D0", "10E0",
-    "1260", "1298", "12A0", "12B0", "12C0", "12F0", "1F09", "1F41",
-    "22E5", "22F1", "22F3", "2309", "2E04", "30C9", "3150", "3220",
+    "0004",
+    "0005",
+    "0008",
+    "000C",
+    "1060",
+    "10A0",
+    "10D0",
+    "10E0",
+    "1260",
+    "1298",
+    "12A0",
+    "12B0",
+    "12C0",
+    "12F0",
+    "1F09",
+    "1F41",
+    "22E5",
+    "22F1",
+    "22F3",
+    "2309",
+    "2E04",
+    "30C9",
+    "3150",
+    "3220",
 }
 VERBS = {"I", "RP"}
 HEX_RE = re.compile(r"^[0-9A-Fa-f]+$")
@@ -42,7 +62,11 @@ def normalise_frame(line: str) -> tuple[str, str, int] | None:
             continue
         length = int(tokens[length_index])
         payload = tokens[payload_index]
-        if len(opcode) != 4 or len(payload) != length * 2 or not HEX_RE.fullmatch(payload):
+        if (
+            len(opcode) != 4
+            or len(payload) != length * 2
+            or not HEX_RE.fullmatch(payload)
+        ):
             continue
         separator = "  " if token == "I" else " "
         frame = f"{tokens[index - 1]}{separator}{' '.join(tokens[index:])}"
@@ -52,14 +76,21 @@ def normalise_frame(line: str) -> tuple[str, str, int] | None:
 
 def extract(input_path: Path) -> list[dict[str, object]]:
     selected: dict[tuple[str, int], dict[str, object]] = {}
-    for line_number, line in enumerate(input_path.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
+    for line_number, line in enumerate(
+        input_path.read_text(encoding="utf-8", errors="replace").splitlines(), 1
+    ):
         result = normalise_frame(line)
         if result is None:
             continue
         frame, opcode, length = result
         selected.setdefault(
             (opcode, length),
-            {"opcode": opcode, "length": length, "hgi80": frame, "source_line": line_number},
+            {
+                "opcode": opcode,
+                "length": length,
+                "hgi80": frame,
+                "source_line": line_number,
+            },
         )
     return [selected[key] for key in sorted(selected)]
 
@@ -85,7 +116,9 @@ def main() -> int:
         args.output.write_text(output, encoding="utf-8")
     else:
         print(output, end="")
-    print(f"Extracted {len(cases)} cases across {len(opcodes)} opcodes.", file=sys.stderr)
+    print(
+        f"Extracted {len(cases)} cases across {len(opcodes)} opcodes.", file=sys.stderr
+    )
     return 0
 
 

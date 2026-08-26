@@ -38,7 +38,9 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_RAMSES_ADDRESS): cv.string,
             cv.Optional(CONF_FAKE_REMOTE_ADDRESS): cv.string,
             cv.Optional(CONF_REMOTE_ADDRESS): cv.string,
-            cv.Optional(CONF_SCHEME, default="orcon"): cv.enum(HVAC_SCHEMES, lower=True),
+            cv.Optional(CONF_SCHEME, default="orcon"): cv.enum(
+                HVAC_SCHEMES, lower=True
+            ),
         }
     )
     .extend(cv.COMPONENT_SCHEMA)
@@ -57,7 +59,9 @@ async def to_code(config):
     if addr is not None:
         cg.add(var.set_device_address(addr))
 
-    remote_addr = config.get(CONF_FAKE_REMOTE_ADDRESS) or config.get(CONF_REMOTE_ADDRESS)
+    remote_addr = config.get(CONF_FAKE_REMOTE_ADDRESS) or config.get(
+        CONF_REMOTE_ADDRESS
+    )
     if remote_addr is not None:
         cg.add(var.set_fake_remote_address(remote_addr))
 

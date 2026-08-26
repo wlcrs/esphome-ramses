@@ -1,9 +1,10 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome import automation
-from esphome.const import CONF_ID, CONF_DATA
 from esphome.components import cc1101
+from esphome.const import CONF_DATA, CONF_ID
+
 from components import ramses_esp
+from esphome import automation
 
 DEPENDENCIES = ["esp32", "cc1101", "ramses_esp"]
 
@@ -12,9 +13,7 @@ CC1101MultiplexerComponent = cc1101_multiplexer_ns.class_(
     "CC1101MultiplexerComponent", cg.Component
 )
 
-SendPacketAction = cc1101_multiplexer_ns.class_(
-    "SendPacketAction", automation.Action
-)
+SendPacketAction = cc1101_multiplexer_ns.class_("SendPacketAction", automation.Action)
 
 CONF_RAMSES_ID = "ramses_id"
 CONF_CC1101_ID = "cc1101_id"
@@ -60,9 +59,7 @@ CC1101_MULTIPLEXER_SEND_PACKET_SCHEMA = cv.Schema(
     CC1101_MULTIPLEXER_SEND_PACKET_SCHEMA,
     synchronous=True,
 )
-async def cc1101_multiplexer_send_packet_to_code(
-    config, action_id, template_arg, args
-):
+async def cc1101_multiplexer_send_packet_to_code(config, action_id, template_arg, args):
     paren = await cg.get_variable(config[CONF_ID])
     var = cg.new_Pvariable(action_id, template_arg, paren)
 
