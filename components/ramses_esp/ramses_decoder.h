@@ -182,6 +182,7 @@ struct FanBoostPayload {
   uint16_t minutes{0};
 
   static std::optional<FanBoostPayload> decode(const uint8_t *payload, size_t len);
+  static RamsesMessage encode_write(const RamsesAddress &src, const RamsesAddress &dst, uint16_t minutes);
 };
 
 // ----------------------------------------------------------------------

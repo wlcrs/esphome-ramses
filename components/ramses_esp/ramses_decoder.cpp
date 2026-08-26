@@ -414,6 +414,26 @@ std::optional<FanBoostPayload> FanBoostPayload::decode(const uint8_t *payload, s
   return res;
 }
 
+RamsesMessage FanBoostPayload::encode_write(const RamsesAddress &src, const RamsesAddress &dst, uint16_t minutes) {
+  RamsesMessage msg;
+  msg.type = RAMSES_MSG_W;
+  msg.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR1;
+  src.to_bytes(msg.addr[0]);
+  dst.to_bytes(msg.addr[1]);
+  msg.opcode[0] = 0x22;
+  msg.opcode[1] = 0xF3;
+  msg.len = msg.n_payload = 3;
+  msg.payload[0] = 0x00;
+  if (minutes > 255 && minutes % 60 == 0 && minutes / 60 <= 255) {
+    msg.payload[1] = 0x40;
+    msg.payload[2] = static_cast<uint8_t>(minutes / 60);
+  } else {
+    msg.payload[1] = 0x00;
+    msg.payload[2] = static_cast<uint8_t>(std::min<uint16_t>(minutes, 255));
+  }
+  return msg;
+}
+
 // ----------------------------------------------------------------------
 // Opcode 0x10A0 / 0x22E5: Ventilation Info & Bypass Damper
 // ramses_rf reference: ramses_rf/payloads/hvac.py:VentilationPayload

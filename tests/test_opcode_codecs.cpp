@@ -241,6 +241,16 @@ void test_hvac_fan_codec_22f1() {
   auto boost_hours_dec = FanBoostPayload::decode(boost_timer_hours, sizeof(boost_timer_hours));
   TEST_ASSERT(boost_hours_dec.has_value() && boost_hours_dec->minutes == 120, "22F3 hour timer decoded");
 
+  RamsesMessage boost_write = FanBoostPayload::encode_write(src, dst, 10);
+  TEST_ASSERT(boost_write.type == RAMSES_MSG_W && boost_write.opcode[0] == 0x22 && boost_write.opcode[1] == 0xF3,
+              "22F3 minute timer write encoded");
+  TEST_ASSERT(boost_write.payload[1] == 0x00 && boost_write.payload[2] == 10,
+              "22F3 minute timer payload encoded");
+
+  RamsesMessage hour_write = FanBoostPayload::encode_write(src, dst, 300);
+  TEST_ASSERT(hour_write.payload[1] == 0x40 && hour_write.payload[2] == 5,
+              "22F3 hour timer payload encoded");
+
   uint8_t short_device_info[] = {0x00};
   auto short_info_dec = DeviceInfoPayload::decode(short_device_info, sizeof(short_device_info));
   TEST_ASSERT(short_info_dec.has_value() && short_info_dec->info_type == 0 && short_info_dec->oem_code == 0,
