@@ -158,5 +158,65 @@
       "opcode": "10D0",
       "filter_remaining_days": 180
     }
+  },
+  {
+    "name": "outdoor_temperature_15_deg",
+    "description": "Outdoor temperature sensor reporting 15.00 C (0x05DC = 1500)",
+    "hgi80": "045  I --- 18:005612 --:------ 18:005612 12C0 002 05DC",
+    "expected": {
+      "verb": "I",
+      "src": "18:005612",
+      "dst": "18:005612",
+      "opcode": "12C0",
+      "temperature": 15.0
+    }
+  },
+  {
+    "name": "dhw_current_temperature_21_03_deg",
+    "description": "DHW sensor reporting 21.03 C (0x0837 = 2103)",
+    "hgi80": "045  I --- 01:145678 --:------ 01:145678 1260 003 000837",
+    "expected": {
+      "verb": "I",
+      "src": "01:145678",
+      "dst": "01:145678",
+      "opcode": "1260",
+      "temperature": 21.03
+    }
+  },
+  {
+    "name": "dhw_setpoint_50_deg",
+    "description": "DHW configuration reporting target setpoint 50.0 C (0x1388 = 5000)",
+    "hgi80": "045  I --- 01:145678 --:------ 01:145678 12F0 003 001388",
+    "expected": {
+      "verb": "I",
+      "src": "01:145678",
+      "dst": "01:145678",
+      "opcode": "12F0",
+      "setpoint": 50.0
+    }
+  },
+  {
+    "name": "relay_demand_100_pct",
+    "description": "BDR91 wireless relay reporting 100% heat demand (0xC8 = 200)",
+    "hgi80": "045  I --- 13:123456 --:------ 13:123456 0008 002 00C8",
+    "expected": {
+      "verb": "I",
+      "src": "13:123456",
+      "dst": "13:123456",
+      "opcode": "0008",
+      "demand_pct": 100.0
+    }
+  },
+  {
+    "name": "co2_sensor_600_ppm",
+    "description": "HVAC CO2 air quality sensor reporting 600 ppm (0x0258 = 600)",
+    "hgi80": "045  I --- 32:155617 --:------ 32:155617 1298 003 000258",
+    "expected": {
+      "verb": "I",
+      "src": "32:155617",
+      "dst": "32:155617",
+      "opcode": "1298",
+      "co2_ppm": 600
+    }
   }
 ]

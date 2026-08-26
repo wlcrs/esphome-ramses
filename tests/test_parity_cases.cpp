@@ -5,6 +5,7 @@
 #include <vector>
 #include <cstring>
 #include "components/ramses_esp/ramses_message.h"
+#include "components/ramses_esp/ramses_decoder.h"
 
 using namespace esphome::ramses_esp;
 
@@ -134,6 +135,31 @@ void run_parity_fixture(const std::string &fixture_path) {
         uint16_t actual_days = msg.payload[1];
         TEST_ASSERT(actual_days == (uint16_t)exp_days, "Decoded filter days match expected");
       }
+    } else if (expected_opcode == "12C0") {
+      auto dec = OutdoorTemperaturePayload::decode(msg.payload, msg.n_payload);
+      float exp_temp = extract_json_float(block, "temperature");
+      TEST_ASSERT(dec.has_value() && dec->is_valid, "Decoded outdoor temp payload");
+      TEST_ASSERT(std::abs(dec->temperature - exp_temp) < 0.05f, "Outdoor temp matches expected");
+    } else if (expected_opcode == "1260") {
+      auto dec = DhwStatePayload::decode_temp(msg.payload, msg.n_payload);
+      float exp_temp = extract_json_float(block, "temperature");
+      TEST_ASSERT(dec.has_value(), "Decoded DHW temp payload");
+      TEST_ASSERT(std::abs(dec->current_temp - exp_temp) < 0.05f, "DHW temp matches expected");
+    } else if (expected_opcode == "12F0") {
+      auto dec = DhwConfigPayload::decode(msg.payload, msg.n_payload);
+      float exp_sp = extract_json_float(block, "setpoint");
+      TEST_ASSERT(dec.has_value(), "Decoded DHW config payload");
+      TEST_ASSERT(std::abs(dec->setpoint_temperature - exp_sp) < 0.05f, "DHW setpoint matches expected");
+    } else if (expected_opcode == "0008") {
+      auto dec = RelayDemandPayload::decode(msg.payload, msg.n_payload);
+      float exp_dem = extract_json_float(block, "demand_pct");
+      TEST_ASSERT(dec.has_value(), "Decoded relay demand payload");
+      TEST_ASSERT(std::abs(dec->demand_percent - exp_dem) < 0.1f, "Relay demand matches expected");
+    } else if (expected_opcode == "1298") {
+      auto dec = Co2SensorPayload::decode(msg.payload, msg.n_payload);
+      int exp_co2 = extract_json_int(block, "co2_ppm");
+      TEST_ASSERT(dec.has_value() && dec->is_valid, "Decoded CO2 payload");
+      TEST_ASSERT(dec->co2_ppm == exp_co2, "CO2 ppm matches expected");
     }
   }
 }
