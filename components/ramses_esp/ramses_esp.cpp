@@ -133,6 +133,9 @@ void RamsesESPComponent::loop() {
     for (auto &cb : this->on_message_callbacks_) {
       cb(hgi80);
     }
+    for (auto &cb : this->raw_message_callbacks_) {
+      cb(rx_msg);
+    }
   }
 
   // 2. Accept and manage TCP clients
@@ -142,6 +145,11 @@ void RamsesESPComponent::loop() {
   if (!this->paused_) {
     this->process_tx_queue();
   }
+}
+
+bool RamsesESPComponent::send_message(const RamsesMessage &msg) {
+  if (this->tx_msg_queue_ == nullptr) return false;
+  return xQueueSend(this->tx_msg_queue_, &msg, 0) == pdTRUE;
 }
 
 void RamsesESPComponent::handle_tcp_clients() {

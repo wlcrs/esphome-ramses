@@ -46,6 +46,13 @@ struct RamsesAddress {
   static RamsesAddress from_bytes(const uint8_t *bytes);
   static RamsesAddress from_string(const std::string &str);
   void to_bytes(uint8_t *bytes) const;
+
+  bool operator==(const RamsesAddress &other) const {
+    return dev_class == other.dev_class && id == other.id && is_valid == other.is_valid;
+  }
+  bool operator!=(const RamsesAddress &other) const {
+    return !(*this == other);
+  }
 };
 
 struct RamsesMessage {

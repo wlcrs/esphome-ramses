@@ -33,6 +33,10 @@ class RamsesESPComponent : public Component {
     this->on_message_callbacks_.push_back(callback);
   }
 
+  void add_raw_message_callback(std::function<void(const RamsesMessage &)> callback) {
+    this->raw_message_callbacks_.push_back(callback);
+  }
+
   void setup() override;
   void loop() override;
   void dump_config() override;
@@ -40,6 +44,7 @@ class RamsesESPComponent : public Component {
 
   // High-level Actions
   bool send_hgi80_command(const std::string &cmd);
+  bool send_message(const RamsesMessage &msg);
 
   // Multiplexer arbitration interface
   void pause();
@@ -78,6 +83,7 @@ class RamsesESPComponent : public Component {
   bool paused_{false};
 
   std::vector<std::function<void(const std::string &)>> on_message_callbacks_;
+  std::vector<std::function<void(const RamsesMessage &)>> raw_message_callbacks_;
 };
 
 template<typename... Ts>

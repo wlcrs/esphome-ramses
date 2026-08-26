@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/..
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/stubs
 )
 
 add_executable(test_protocol
@@ -36,8 +37,18 @@ add_executable(test_opcode_codecs
     ../components/ramses_esp/ramses_decoder.cpp
 )
 
+add_executable(test_devices_sensors
+    test_devices_sensors.cpp
+    mock/mock_ramses_esp.cpp
+    ../components/ramses_esp/ramses_codec.cpp
+    ../components/ramses_esp/ramses_message.cpp
+    ../components/ramses_esp/ramses_decoder.cpp
+    ../components/ramses_devices/ramses_devices.cpp
+)
+
 enable_testing()
 add_test(NAME ProtocolTest COMMAND test_protocol)
 add_test(NAME MockTest COMMAND test_mock)
 add_test(NAME ParityJsonTest COMMAND test_parity_cases "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/parity_cases.json")
 add_test(NAME OpcodeCodecsTest COMMAND test_opcode_codecs)
+add_test(NAME DevicesSensorsTest COMMAND test_devices_sensors)

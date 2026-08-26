@@ -1,0 +1,104 @@
+substitutions:
+  name: "esphome-ramses-devices"
+
+esphome:
+  name: "${name}"
+
+esp32:
+  board: esp32-c6-devkitc-1
+  variant: esp32c6
+  framework:
+    type: esp-idf
+
+external_components:
+  - source: components
+    components: [ ramses_esp, ramses_devices ]
+
+logger:
+  level: DEBUG
+
+ramses_esp:
+  id: ramses_hub
+  sck_pin: GPIO6
+  miso_pin: GPIO2
+  mosi_pin: GPIO7
+  cs_pin: GPIO5
+  gdo0_pin: GPIO4
+  gdo2_pin: GPIO15
+  port: 6638
+
+sensor:
+  - platform: ramses_devices
+    ramses_esp_id: ramses_hub
+    type: temperature
+    name: "Living Room Temperature"
+    ramses_address: "01:145678"
+    zone_index: 0
+
+  - platform: ramses_devices
+    ramses_esp_id: ramses_hub
+    type: setpoint
+    name: "Living Room Setpoint"
+    ramses_address: "01:145678"
+    zone_index: 0
+
+  - platform: ramses_devices
+    ramses_esp_id: ramses_hub
+    type: outdoor_temperature
+    name: "Outdoor Temperature"
+    ramses_address: "18:005612"
+
+  - platform: ramses_devices
+    ramses_esp_id: ramses_hub
+    type: heat_demand
+    name: "Radiator Heat Demand"
+    ramses_address: "04:089123"
+
+  - platform: ramses_devices
+    ramses_esp_id: ramses_hub
+    type: co2
+    name: "Ventilation CO2"
+    ramses_address: "32:155617"
+
+  - platform: ramses_devices
+    ramses_esp_id: ramses_hub
+    type: indoor_humidity
+    name: "Indoor Humidity"
+    ramses_address: "32:155617"
+
+  - platform: ramses_devices
+    ramses_esp_id: ramses_hub
+    type: filter_remaining_days
+    name: "Filter Life Remaining"
+    ramses_address: "32:155617"
+
+  - platform: ramses_devices
+    ramses_esp_id: ramses_hub
+    type: opentherm_modulation
+    name: "Boiler Modulation"
+    ramses_address: "10:045678"
+
+  - platform: ramses_devices
+    ramses_esp_id: ramses_hub
+    type: battery_level
+    name: "TRV Battery Level"
+    ramses_address: "04:089123"
+
+binary_sensor:
+  - platform: ramses_devices
+    ramses_esp_id: ramses_hub
+    type: filter_alarm
+    name: "Filter Dirty Warning"
+    ramses_address: "32:155617"
+
+  - platform: ramses_devices
+    ramses_esp_id: ramses_hub
+    type: flame_active
+    name: "Boiler Flame Active"
+    ramses_address: "10:045678"
+
+  - platform: ramses_devices
+    ramses_esp_id: ramses_hub
+    type: battery_low
+    name: "TRV Battery Low"
+    ramses_address: "04:089123"
