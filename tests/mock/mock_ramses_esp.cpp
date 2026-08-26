@@ -57,19 +57,17 @@ void MockEvohomeController::handle_incoming(const RamsesMessage &msg, MockRamses
       uint8_t requested_zone = msg.payload[0];
       for (const auto &z : this->zones_) {
         if (z.index == requested_zone) {
-          RamsesMessage rp;
-          rp.type = RAMSES_MSG_RP;
-          rp.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR1;
-          my_addr.to_bytes(rp.addr[0]);
-          src_addr.to_bytes(rp.addr[1]);
-          rp.opcode[0] = 0x00;
-          rp.opcode[1] = 0x04;
-          rp.len = rp.n_payload = 22;
-          std::memset(rp.payload, 0, 22);
-          rp.payload[0] = z.index;
-          rp.payload[1] = 0x00;
+          uint8_t payload[22]{0};
+          payload[0] = z.index;
+          payload[1] = 0x00;
           size_t name_len = std::min(z.name.length(), (size_t)20);
-          std::memcpy(&rp.payload[2], z.name.data(), name_len);
+          std::memcpy(&payload[2], z.name.data(), name_len);
+
+          RamsesMessage rp = RamsesMessageBuilder::reply()
+              .from(my_addr)
+              .to(src_addr)
+              .opcode(0x0004)
+              .payload(payload, 22);
           hub.transmit_message(rp);
           break;
         }
@@ -77,38 +75,31 @@ void MockEvohomeController::handle_incoming(const RamsesMessage &msg, MockRamses
     }
     // RQ 0005: Zone Structure Query
     else if (opcode == 0x0005) {
-      RamsesMessage rp;
-      rp.type = RAMSES_MSG_RP;
-      rp.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR1;
-      my_addr.to_bytes(rp.addr[0]);
-      src_addr.to_bytes(rp.addr[1]);
-      rp.opcode[0] = 0x00;
-      rp.opcode[1] = 0x05;
-      rp.len = rp.n_payload = 4;
-      rp.payload[0] = 0x00; // Zone type (Radiator / Heat)
-      // Bitmask of active zones
       uint16_t mask = 0;
       for (const auto &z : this->zones_) {
         if (z.index < 16) mask |= (1 << z.index);
       }
-      rp.payload[1] = (mask >> 8) & 0xFF;
-      rp.payload[2] = mask & 0xFF;
-      rp.payload[3] = (uint8_t)this->zones_.size();
+      uint8_t payload[4] = {
+        0x00,
+        static_cast<uint8_t>((mask >> 8) & 0xFF),
+        static_cast<uint8_t>(mask & 0xFF),
+        static_cast<uint8_t>(this->zones_.size())
+      };
+      RamsesMessage rp = RamsesMessageBuilder::reply()
+          .from(my_addr)
+          .to(src_addr)
+          .opcode(0x0005)
+          .payload(payload, 4);
       hub.transmit_message(rp);
     }
     // RQ 1F09: System Sync / Mode Query
     else if (opcode == 0x1F09) {
-      RamsesMessage rp;
-      rp.type = RAMSES_MSG_RP;
-      rp.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR1;
-      my_addr.to_bytes(rp.addr[0]);
-      src_addr.to_bytes(rp.addr[1]);
-      rp.opcode[0] = 0x1F;
-      rp.opcode[1] = 0x09;
-      rp.len = rp.n_payload = 3;
-      rp.payload[0] = this->system_mode_;
-      rp.payload[1] = 0x07; // Remaining time MSB / flag
-      rp.payload[2] = 0xD0; // Remaining time LSB
+      uint8_t payload[3] = {this->system_mode_, 0x07, 0xD0};
+      RamsesMessage rp = RamsesMessageBuilder::reply()
+          .from(my_addr)
+          .to(src_addr)
+          .opcode(0x1F09)
+          .payload(payload, 3);
       hub.transmit_message(rp);
     }
     // RQ 2309: Setpoint Query
@@ -116,18 +107,13 @@ void MockEvohomeController::handle_incoming(const RamsesMessage &msg, MockRamses
       uint8_t requested_zone = msg.payload[0];
       for (const auto &z : this->zones_) {
         if (z.index == requested_zone) {
-          RamsesMessage rp;
-          rp.type = RAMSES_MSG_RP;
-          rp.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR1;
-          my_addr.to_bytes(rp.addr[0]);
-          src_addr.to_bytes(rp.addr[1]);
-          rp.opcode[0] = 0x23;
-          rp.opcode[1] = 0x09;
-          rp.len = rp.n_payload = 3;
-          rp.payload[0] = z.index;
           uint16_t sp_raw = (uint16_t)(z.target_setpoint * 100.0f);
-          rp.payload[1] = (sp_raw >> 8) & 0xFF;
-          rp.payload[2] = sp_raw & 0xFF;
+          uint8_t payload[3] = {z.index, static_cast<uint8_t>((sp_raw >> 8) & 0xFF), static_cast<uint8_t>(sp_raw & 0xFF)};
+          RamsesMessage rp = RamsesMessageBuilder::reply()
+              .from(my_addr)
+              .to(src_addr)
+              .opcode(0x2309)
+              .payload(payload, 3);
           hub.transmit_message(rp);
           break;
         }
@@ -144,17 +130,12 @@ void MockEvohomeController::handle_incoming(const RamsesMessage &msg, MockRamses
       this->set_zone_setpoint(z_idx, new_sp);
 
       // Echo update as broadcast I 2309
-      RamsesMessage i_msg;
-      i_msg.type = RAMSES_MSG_I;
-      i_msg.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR2;
-      my_addr.to_bytes(i_msg.addr[0]);
-      my_addr.to_bytes(i_msg.addr[2]);
-      i_msg.opcode[0] = 0x23;
-      i_msg.opcode[1] = 0x09;
-      i_msg.len = i_msg.n_payload = 3;
-      i_msg.payload[0] = z_idx;
-      i_msg.payload[1] = msg.payload[1];
-      i_msg.payload[2] = msg.payload[2];
+      uint8_t payload[3] = {z_idx, msg.payload[1], msg.payload[2]};
+      RamsesMessage i_msg = RamsesMessageBuilder::info()
+          .from(my_addr)
+          .addr2(my_addr)
+          .opcode(0x2309)
+          .payload(payload, 3);
       hub.transmit_message(i_msg);
     }
     // W 1F09: Set System Mode
@@ -169,58 +150,44 @@ void MockEvohomeController::handle_incoming(const RamsesMessage &msg, MockRamses
 
 void MockEvohomeController::broadcast_sync(MockRamsesEsp &hub) {
   RamsesAddress my_addr = RamsesAddress::from_string(this->device_id_);
-  RamsesMessage msg;
-  msg.type = RAMSES_MSG_I;
-  msg.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR2;
-  my_addr.to_bytes(msg.addr[0]);
-  my_addr.to_bytes(msg.addr[2]);
-  msg.opcode[0] = 0x1F;
-  msg.opcode[1] = 0x09;
-  msg.len = msg.n_payload = 3;
-  msg.payload[0] = this->system_mode_;
-  msg.payload[1] = 0x07;
-  msg.payload[2] = 0xD0;
+  uint8_t payload[3] = {this->system_mode_, 0x07, 0xD0};
+  RamsesMessage msg = RamsesMessageBuilder::info()
+      .from(my_addr)
+      .addr2(my_addr)
+      .opcode(0x1F09)
+      .payload(payload, 3);
   hub.transmit_message(msg);
 }
 
 void MockEvohomeController::broadcast_temperatures(MockRamsesEsp &hub) {
   RamsesAddress my_addr = RamsesAddress::from_string(this->device_id_);
-  RamsesMessage msg;
-  msg.type = RAMSES_MSG_I;
-  msg.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR2;
-  my_addr.to_bytes(msg.addr[0]);
-  my_addr.to_bytes(msg.addr[2]);
-  msg.opcode[0] = 0x30;
-  msg.opcode[1] = 0xC9;
-
-  // Packed multi-zone temperature payload: [zone_index, temp_high, temp_low] * N
   size_t count = std::min(this->zones_.size(), (size_t)8);
-  msg.len = msg.n_payload = count * 3;
+  std::vector<uint8_t> payload(count * 3);
   for (size_t i = 0; i < count; i++) {
     const auto &z = this->zones_[i];
-    msg.payload[i * 3 + 0] = z.index;
+    payload[i * 3 + 0] = z.index;
     uint16_t t_raw = (uint16_t)(z.current_temp * 100.0f);
-    msg.payload[i * 3 + 1] = (t_raw >> 8) & 0xFF;
-    msg.payload[i * 3 + 2] = t_raw & 0xFF;
+    payload[i * 3 + 1] = (t_raw >> 8) & 0xFF;
+    payload[i * 3 + 2] = t_raw & 0xFF;
   }
+  RamsesMessage msg = RamsesMessageBuilder::info()
+      .from(my_addr)
+      .addr2(my_addr)
+      .opcode(0x30C9)
+      .payload(payload);
   hub.transmit_message(msg);
 }
 
 void MockEvohomeController::broadcast_setpoints(MockRamsesEsp &hub) {
   RamsesAddress my_addr = RamsesAddress::from_string(this->device_id_);
   for (const auto &z : this->zones_) {
-    RamsesMessage msg;
-    msg.type = RAMSES_MSG_I;
-    msg.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR2;
-    my_addr.to_bytes(msg.addr[0]);
-    my_addr.to_bytes(msg.addr[2]);
-    msg.opcode[0] = 0x23;
-    msg.opcode[1] = 0x09;
-    msg.len = msg.n_payload = 3;
-    msg.payload[0] = z.index;
     uint16_t sp_raw = (uint16_t)(z.target_setpoint * 100.0f);
-    msg.payload[1] = (sp_raw >> 8) & 0xFF;
-    msg.payload[2] = sp_raw & 0xFF;
+    uint8_t payload[3] = {z.index, static_cast<uint8_t>((sp_raw >> 8) & 0xFF), static_cast<uint8_t>(sp_raw & 0xFF)};
+    RamsesMessage msg = RamsesMessageBuilder::info()
+        .from(my_addr)
+        .addr2(my_addr)
+        .opcode(0x2309)
+        .payload(payload, 3);
     hub.transmit_message(msg);
   }
 }
@@ -248,50 +215,35 @@ void MockMvhrVentilator::handle_incoming(const RamsesMessage &msg, MockRamsesEsp
   if (msg.type == RAMSES_MSG_RQ && dst_addr.to_string() == this->device_id_) {
     // RQ 10E0: Device Info / OEM query
     if (opcode == 0x10E0) {
-      RamsesMessage rp;
-      rp.type = RAMSES_MSG_RP;
-      rp.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR1;
-      my_addr.to_bytes(rp.addr[0]);
-      src_addr.to_bytes(rp.addr[1]);
-      rp.opcode[0] = 0x10;
-      rp.opcode[1] = 0xE0;
-      rp.len = rp.n_payload = 38;
-      std::memset(rp.payload, 0, 38);
-      rp.payload[0] = 0x00;
-      rp.payload[6] = this->oem_code_; // OEM signature byte
+      uint8_t payload[38]{0};
+      payload[0] = 0x00;
+      payload[6] = this->oem_code_;
+      RamsesMessage rp = RamsesMessageBuilder::reply()
+          .from(my_addr)
+          .to(src_addr)
+          .opcode(0x10E0)
+          .payload(payload, 38);
       hub.transmit_message(rp);
     }
     // RQ 22F1: Fan Status Query
     else if (opcode == 0x22F1) {
-      RamsesMessage rp;
-      rp.type = RAMSES_MSG_RP;
-      rp.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR1;
-      my_addr.to_bytes(rp.addr[0]);
-      src_addr.to_bytes(rp.addr[1]);
-      rp.opcode[0] = 0x22;
-      rp.opcode[1] = 0xF1;
-      rp.len = rp.n_payload = 3;
-      rp.payload[0] = 0x00;
-      rp.payload[1] = this->fan_mode_;
-      rp.payload[2] = 0xFF;
+      uint8_t payload[3] = {0x00, this->fan_mode_, 0xFF};
+      RamsesMessage rp = RamsesMessageBuilder::reply()
+          .from(my_addr)
+          .to(src_addr)
+          .opcode(0x22F1)
+          .payload(payload, 3);
       hub.transmit_message(rp);
     }
     // RQ 10D0: Filter Life Query
     else if (opcode == 0x10D0) {
-      RamsesMessage rp;
-      rp.type = RAMSES_MSG_RP;
-      rp.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR1;
-      my_addr.to_bytes(rp.addr[0]);
-      src_addr.to_bytes(rp.addr[1]);
-      rp.opcode[0] = 0x10;
-      rp.opcode[1] = 0xD0;
-      rp.len = rp.n_payload = 6;
-      rp.payload[0] = 0x00; // Header
-      rp.payload[1] = (uint8_t)std::min((uint16_t)254, this->filter_days_remaining_); // Remaining days
-      rp.payload[2] = (uint8_t)std::min((uint16_t)254, this->filter_days_remaining_); // Total lifetime days
-      rp.payload[3] = 0xC8; // 200 = 100% remaining
-      rp.payload[4] = 0x00;
-      rp.payload[5] = 0x00;
+      uint8_t days = (uint8_t)std::min((uint16_t)254, this->filter_days_remaining_);
+      uint8_t payload[6] = {0x00, days, days, 0xC8, 0x00, 0x00};
+      RamsesMessage rp = RamsesMessageBuilder::reply()
+          .from(my_addr)
+          .to(src_addr)
+          .opcode(0x10D0)
+          .payload(payload, 6);
       hub.transmit_message(rp);
     }
   }
@@ -308,19 +260,12 @@ void MockMvhrVentilator::handle_incoming(const RamsesMessage &msg, MockRamsesEsp
 
 void MockMvhrVentilator::broadcast_status(MockRamsesEsp &hub) {
   RamsesAddress my_addr = RamsesAddress::from_string(this->device_id_);
-
-  // Broadcast I 22F1 (Fan Mode)
-  RamsesMessage msg;
-  msg.type = RAMSES_MSG_I;
-  msg.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR2;
-  my_addr.to_bytes(msg.addr[0]);
-  my_addr.to_bytes(msg.addr[2]);
-  msg.opcode[0] = 0x22;
-  msg.opcode[1] = 0xF1;
-  msg.len = msg.n_payload = 3;
-  msg.payload[0] = 0x00;
-  msg.payload[1] = this->fan_mode_;
-  msg.payload[2] = 0xFF;
+  uint8_t payload[3] = {0x00, this->fan_mode_, 0xFF};
+  RamsesMessage msg = RamsesMessageBuilder::info()
+      .from(my_addr)
+      .addr2(my_addr)
+      .opcode(0x22F1)
+      .payload(payload, 3);
   hub.transmit_message(msg);
 }
 
@@ -336,31 +281,20 @@ void MockTrv::handle_incoming(const RamsesMessage &msg, MockRamsesEsp &hub) {
 void MockTrv::broadcast_telemetry(MockRamsesEsp &hub) {
   RamsesAddress my_addr = RamsesAddress::from_string(this->device_id_);
 
-  // Broadcast I 3150 (Heat demand: 0..200 = 0..100%)
-  RamsesMessage demand_msg;
-  demand_msg.type = RAMSES_MSG_I;
-  demand_msg.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR2;
-  my_addr.to_bytes(demand_msg.addr[0]);
-  my_addr.to_bytes(demand_msg.addr[2]);
-  demand_msg.opcode[0] = 0x31;
-  demand_msg.opcode[1] = 0x50;
-  demand_msg.len = demand_msg.n_payload = 2;
-  demand_msg.payload[0] = 0x00; // Domain / zone index
-  demand_msg.payload[1] = (uint8_t)(this->demand_ * 200.0f);
+  uint8_t demand_p[2] = {0x00, static_cast<uint8_t>(this->demand_ * 200.0f)};
+  RamsesMessage demand_msg = RamsesMessageBuilder::info()
+      .from(my_addr)
+      .addr2(my_addr)
+      .opcode(0x3150)
+      .payload(demand_p, 2);
   hub.transmit_message(demand_msg);
 
-  // Broadcast I 1060 (Battery %: 0..100)
-  RamsesMessage bat_msg;
-  bat_msg.type = RAMSES_MSG_I;
-  bat_msg.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR2;
-  my_addr.to_bytes(bat_msg.addr[0]);
-  my_addr.to_bytes(bat_msg.addr[2]);
-  bat_msg.opcode[0] = 0x10;
-  bat_msg.opcode[1] = 0x60;
-  bat_msg.len = bat_msg.n_payload = 3;
-  bat_msg.payload[0] = 0x00;
-  bat_msg.payload[1] = this->battery_pct_;
-  bat_msg.payload[2] = 0x01; // Good battery flag
+  uint8_t bat_p[3] = {0x00, this->battery_pct_, 0x01};
+  RamsesMessage bat_msg = RamsesMessageBuilder::info()
+      .from(my_addr)
+      .addr2(my_addr)
+      .opcode(0x1060)
+      .payload(bat_p, 3);
   hub.transmit_message(bat_msg);
 }
 
@@ -374,20 +308,18 @@ void MockOpenThermBridge::handle_incoming(const RamsesMessage &msg, MockRamsesEs
 void MockOpenThermBridge::broadcast_telemetry(MockRamsesEsp &hub) {
   RamsesAddress my_addr = RamsesAddress::from_string(this->device_id_);
 
-  // Broadcast I 3220 (OpenTherm Data)
-  RamsesMessage msg;
-  msg.type = RAMSES_MSG_I;
-  msg.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR2;
-  my_addr.to_bytes(msg.addr[0]);
-  my_addr.to_bytes(msg.addr[2]);
-  msg.opcode[0] = 0x32;
-  msg.opcode[1] = 0x20;
-  msg.len = msg.n_payload = 5;
-  msg.payload[0] = 0x00; // Data ID 0x00: Status
-  msg.payload[1] = this->flame_active_ ? 0x08 : 0x00; // Flame on bit
-  msg.payload[2] = 0x00;
-  msg.payload[3] = (uint8_t)(this->modulation_pct_ * 2.0f); // Modulation % (0..200)
-  msg.payload[4] = 0x00;
+  uint8_t ot_p[5] = {
+    0x00,
+    static_cast<uint8_t>(this->flame_active_ ? 0x08 : 0x00),
+    0x00,
+    static_cast<uint8_t>(this->modulation_pct_ * 2.0f),
+    0x00
+  };
+  RamsesMessage msg = RamsesMessageBuilder::info()
+      .from(my_addr)
+      .addr2(my_addr)
+      .opcode(0x3220)
+      .payload(ot_p, 5);
   hub.transmit_message(msg);
 }
 

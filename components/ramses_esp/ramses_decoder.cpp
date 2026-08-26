@@ -71,16 +71,12 @@ std::optional<SetpointPayload> SetpointPayload::decode(const uint8_t *payload, s
 }
 
 RamsesMessage SetpointPayload::encode_write(const RamsesAddress &src, const RamsesAddress &dst, uint8_t zone_index, float setpoint) {
-  RamsesMessage msg;
-  msg.type = RAMSES_MSG_W;
-  msg.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR1;
-  src.to_bytes(msg.addr[0]);
-  dst.to_bytes(msg.addr[1]);
-  msg.opcode[0] = 0x23;
-  msg.opcode[1] = 0x09;
   int16_t raw_sp = static_cast<int16_t>(std::round(setpoint * 100.0f));
-  msg.len = msg.n_payload = SetpointFmt::pack(msg.payload, zone_index, raw_sp);
-  return msg;
+  return RamsesMessageBuilder::write()
+      .from(src)
+      .to(dst)
+      .opcode(0x2309)
+      .payload_packed<SetpointFmt>(zone_index, raw_sp);
 }
 
 // ----------------------------------------------------------------------
@@ -136,16 +132,13 @@ std::optional<SystemModePayload> SystemModePayload::decode(const uint8_t *payloa
 }
 
 RamsesMessage SystemModePayload::encode_write(const RamsesAddress &src, const RamsesAddress &dst, SystemMode mode) {
-  RamsesMessage msg;
-  msg.type = RAMSES_MSG_W;
-  msg.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR1;
-  src.to_bytes(msg.addr[0]);
-  dst.to_bytes(msg.addr[1]);
-  msg.opcode[0] = 0x2E;
-  msg.opcode[1] = 0x04;
-  msg.len = msg.n_payload = 8;
-  SystemModeFmt::pack(msg.payload, static_cast<uint8_t>(mode));
-  return msg;
+  uint8_t payload[8]{0};
+  SystemModeFmt::pack(payload, static_cast<uint8_t>(mode));
+  return RamsesMessageBuilder::write()
+      .from(src)
+      .to(dst)
+      .opcode(0x2E04)
+      .payload(payload, 8);
 }
 
 using SystemSync1Fmt = binary::Struct<"!B">;
@@ -175,15 +168,11 @@ std::optional<SystemSyncPayload> SystemSyncPayload::decode(const uint8_t *payloa
 }
 
 RamsesMessage SystemSyncPayload::encode_write(const RamsesAddress &src, const RamsesAddress &dst, SystemMode mode) {
-  RamsesMessage msg;
-  msg.type = RAMSES_MSG_W;
-  msg.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR1;
-  src.to_bytes(msg.addr[0]);
-  dst.to_bytes(msg.addr[1]);
-  msg.opcode[0] = 0x1F;
-  msg.opcode[1] = 0x09;
-  msg.len = msg.n_payload = SystemSync1Fmt::pack(msg.payload, static_cast<uint8_t>(mode));
-  return msg;
+  return RamsesMessageBuilder::write()
+      .from(src)
+      .to(dst)
+      .opcode(0x1F09)
+      .payload_packed<SystemSync1Fmt>(static_cast<uint8_t>(mode));
 }
 
 // ----------------------------------------------------------------------
@@ -231,15 +220,11 @@ std::optional<ZoneNamePayload> ZoneNamePayload::decode(const uint8_t *payload, s
 }
 
 RamsesMessage ZoneNamePayload::encode_query(const RamsesAddress &src, const RamsesAddress &dst, uint8_t zone_index) {
-  RamsesMessage msg;
-  msg.type = RAMSES_MSG_RQ;
-  msg.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR1;
-  src.to_bytes(msg.addr[0]);
-  dst.to_bytes(msg.addr[1]);
-  msg.opcode[0] = 0x00;
-  msg.opcode[1] = 0x04;
-  msg.len = msg.n_payload = ZoneNameQueryFmt::pack(msg.payload, zone_index);
-  return msg;
+  return RamsesMessageBuilder::query()
+      .from(src)
+      .to(dst)
+      .opcode(0x0004)
+      .payload_packed<ZoneNameQueryFmt>(zone_index);
 }
 
 // ----------------------------------------------------------------------
@@ -270,15 +255,11 @@ std::optional<ZoneStructurePayload> ZoneStructurePayload::decode(const uint8_t *
 }
 
 RamsesMessage ZoneStructurePayload::encode_query(const RamsesAddress &src, const RamsesAddress &dst) {
-  RamsesMessage msg;
-  msg.type = RAMSES_MSG_RQ;
-  msg.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR1;
-  src.to_bytes(msg.addr[0]);
-  dst.to_bytes(msg.addr[1]);
-  msg.opcode[0] = 0x00;
-  msg.opcode[1] = 0x05;
-  msg.len = msg.n_payload = ZoneStructureQueryFmt::pack(msg.payload, 0x00);
-  return msg;
+  return RamsesMessageBuilder::query()
+      .from(src)
+      .to(dst)
+      .opcode(0x0005)
+      .payload_packed<ZoneStructureQueryFmt>(0x00);
 }
 
 // ----------------------------------------------------------------------
@@ -379,14 +360,6 @@ std::optional<FanStatePayload> FanStatePayload::decode(const uint8_t *payload, s
 }
 
 RamsesMessage FanStatePayload::encode_write(const RamsesAddress &src, const RamsesAddress &dst, FanPresetMode mode, HvacScheme scheme) {
-  RamsesMessage msg;
-  msg.type = RAMSES_MSG_W;
-  msg.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR1;
-  src.to_bytes(msg.addr[0]);
-  dst.to_bytes(msg.addr[1]);
-  msg.opcode[0] = 0x22;
-  msg.opcode[1] = 0xF1;
-
   uint8_t mode_byte = 0x00;
   switch (scheme) {
     case HvacScheme::AUTO:
@@ -427,8 +400,11 @@ RamsesMessage FanStatePayload::encode_write(const RamsesAddress &src, const Rams
       break;
   }
 
-  msg.len = msg.n_payload = FanState3Fmt::pack(msg.payload, 0x00, mode_byte, 0xFF);
-  return msg;
+  return RamsesMessageBuilder::write()
+      .from(src)
+      .to(dst)
+      .opcode(0x22F1)
+      .payload_packed<FanState3Fmt>(0x00, mode_byte, 0xFF);
 }
 
 using FanBoostFmt = binary::Struct<"!BBB">;
@@ -447,14 +423,6 @@ std::optional<FanBoostPayload> FanBoostPayload::decode(const uint8_t *payload, s
 }
 
 RamsesMessage FanBoostPayload::encode_write(const RamsesAddress &src, const RamsesAddress &dst, uint16_t minutes) {
-  RamsesMessage msg;
-  msg.type = RAMSES_MSG_W;
-  msg.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR1;
-  src.to_bytes(msg.addr[0]);
-  dst.to_bytes(msg.addr[1]);
-  msg.opcode[0] = 0x22;
-  msg.opcode[1] = 0xF3;
-
   uint8_t flags = 0x00;
   uint8_t min_byte = 0;
   if (minutes > 255 && minutes % 60 == 0 && minutes / 60 <= 255) {
@@ -464,8 +432,12 @@ RamsesMessage FanBoostPayload::encode_write(const RamsesAddress &src, const Rams
     flags = 0x00;
     min_byte = static_cast<uint8_t>(std::min<uint16_t>(minutes, static_cast<uint16_t>(255)));
   }
-  msg.len = msg.n_payload = FanBoostFmt::pack(msg.payload, 0x00, flags, min_byte);
-  return msg;
+
+  return RamsesMessageBuilder::write()
+      .from(src)
+      .to(dst)
+      .opcode(0x22F3)
+      .payload_packed<FanBoostFmt>(0x00, flags, min_byte);
 }
 
 // ----------------------------------------------------------------------
@@ -579,15 +551,11 @@ std::optional<DeviceInfoPayload> DeviceInfoPayload::decode(const uint8_t *payloa
 }
 
 RamsesMessage DeviceInfoPayload::encode_query(const RamsesAddress &src, const RamsesAddress &dst) {
-  RamsesMessage msg;
-  msg.type = RAMSES_MSG_RQ;
-  msg.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR1;
-  src.to_bytes(msg.addr[0]);
-  dst.to_bytes(msg.addr[1]);
-  msg.opcode[0] = 0x10;
-  msg.opcode[1] = 0xE0;
-  msg.len = msg.n_payload = DeviceInfoQueryFmt::pack(msg.payload, 0x00);
-  return msg;
+  return RamsesMessageBuilder::query()
+      .from(src)
+      .to(dst)
+      .opcode(0x10E0)
+      .payload_packed<DeviceInfoQueryFmt>(0x00);
 }
 
 // ----------------------------------------------------------------------
@@ -665,30 +633,22 @@ std::optional<DhwStatePayload> DhwStatePayload::decode_state(const uint8_t *payl
 }
 
 RamsesMessage DhwStatePayload::encode_write_setpoint(const RamsesAddress &src, const RamsesAddress &dst, float setpoint) {
-  RamsesMessage msg;
-  msg.type = RAMSES_MSG_W;
-  msg.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR1;
-  src.to_bytes(msg.addr[0]);
-  dst.to_bytes(msg.addr[1]);
-  msg.opcode[0] = 0x12;
-  msg.opcode[1] = 0x60;
   int16_t raw_sp = static_cast<int16_t>(std::round(setpoint * 100.0f));
-  msg.len = msg.n_payload = DhwSetpointFmt::pack(msg.payload, 0x00, raw_sp);
-  return msg;
+  return RamsesMessageBuilder::write()
+      .from(src)
+      .to(dst)
+      .opcode(0x1260)
+      .payload_packed<DhwSetpointFmt>(0x00, raw_sp);
 }
 
 RamsesMessage DhwStatePayload::encode_write_mode(const RamsesAddress &src, const RamsesAddress &dst, OperationMode mode) {
-  RamsesMessage msg;
-  msg.type = RAMSES_MSG_W;
-  msg.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR1;
-  src.to_bytes(msg.addr[0]);
-  dst.to_bytes(msg.addr[1]);
-  msg.opcode[0] = 0x1F;
-  msg.opcode[1] = 0x41;
   uint8_t p1 = mode == OperationMode::FOLLOW_SCHEDULE ? 0xFF : mode == OperationMode::PERMANENT_ON ? 0x01 : 0x00;
   uint8_t p2 = mode == OperationMode::FOLLOW_SCHEDULE ? 0x00 : mode == OperationMode::TEMPORARY_ON ? 0x04 : 0x02;
-  msg.len = msg.n_payload = DhwModeFmt::pack(msg.payload, 0x00, p1, p2, 0xFF, 0xFF, 0xFF);
-  return msg;
+  return RamsesMessageBuilder::write()
+      .from(src)
+      .to(dst)
+      .opcode(0x1F41)
+      .payload_packed<DhwModeFmt>(0x00, p1, p2, 0xFF, 0xFF, 0xFF);
 }
 
 // ----------------------------------------------------------------------
@@ -827,20 +787,11 @@ std::optional<BindingPayload> BindingPayload::decode(const RamsesMessage &msg) {
 }
 
 RamsesMessage BindingPayload::encode_offer(const RamsesAddress &remote_addr, HvacScheme scheme) {
-  RamsesMessage msg;
-  msg.type = RAMSES_MSG_I;
-  msg.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR1;
-  remote_addr.to_bytes(msg.addr[0]);
-
   // Target: 63:262142 (broadcast)
   RamsesAddress bcast_addr;
   bcast_addr.dev_class = 63;
   bcast_addr.id = 262142;
   bcast_addr.is_valid = true;
-  bcast_addr.to_bytes(msg.addr[1]);
-
-  msg.opcode[0] = 0x1F;
-  msg.opcode[1] = 0xC9;
 
   uint8_t oem = 0x67; // Orcon default
   if (scheme == HvacScheme::ORCON) oem = 0x67;
@@ -858,23 +809,19 @@ RamsesMessage BindingPayload::encode_offer(const RamsesAddress &remote_addr, Hva
     0x00, 0x1F, 0xC9, remote_b[0], remote_b[1], remote_b[2]
   };
 
-  msg.len = msg.n_payload = 24;
-  memcpy(msg.payload, p, 24);
-  return msg;
+  return RamsesMessageBuilder::info()
+      .from(remote_addr)
+      .to(bcast_addr)
+      .opcode(0x1FC9)
+      .payload(p, 24);
 }
 
 RamsesMessage BindingPayload::encode_confirm(const RamsesAddress &remote_addr, const RamsesAddress &fan_addr) {
-  RamsesMessage msg;
-  msg.type = RAMSES_MSG_I;
-  msg.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR1;
-  remote_addr.to_bytes(msg.addr[0]);
-  fan_addr.to_bytes(msg.addr[1]);
-
-  msg.opcode[0] = 0x1F;
-  msg.opcode[1] = 0xC9;
-  msg.len = msg.n_payload = 1;
-  msg.payload[0] = 0x00;
-  return msg;
+  return RamsesMessageBuilder::info()
+      .from(remote_addr)
+      .to(fan_addr)
+      .opcode(0x1FC9)
+      .payload_byte(0x00);
 }
 
 } // namespace ramses_esp
