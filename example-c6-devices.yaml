@@ -74,6 +74,31 @@ sensor:
 
   - platform: ramses_devices
     ramses_esp_id: ramses_hub
+    type: filter_lifetime_days
+    name: "Filter Lifetime"
+    ramses_address: "32:155617"
+
+  - platform: ramses_devices
+    ramses_esp_id: ramses_hub
+    type: filter_remaining_percent
+    name: "Filter Remaining Percent"
+    ramses_address: "32:155617"
+
+  - platform: ramses_devices
+    ramses_esp_id: ramses_hub
+    type: bypass_position
+    name: "Ventilation Bypass Position"
+    ramses_address: "32:155617"
+
+  - platform: ramses_devices
+    ramses_esp_id: ramses_hub
+    type: relay_demand
+    name: "Relay Demand"
+    ramses_address: "13:123456"
+    relay_index: 0
+
+  - platform: ramses_devices
+    ramses_esp_id: ramses_hub
     type: opentherm_modulation
     name: "Boiler Modulation"
     ramses_address: "10:045678"
@@ -96,6 +121,12 @@ binary_sensor:
     type: flame_active
     name: "Boiler Flame Active"
     ramses_address: "10:045678"
+
+  - platform: ramses_devices
+    ramses_esp_id: ramses_hub
+    type: bypass_active
+    name: "Ventilation Bypass Active"
+    ramses_address: "32:155617"
 
   - platform: ramses_devices
     ramses_esp_id: ramses_hub

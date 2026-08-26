@@ -361,6 +361,7 @@ RamsesMessage FanStatePayload::encode_write(const RamsesAddress &src, const Rams
 
   uint8_t mode_byte = 0x00;
   switch (scheme) {
+    case HvacScheme::AUTO:
     case HvacScheme::ORCON:
       switch (mode) {
         case FanPresetMode::AWAY: mode_byte = 0x00; break;

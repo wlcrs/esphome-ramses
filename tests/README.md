@@ -92,6 +92,15 @@ the active environment. The native C++ parity target can be run independently wi
 uv run python tests/test_parity_corpus.py
 ```
 
+### ESPHome Example Validation
+```bash
+python3 tests/validate_examples.py
+```
+
+This validates the base gateway, static device, and separate discovery examples
+with `esphome config`. It checks the generated YAML contract without compiling
+firmware or moving discovery behavior into `ramses_devices`.
+
 This deterministically selects one inbound packet for each supported opcode and
 payload-length variant from `ramses_rf/tests/fixtures/regression_packets_sorted.txt`.
 Generate the JSON selection for inspection or future native differential tests with:
