@@ -10,13 +10,12 @@ namespace ramses_esp {
 // Helper: Convert signed fixed-point (0.01 C) to float
 // Equivalent to ramses_tx/helpers.py: hex_to_temp()
 // ----------------------------------------------------------------------
-static inline bool parse_temperature_raw(int16_t raw, float &out_temp) {
+static inline std::optional<float> parse_temperature_raw(int16_t raw) {
   if (raw == RAMSES_TEMP_SENTINEL_INVALID ||
       raw == RAMSES_TEMP_SENTINEL_DISABLED) {
-    return false;
+    return std::nullopt;
   }
-  out_temp = static_cast<float>(raw) / 100.0f;
-  return true;
+  return static_cast<float>(raw) / 100.0f;
 }
 
 // ----------------------------------------------------------------------
@@ -35,12 +34,11 @@ TemperaturePayload::decode(const uint8_t *payload, size_t len) {
   TemperaturePayload res;
   if (len == TemperatureSingleFmt::size) {
     auto [raw_temp] = *TemperatureSingleFmt::unpack(payload, len);
-    float temp = 0.0f;
-    bool valid = parse_temperature_raw(raw_temp, temp);
+    auto temp = parse_temperature_raw(raw_temp);
     res.zones.push_back(ZoneTemperatureItem{
         .zone_index = 0,
-        .temperature = temp,
-        .is_valid = valid,
+        .temperature = temp.value_or(0.0f),
+        .is_valid = temp.has_value(),
     });
     return res;
   }
@@ -49,12 +47,11 @@ TemperaturePayload::decode(const uint8_t *payload, size_t len) {
   // signed BE int)]
   for (auto [zone_idx, raw_temp] :
        TemperatureZoneFmt::unpack_all(payload, len)) {
-    float temp = 0.0f;
-    bool valid = parse_temperature_raw(raw_temp, temp);
+    auto temp = parse_temperature_raw(raw_temp);
     res.zones.push_back(ZoneTemperatureItem{
         .zone_index = zone_idx,
-        .temperature = temp,
-        .is_valid = valid,
+        .temperature = temp.value_or(0.0f),
+        .is_valid = temp.has_value(),
     });
   }
   return res;
@@ -73,12 +70,11 @@ std::optional<SetpointPayload> SetpointPayload::decode(const uint8_t *payload,
 
   SetpointPayload res;
   for (auto [zone_idx, raw_sp] : SetpointFmt::unpack_all(payload, len)) {
-    float sp = 0.0f;
-    bool valid = parse_temperature_raw(raw_sp, sp);
+    auto sp = parse_temperature_raw(raw_sp);
     res.zones.push_back(ZoneSetpointItem{
         .zone_index = zone_idx,
-        .setpoint = sp,
-        .is_valid = valid,
+        .setpoint = sp.value_or(0.0f),
+        .is_valid = sp.has_value(),
     });
   }
   return res;
@@ -708,10 +704,7 @@ AirQualityPayload::decode(const uint8_t *payload, size_t len) {
     res.humidity = static_cast<float>(hum);
   }
 
-  float t_val = 0.0f;
-  if (parse_temperature_raw(raw_t, t_val)) {
-    res.temperature = t_val;
-  }
+  res.temperature = parse_temperature_raw(raw_t);
 
   return res;
 }
@@ -858,7 +851,9 @@ DhwStatePayload::decode_temp(const uint8_t *payload, size_t len) {
 
   auto [zone_idx, raw_t] = *fields;
   DhwStatePayload res;
-  res.current_temp_valid = parse_temperature_raw(raw_t, res.current_temp);
+  auto temp = parse_temperature_raw(raw_t);
+  res.current_temp = temp.value_or(0.0f);
+  res.current_temp_valid = temp.has_value();
   return res;
 }
 
@@ -932,7 +927,9 @@ OutdoorTemperaturePayload::decode(const uint8_t *payload, size_t len) {
     return res;
   }
   auto [raw_t] = *OutdoorTemp2Fmt::unpack(payload, len);
-  res.is_valid = parse_temperature_raw(raw_t, res.temperature);
+  auto temp = parse_temperature_raw(raw_t);
+  res.temperature = temp.value_or(0.0f);
+  res.is_valid = temp.has_value();
   return res;
 }
 
