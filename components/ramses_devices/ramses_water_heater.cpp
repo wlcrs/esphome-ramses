@@ -52,7 +52,7 @@ void RamsesWaterHeater::on_message(const ramses_esp::RamsesMessage &msg) {
 
   if (opcode == 0x1260) {
     auto dec = ramses_esp::DhwStatePayload::decode_temp(msg.payload, msg.n_payload);
-    if (dec.has_value()) {
+    if (dec.has_value() && dec->current_temp_valid) {
       this->current_temperature_ = dec->current_temp;
       this->publish_state();
     }
@@ -90,7 +90,18 @@ void RamsesWaterHeater::control(const water_heater::WaterHeaterCall &call) {
   }
 
   if (call.get_mode().has_value()) {
-    this->mode_ = *call.get_mode();
+    auto mode = *call.get_mode();
+    bool enabled = mode != water_heater::WATER_HEATER_MODE_OFF;
+    bool temporary = mode == water_heater::WATER_HEATER_MODE_ELECTRIC;
+    ramses_esp::RamsesMessage msg = ramses_esp::DhwStatePayload::encode_write_mode(
+        hgi_src, this->controller_address_, enabled, temporary);
+
+#ifdef USE_ESP_IDF
+    if (this->parent_ != nullptr) {
+      this->parent_->send_message(msg);
+    }
+#endif
+    this->mode_ = mode;
   }
 
   this->publish_state();

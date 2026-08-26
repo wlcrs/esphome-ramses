@@ -42,6 +42,11 @@ void test_water_heater_rx_temp_and_setpoint() {
   dhw.on_message(temp_msg);
   TEST_ASSERT(std::abs(dhw.get_current_temperature() - 21.03f) < 0.01f, "Current DHW temperature is 21.03 C");
 
+  RamsesMessage unavailable_msg = parse_msg("045  I --- 01:145678 --:------ 01:145678 1260 003 007FFF");
+  dhw.on_message(unavailable_msg);
+  TEST_ASSERT(std::abs(dhw.get_current_temperature() - 21.03f) < 0.01f,
+              "Unavailable DHW temperature preserves the last valid state");
+
   // Broadcast 12F0 (DHW flow rate = 50.00 L/min); it must not change the target.
   RamsesMessage sp_msg = parse_msg("045  I --- 01:145678 --:------ 01:145678 12F0 003 001388");
   dhw.on_message(sp_msg);
@@ -85,6 +90,16 @@ void test_water_heater_control_tx() {
   TEST_ASSERT(dhw_write.payload[0] == 0x00, "Zone 00");
   uint16_t encoded_temp = (static_cast<uint16_t>(dhw_write.payload[1]) << 8) | dhw_write.payload[2];
   TEST_ASSERT(encoded_temp == 5500, "Encoded setpoint is 5500 (55.00 C)");
+
+  RamsesMessage mode_write = DhwStatePayload::encode_write_mode(hgi_src, ctl, true);
+  TEST_ASSERT(mode_write.type == RAMSES_MSG_W && mode_write.opcode[0] == 0x1F && mode_write.opcode[1] == 0x41,
+              "DHW mode write uses 1F41");
+  TEST_ASSERT(mode_write.n_payload == 6 && mode_write.payload[1] == 0x01 && mode_write.payload[2] == 0x02,
+              "DHW performance mode payload is encoded");
+
+  RamsesMessage off_write = DhwStatePayload::encode_write_mode(hgi_src, ctl, false);
+  TEST_ASSERT(off_write.payload[1] == 0x00 && off_write.payload[2] == 0x02,
+              "DHW OFF mode payload is encoded");
 }
 
 int main() {

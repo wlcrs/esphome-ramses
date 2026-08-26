@@ -266,6 +266,7 @@ struct OpenThermPayload {
 // ----------------------------------------------------------------------
 struct DhwStatePayload {
   float current_temp{0.0f};
+  bool current_temp_valid{false};
   float target_setpoint{0.0f};
   bool relay_active{false};
   bool dhw_enabled{true};
@@ -273,6 +274,8 @@ struct DhwStatePayload {
   static std::optional<DhwStatePayload> decode_temp(const uint8_t *payload, size_t len);
   static std::optional<DhwStatePayload> decode_state(const uint8_t *payload, size_t len);
   static RamsesMessage encode_write_setpoint(const RamsesAddress &src, const RamsesAddress &dst, float setpoint);
+  static RamsesMessage encode_write_mode(const RamsesAddress &src, const RamsesAddress &dst, bool enabled,
+                                         bool temporary = false);
 };
 
 // ----------------------------------------------------------------------

@@ -589,7 +589,7 @@ std::optional<DhwStatePayload> DhwStatePayload::decode_temp(const uint8_t *paylo
 
   DhwStatePayload res;
   int16_t raw_t = static_cast<int16_t>((static_cast<uint16_t>(payload[1]) << 8) | payload[2]);
-  parse_temperature_raw(raw_t, res.current_temp);
+  res.current_temp_valid = parse_temperature_raw(raw_t, res.current_temp);
   return res;
 }
 
@@ -618,6 +618,25 @@ RamsesMessage DhwStatePayload::encode_write_setpoint(const RamsesAddress &src, c
   int16_t raw_sp = static_cast<int16_t>(std::round(setpoint * 100.0f));
   msg.payload[1] = (raw_sp >> 8) & 0xFF;
   msg.payload[2] = raw_sp & 0xFF;
+  return msg;
+}
+
+RamsesMessage DhwStatePayload::encode_write_mode(const RamsesAddress &src, const RamsesAddress &dst, bool enabled,
+                                                 bool temporary) {
+  RamsesMessage msg;
+  msg.type = RAMSES_MSG_W;
+  msg.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR1;
+  src.to_bytes(msg.addr[0]);
+  dst.to_bytes(msg.addr[1]);
+  msg.opcode[0] = 0x1F;
+  msg.opcode[1] = 0x41;
+  msg.len = msg.n_payload = 6;
+  msg.payload[0] = 0x00;
+  msg.payload[1] = enabled ? 0x01 : 0x00;
+  msg.payload[2] = temporary ? 0x04 : 0x02;
+  msg.payload[3] = 0xFF;
+  msg.payload[4] = 0xFF;
+  msg.payload[5] = 0xFF;
   return msg;
 }
 
