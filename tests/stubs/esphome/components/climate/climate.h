@@ -1,9 +1,9 @@
 #pragma once
 
-#include <cmath>
-#include <set>
-#include <optional>
 #include "esphome/core/component.h"
+#include <cmath>
+#include <optional>
+#include <set>
 
 namespace esphome {
 namespace climate {
@@ -29,14 +29,20 @@ enum ClimatePreset : uint8_t {
 };
 
 class ClimateTraits {
- public:
-  void set_supported_modes(std::set<ClimateMode> modes) { supported_modes_ = modes; }
-  void set_supported_presets(std::set<ClimatePreset> presets) { supported_presets_ = presets; }
+public:
+  void set_supported_modes(std::set<ClimateMode> modes) {
+    supported_modes_ = modes;
+  }
+  void set_supported_presets(std::set<ClimatePreset> presets) {
+    supported_presets_ = presets;
+  }
   void set_visual_min_temperature(float min) { visual_min_temperature_ = min; }
   void set_visual_max_temperature(float max) { visual_max_temperature_ = max; }
-  void set_visual_temperature_step(float step) { visual_temperature_step_ = step; }
+  void set_visual_temperature_step(float step) {
+    visual_temperature_step_ = step;
+  }
 
- private:
+private:
   std::set<ClimateMode> supported_modes_;
   std::set<ClimatePreset> supported_presets_;
   float visual_min_temperature_{5.0f};
@@ -47,7 +53,7 @@ class ClimateTraits {
 class Climate;
 
 class ClimateCall {
- public:
+public:
   explicit ClimateCall(Climate *parent) : parent_(parent) {}
 
   ClimateCall &set_target_temperature(float temp) {
@@ -63,13 +69,15 @@ class ClimateCall {
     return *this;
   }
 
-  std::optional<float> get_target_temperature() const { return target_temperature_; }
+  std::optional<float> get_target_temperature() const {
+    return target_temperature_;
+  }
   std::optional<ClimateMode> get_mode() const { return mode_; }
   std::optional<ClimatePreset> get_preset() const { return preset_; }
 
   void perform();
 
- private:
+private:
   Climate *parent_;
   std::optional<float> target_temperature_;
   std::optional<ClimateMode> mode_;
@@ -77,7 +85,7 @@ class ClimateCall {
 };
 
 class Climate {
- public:
+public:
   virtual ~Climate() = default;
 
   float current_temperature{NAN};
@@ -100,13 +108,11 @@ class Climate {
   ClimateCall make_call() { return ClimateCall(this); }
   bool has_state() const { return this->has_state_; }
 
- protected:
+protected:
   bool has_state_{false};
 };
 
-inline void ClimateCall::perform() {
-  this->parent_->control(*this);
-}
+inline void ClimateCall::perform() { this->parent_->control(*this); }
 
 } // namespace climate
 } // namespace esphome

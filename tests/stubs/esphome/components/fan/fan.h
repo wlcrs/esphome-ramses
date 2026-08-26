@@ -1,11 +1,11 @@
 #pragma once
 
+#include "esphome/core/component.h"
+#include <initializer_list>
+#include <optional>
+#include <set>
 #include <string>
 #include <vector>
-#include <set>
-#include <optional>
-#include <initializer_list>
-#include "esphome/core/component.h"
 
 namespace esphome {
 namespace fan {
@@ -13,19 +13,23 @@ namespace fan {
 class Fan;
 
 class FanTraits {
- public:
+public:
   void set_speed(bool val) { speed_ = val; }
-  void set_supported_preset_modes(const std::set<std::string> &modes) { supported_preset_modes_ = modes; }
+  void set_supported_preset_modes(const std::set<std::string> &modes) {
+    supported_preset_modes_ = modes;
+  }
   bool supports_speed() const { return speed_; }
-  bool supports_preset_modes() const { return !supported_preset_modes_.empty(); }
+  bool supports_preset_modes() const {
+    return !supported_preset_modes_.empty();
+  }
 
- private:
+private:
   bool speed_{true};
   std::set<std::string> supported_preset_modes_;
 };
 
 class FanCall {
- public:
+public:
   explicit FanCall(Fan *parent) : parent_(parent) {}
 
   FanCall &set_state(bool state) {
@@ -48,7 +52,7 @@ class FanCall {
 
   void perform();
 
- private:
+private:
   Fan *parent_;
   std::optional<bool> state_;
   std::optional<int> speed_;
@@ -56,7 +60,7 @@ class FanCall {
 };
 
 class Fan {
- public:
+public:
   virtual ~Fan() = default;
 
   bool state{false};
@@ -74,13 +78,11 @@ class Fan {
   FanCall make_call() { return FanCall(this); }
   bool has_state() const { return this->has_state_; }
 
- protected:
+protected:
   bool has_state_{false};
 };
 
-inline void FanCall::perform() {
-  this->parent_->control(*this);
-}
+inline void FanCall::perform() { this->parent_->control(*this); }
 
 } // namespace fan
 } // namespace esphome

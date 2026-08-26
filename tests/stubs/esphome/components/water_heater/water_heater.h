@@ -1,10 +1,10 @@
 #pragma once
 
-#include <string>
-#include <set>
-#include <optional>
-#include <cmath>
 #include "esphome/core/component.h"
+#include <cmath>
+#include <optional>
+#include <set>
+#include <string>
 
 namespace esphome {
 namespace water_heater {
@@ -20,14 +20,20 @@ enum WaterHeaterMode : uint32_t {
 };
 
 class WaterHeaterTraits {
- public:
-  void set_supported_modes(std::set<WaterHeaterMode> modes) { supported_modes_ = modes; }
-  void set_supports_current_temperature(bool val) { supports_current_temp_ = val; }
+public:
+  void set_supported_modes(std::set<WaterHeaterMode> modes) {
+    supported_modes_ = modes;
+  }
+  void set_supports_current_temperature(bool val) {
+    supports_current_temp_ = val;
+  }
   void set_min_temperature(float min) { min_temperature_ = min; }
   void set_max_temperature(float max) { max_temperature_ = max; }
-  void set_target_temperature_step(float step) { target_temperature_step_ = step; }
+  void set_target_temperature_step(float step) {
+    target_temperature_step_ = step;
+  }
 
- private:
+private:
   std::set<WaterHeaterMode> supported_modes_;
   bool supports_current_temp_{true};
   float min_temperature_{30.0f};
@@ -38,7 +44,7 @@ class WaterHeaterTraits {
 class WaterHeater;
 
 class WaterHeaterCall {
- public:
+public:
   explicit WaterHeaterCall(WaterHeater *parent) : parent_(parent) {}
 
   WaterHeaterCall &set_target_temperature(float temp) {
@@ -60,7 +66,7 @@ class WaterHeaterCall {
 
   void perform();
 
- protected:
+protected:
   WaterHeater *parent_;
   float target_temperature_{NAN};
   std::optional<WaterHeaterMode> mode_;
@@ -68,11 +74,12 @@ class WaterHeaterCall {
 };
 
 struct WaterHeaterCallInternal : public WaterHeaterCall {
-  explicit WaterHeaterCallInternal(WaterHeater *parent) : WaterHeaterCall(parent) {}
+  explicit WaterHeaterCallInternal(WaterHeater *parent)
+      : WaterHeaterCall(parent) {}
 };
 
 class WaterHeater {
- public:
+public:
   virtual ~WaterHeater() = default;
 
   float get_current_temperature() const { return current_temperature_; }
@@ -87,22 +94,22 @@ class WaterHeater {
     return t;
   }
 
-  virtual WaterHeaterCallInternal make_call() { return WaterHeaterCallInternal(this); }
+  virtual WaterHeaterCallInternal make_call() {
+    return WaterHeaterCallInternal(this);
+  }
   virtual void control(const WaterHeaterCall &call) = 0;
   virtual void publish_state() { this->has_state_ = true; }
 
   bool has_state() const { return this->has_state_; }
 
- protected:
+protected:
   float current_temperature_{NAN};
   float target_temperature_{NAN};
   WaterHeaterMode mode_{WATER_HEATER_MODE_ECO};
   bool has_state_{false};
 };
 
-inline void WaterHeaterCall::perform() {
-  this->parent_->control(*this);
-}
+inline void WaterHeaterCall::perform() { this->parent_->control(*this); }
 
 } // namespace water_heater
 } // namespace esphome

@@ -1,3 +1,11 @@
+# ==============================================================================
+# Target Hardware: Elecram ESP32-C6 WiFi/Zigbee to 855–925 MHz Wireless Interface Board (MQTT Mode)
+# Product Page: https://elecram.com/products/esp32-c6-wifi-zigbee-to-855-925mhz-wireless
+# Repository: https://github.com/Elecram/ramses_esp
+# Pinout: CS=GPIO18, SCK=GPIO6, MOSI=GPIO7, MISO=GPIO2, GDO0=GPIO15, GDO2=GPIO14, LED=GPIO19
+# ==============================================================================
+
+
 substitutions:
   name: "esphome-ramses-mqtt"
   friendly_name: "ESPHome RAMSES MQTT Gateway"
@@ -13,6 +21,7 @@ esphome:
 
 esp32:
   board: esp32-c6-devkitc-1
+  variant: esp32c6
   framework:
     type: esp-idf
 
@@ -28,11 +37,11 @@ ota:
   - platform: esphome
 
 wifi:
-  ssid: "MyWiFiNetwork"
-  password: "MyWiFiPassword"
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
   ap:
     ssid: "ESPHome-RAMSES-AP"
-    password: "fallbackpassword"
+    password: !secret wifi_ap_password
 
 captive_portal:
 
@@ -40,6 +49,27 @@ captive_portal:
 time:
   - platform: sntp
     id: sntp_time
+
+# Activity LED on GPIO19 (Flashes on RF packet RX/TX)
+output:
+  - platform: gpio
+    pin: GPIO19
+    id: led_output
+
+light:
+  - platform: binary
+    name: "Activity LED"
+    output: led_output
+    id: activity_led
+    restore_mode: ALWAYS_OFF
+
+script:
+  - id: pulse_activity_led
+    mode: restart
+    then:
+      - light.turn_on: activity_led
+      - delay: 40ms
+      - light.turn_off: activity_led
 
 # MQTT Client configured for 1-to-1 parity with ramses-mqtt / ramses_esp
 mqtt:
@@ -83,6 +113,7 @@ mqtt:
               ESP_LOGI("ramses_mqtt", "MQTT TX Request: %s", msg.c_str());
               id(ramses_hub).send_hgi80_command(msg);
             }
+        - script.execute: pulse_activity_led
 
     # Handle evofw3 / ramses_rf handshake commands (e.g. "!V")
     - topic: ${mqtt_root}/${ramses_device_id}/cmd/cmd
@@ -101,15 +132,15 @@ mqtt:
               );
             }
 
-# RAMSES II Transceiver & Gateway
+# RAMSES II Transceiver & Gateway (Elecram ESP32-C6 Pinout)
 ramses_esp:
   id: ramses_hub
   cs_pin: GPIO18
   sck_pin: GPIO6
   mosi_pin: GPIO7
   miso_pin: GPIO2
-  gdo0_pin: GPIO15 # Connects to CC1101 GDO0
-  gdo2_pin: GPIO14 # Connects to CC1101 GDO2 (optional)
+  gdo0_pin: GPIO15 # CC1101 GDO0 (TX)
+  gdo2_pin: GPIO14 # CC1101 GDO2 (Demodulated RX Data)
   uart_num: 1
   port: 6638       # Concurrent TCP Socket server is also active
 
@@ -130,3 +161,5 @@ ramses_esp:
         });
 
         id(mqtt_client).publish("${mqtt_root}/${ramses_device_id}/rx", rendered);
+    - script.execute: pulse_activity_led
+

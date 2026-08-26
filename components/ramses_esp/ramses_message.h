@@ -81,9 +81,10 @@ struct RamsesMessage {
   uint8_t n_payload{0};
   uint8_t payload[RAMSES_MAX_PAYLOAD]{0};
 
-  std::string timestamp;
+  char timestamp[32]{0};
 
   void reset();
+
   bool is_valid() const;
   uint8_t calculate_checksum() const;
   std::string to_hgi80() const;
@@ -245,7 +246,7 @@ public:
   }
 
   RamsesMessageBuilder &timestamp(const std::string &ts) {
-    msg_.timestamp = ts;
+    snprintf(msg_.timestamp, sizeof(msg_.timestamp), "%s", ts.c_str());
     return *this;
   }
 

@@ -119,7 +119,7 @@ void RamsesMessage::reset() {
   this->rssi = 0;
   this->n_payload = 0;
   memset(this->payload, 0, sizeof(this->payload));
-  this->timestamp.clear();
+  memset(this->timestamp, 0, sizeof(this->timestamp));
 }
 
 uint8_t RamsesMessage::calculate_checksum() const {

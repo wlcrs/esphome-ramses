@@ -29,6 +29,7 @@ public:
   void set_on_message_callback(std::function<void(const RamsesMessage &)> cb) {
     this->on_message_cb_ = cb;
   }
+  uint32_t get_last_rx_ms() const { return this->last_rx_ms_; }
 
   void rx_enable();
   void rx_disable();
@@ -59,6 +60,7 @@ protected:
   uint8_t msg_field_count_{0};
 
   std::function<void(const RamsesMessage &)> on_message_cb_{nullptr};
+  uint32_t last_rx_ms_{0};
 };
 
 } // namespace ramses_esp

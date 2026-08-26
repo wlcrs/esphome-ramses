@@ -1,12 +1,12 @@
 #pragma once
 
-#include <string>
-#include <vector>
-#include <memory>
+#include "components/ramses_esp/ramses_message.h"
+#include <cstdint>
 #include <functional>
 #include <map>
-#include <cstdint>
-#include "components/ramses_esp/ramses_message.h"
+#include <memory>
+#include <string>
+#include <vector>
 
 namespace esphome {
 namespace ramses_esp {
@@ -15,8 +15,9 @@ class MockRamsesEsp;
 
 // Base class for simulated RAMSES II devices
 class MockRamsesDevice {
- public:
-  explicit MockRamsesDevice(std::string device_id) : device_id_(std::move(device_id)) {}
+public:
+  explicit MockRamsesDevice(std::string device_id)
+      : device_id_(std::move(device_id)) {}
   virtual ~MockRamsesDevice() = default;
 
   const std::string &get_device_id() const { return this->device_id_; }
@@ -24,7 +25,7 @@ class MockRamsesDevice {
   virtual void handle_incoming(const RamsesMessage &msg, MockRamsesEsp &hub) {}
   virtual void tick(uint32_t now_ms, MockRamsesEsp &hub) {}
 
- protected:
+protected:
   std::string device_id_;
 };
 
@@ -40,10 +41,11 @@ struct MockZoneConfig {
 };
 
 class MockEvohomeController : public MockRamsesDevice {
- public:
+public:
   explicit MockEvohomeController(std::string controller_id);
 
-  void add_zone(uint8_t index, const std::string &name, float current_temp = 20.0f, float setpoint = 20.0f);
+  void add_zone(uint8_t index, const std::string &name,
+                float current_temp = 20.0f, float setpoint = 20.0f);
   void set_zone_temp(uint8_t index, float temp);
   void set_zone_setpoint(uint8_t index, float setpoint);
   void set_system_mode(uint8_t mode);
@@ -56,7 +58,7 @@ class MockEvohomeController : public MockRamsesDevice {
   void broadcast_temperatures(MockRamsesEsp &hub);
   void broadcast_setpoints(MockRamsesEsp &hub);
 
- private:
+private:
   uint8_t system_mode_{0}; // 0=Auto, 1=Away, 2=DayOff, 3=Custom, 4=Eco, 5=Off
   std::vector<MockZoneConfig> zones_;
 };
@@ -66,14 +68,15 @@ class MockEvohomeController : public MockRamsesDevice {
 // ----------------------------------------------------------------------
 enum MockHvacScheme {
   MOCK_SCHEME_ORCON = 0,
-  MOCK_SCHEME_ITHO  = 1,
+  MOCK_SCHEME_ITHO = 1,
   MOCK_SCHEME_VASCO = 2,
   MOCK_SCHEME_ZEHNDER = 3,
 };
 
 class MockMvhrVentilator : public MockRamsesDevice {
- public:
-  MockMvhrVentilator(std::string device_id, MockHvacScheme scheme = MOCK_SCHEME_ORCON);
+public:
+  MockMvhrVentilator(std::string device_id,
+                     MockHvacScheme scheme = MOCK_SCHEME_ORCON);
 
   void set_fan_mode(uint8_t mode) { this->fan_mode_ = mode; }
   uint8_t get_fan_mode() const { return this->fan_mode_; }
@@ -92,7 +95,7 @@ class MockMvhrVentilator : public MockRamsesDevice {
   void handle_incoming(const RamsesMessage &msg, MockRamsesEsp &hub) override;
   void broadcast_status(MockRamsesEsp &hub);
 
- private:
+private:
   MockHvacScheme scheme_{MOCK_SCHEME_ORCON};
   uint8_t oem_code_{0x67}; // 0x67=Orcon, 0x08=Itho, 0x13=Vasco, 0x02=Zehnder
   uint8_t fan_mode_{0x02}; // e.g. Speed 1 / Low
@@ -107,7 +110,7 @@ class MockMvhrVentilator : public MockRamsesDevice {
 // Mock TRV Radiator Valve (04:xxxxxx)
 // ----------------------------------------------------------------------
 class MockTrv : public MockRamsesDevice {
- public:
+public:
   explicit MockTrv(std::string device_id);
 
   void set_battery_percent(uint8_t pct) { this->battery_pct_ = pct; }
@@ -116,7 +119,7 @@ class MockTrv : public MockRamsesDevice {
   void handle_incoming(const RamsesMessage &msg, MockRamsesEsp &hub) override;
   void broadcast_telemetry(MockRamsesEsp &hub);
 
- private:
+private:
   uint8_t battery_pct_{95};
   float demand_{0.20f};
 };
@@ -125,7 +128,7 @@ class MockTrv : public MockRamsesDevice {
 // Mock OpenTherm Bridge (10:xxxxxx)
 // ----------------------------------------------------------------------
 class MockOpenThermBridge : public MockRamsesDevice {
- public:
+public:
   explicit MockOpenThermBridge(std::string device_id);
 
   void set_modulation(float mod_pct) { this->modulation_pct_ = mod_pct; }
@@ -138,7 +141,7 @@ class MockOpenThermBridge : public MockRamsesDevice {
   void handle_incoming(const RamsesMessage &msg, MockRamsesEsp &hub) override;
   void broadcast_telemetry(MockRamsesEsp &hub);
 
- private:
+private:
   float modulation_pct_{35.0f};
   float flow_temp_{55.0f};
   float return_temp_{42.5f};
@@ -149,16 +152,20 @@ class MockOpenThermBridge : public MockRamsesDevice {
 // ----------------------------------------------------------------------
 // Universal Mock Ramses Hub
 // ----------------------------------------------------------------------
-using PacketCallback = std::function<void(const RamsesMessage &msg, const std::string &hgi80_line)>;
+using PacketCallback = std::function<void(const RamsesMessage &msg,
+                                          const std::string &hgi80_line)>;
 
 class MockRamsesEsp {
- public:
+public:
   MockRamsesEsp();
 
   void register_device(std::shared_ptr<MockRamsesDevice> dev);
-  std::shared_ptr<MockRamsesDevice> get_device(const std::string &device_id) const;
+  std::shared_ptr<MockRamsesDevice>
+  get_device(const std::string &device_id) const;
 
-  void set_packet_callback(PacketCallback cb) { this->callback_ = std::move(cb); }
+  void set_packet_callback(PacketCallback cb) {
+    this->callback_ = std::move(cb);
+  }
 
   // Inject a message as if received from RF transceiver
   void inject_message(const RamsesMessage &msg);
@@ -173,7 +180,7 @@ class MockRamsesEsp {
   const std::vector<std::string> &get_tx_log() const { return this->tx_log_; }
   void clear_tx_log() { this->tx_log_.clear(); }
 
- private:
+private:
   std::map<std::string, std::shared_ptr<MockRamsesDevice>> devices_;
   PacketCallback callback_;
   std::vector<std::string> tx_log_;

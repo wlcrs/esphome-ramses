@@ -3,6 +3,9 @@
 #include "ramses_codec.h"
 #include <ctime>
 #include <sys/time.h>
+#if __has_include("esp_timer.h")
+#include "esp_timer.h"
+#endif
 
 static const char *TAG = "ramses_esp.frame";
 
@@ -49,7 +52,9 @@ bool RamsesFrameHandler::init(uart_port_t uart_num, gpio_num_t gdo0_pin,
     return false;
   }
 
-  ret = uart_set_pin(this->uart_num_, this->gdo2_pin_, this->gdo0_pin_,
+  // Set UART pins: TX = gdo0_pin_ (CC1101 TX In), RX = gdo2_pin_ (CC1101 RX
+  // Out)
+  ret = uart_set_pin(this->uart_num_, this->gdo0_pin_, this->gdo2_pin_,
                      UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
   if (ret != ESP_OK) {
     ESP_LOGE(TAG, "uart_set_pin failed: %d", ret);
@@ -62,9 +67,12 @@ bool RamsesFrameHandler::init(uart_port_t uart_num, gpio_num_t gdo0_pin,
     return false;
   }
 
+  uart_set_rx_full_threshold(this->uart_num_, 1);
+  uart_set_rx_timeout(this->uart_num_, 2);
+
   this->rx_enable();
-  ESP_LOGI(TAG, "UART%d initialized on RX pin GPIO%d for RAMSES framing",
-           this->uart_num_, this->gdo0_pin_);
+  ESP_LOGI(TAG, "UART%d initialized: RX=GPIO%d (GDO2), TX=GPIO%d (GDO0)",
+           this->uart_num_, this->gdo2_pin_, this->gdo0_pin_);
   return true;
 }
 
@@ -103,33 +111,30 @@ void RamsesFrameHandler::reset_rx() {
 }
 
 void RamsesFrameHandler::work() {
-  if (this->rx_state_ == FRM_RX_OFF || this->uart_queue_ == nullptr)
+  if (this->rx_state_ == FRM_RX_OFF)
     return;
 
-  uart_event_t event;
-  if (xQueueReceive(this->uart_queue_, &event, pdMS_TO_TICKS(10))) {
-    if (event.type == UART_DATA && event.size > 0) {
-      uint8_t buf[128];
-      int bytes_read = uart_read_bytes(
-          this->uart_num_, buf, std::min((int)event.size, (int)sizeof(buf)), 0);
-      for (int i = 0; i < bytes_read; i++) {
-        this->process_rx_byte(buf[i]);
-      }
-    } else if (event.type == UART_BUFFER_FULL || event.type == UART_FIFO_OVF) {
-      uart_flush_input(this->uart_num_);
-      xQueueReset(this->uart_queue_);
-      this->rx_state_ = FRM_RX_IDLE;
-      this->reset_rx();
+  // Drain all available bytes from UART FIFO directly
+  uint8_t buf[128];
+  int bytes_read;
+  while ((bytes_read = uart_read_bytes(this->uart_num_, buf, sizeof(buf), 0)) >
+         0) {
+    for (int i = 0; i < bytes_read; i++) {
+      this->process_rx_byte(buf[i]);
     }
   }
 
-  if (this->rx_state_ == FRM_RX_DONE) {
-    this->handle_rx_done();
-    this->rx_state_ = FRM_RX_IDLE;
-    this->reset_rx();
-  } else if (this->rx_state_ == FRM_RX_ABORT) {
-    this->rx_state_ = FRM_RX_IDLE;
-    this->reset_rx();
+  // Drain UART event queue to prevent queue overflow
+  if (this->uart_queue_ != nullptr) {
+    uart_event_t event;
+    while (xQueueReceive(this->uart_queue_, &event, 0) == pdTRUE) {
+      if (event.type == UART_BUFFER_FULL || event.type == UART_FIFO_OVF) {
+        uart_flush_input(this->uart_num_);
+        xQueueReset(this->uart_queue_);
+        this->rx_state_ = FRM_RX_IDLE;
+        this->reset_rx();
+      }
+    }
   }
 }
 
@@ -181,18 +186,16 @@ void RamsesFrameHandler::process_rx_byte(uint8_t b) {
 
   case FRM_RX_MESSAGE:
     if (b == RAMSES_TRAILER) {
-      this->rx_state_ = FRM_RX_DONE;
+      this->handle_rx_done();
+      this->rx_state_ = FRM_RX_IDLE;
+      this->reset_rx();
       return;
     }
 
     this->rx_raw_count_++;
-    if (this->rx_raw_count_ >= RAMSES_MAX_RAW) {
-      this->rx_state_ = FRM_RX_ABORT;
-      return;
-    }
-
-    if (!manchester_code_valid(b)) {
-      this->rx_state_ = FRM_RX_ABORT;
+    if (this->rx_raw_count_ >= RAMSES_MAX_RAW || !manchester_code_valid(b)) {
+      this->rx_state_ = FRM_RX_IDLE;
+      this->reset_rx();
       return;
     }
 
@@ -290,20 +293,26 @@ void RamsesFrameHandler::process_rx_byte(uint8_t b) {
 }
 
 void RamsesFrameHandler::handle_rx_done() {
+#ifdef USE_ESP_IDF
+  this->last_rx_ms_ = static_cast<uint32_t>(esp_timer_get_time() / 1000ULL);
+#else
+  this->last_rx_ms_ = 1000;
+#endif
   if (this->cc1101_ != nullptr) {
     this->current_msg_.rssi = this->cc1101_->read_rssi();
   }
 
   // Generate ISO timestamp
-  char ts_buf[40];
   struct timeval tv;
   gettimeofday(&tv, nullptr);
   struct tm *nowtm = localtime(&tv.tv_sec);
   if (nowtm != nullptr) {
+    char ts_buf[24];
     strftime(ts_buf, sizeof(ts_buf), "%Y-%m-%dT%H:%M:%S", nowtm);
-    char full_ts[48];
-    snprintf(full_ts, sizeof(full_ts), "%s.%03ld", ts_buf, tv.tv_usec / 1000);
-    this->current_msg_.timestamp = full_ts;
+    snprintf(this->current_msg_.timestamp, sizeof(this->current_msg_.timestamp),
+             "%s.%03ld", ts_buf, tv.tv_usec / 1000);
+  } else {
+    this->current_msg_.timestamp[0] = '\0';
   }
 
   if (this->current_msg_.is_valid()) {

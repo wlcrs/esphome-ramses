@@ -1,3 +1,11 @@
+# ==============================================================================
+# Target Hardware: Elecram ESP32-C6 WiFi/Zigbee to 855–925 MHz Wireless Interface Board
+# Product Page: https://elecram.com/products/esp32-c6-wifi-zigbee-to-855-925mhz-wireless
+# Repository: https://github.com/Elecram/ramses_esp
+# Pinout: CS=GPIO18, SCK=GPIO6, MOSI=GPIO7, MISO=GPIO2, GDO0=GPIO15, GDO2=GPIO14, LED=GPIO19
+# ==============================================================================
+
+
 substitutions:
   name: "esphome-ramses"
   friendly_name: "ESPHome RAMSES Gateway"
@@ -8,6 +16,7 @@ esphome:
 
 esp32:
   board: esp32-c6-devkitc-1
+  variant: esp32c6
   framework:
     type: esp-idf
 
@@ -25,27 +34,16 @@ logger:
   level: DEBUG
 
 wifi:
-  ssid: "MyWiFiNetwork"
-  password: "MyWiFiPassword"
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
   ap:
     ssid: "ESPHome-RAMSES-AP"
-    password: "fallbackpassword"
+    password: !secret wifi_ap_password
 
 captive_portal:
 
 # ==============================================================================
-# Optional LED Configuration (RF Activity & Status Indication)
-# ==============================================================================
-# What it does:
-#   Provides visual feedback by flashing the LED whenever a RAMSES II RF frame
-#   is received or transmitted (matching the behavior of the original ramses_esp).
-#
-# Why it is optional:
-#   - Different ESP32 / ESP32-C6 hardware boards route LEDs to different pins.
-#   - For example, the Elecram / IMMRMKW ESP32-C6 board routes the RX/TX LED to GPIO19.
-#   - Standard Espressif ESP32-C6 DevKit boards use GPIO8 for an on-board WS2812 RGB LED.
-#   - If your hardware does not have an LED or uses GPIO19 for another purpose,
-#     you can safely comment out or delete this section.
+# Activity LED on GPIO19 (Flashes on RF packet RX/TX)
 # ==============================================================================
 output:
   - platform: gpio
@@ -68,20 +66,21 @@ script:
       - delay: 40ms
       - light.turn_off: activity_led
 
-# RAMSES II Transceiver & HGI80 TCP Gateway
+# RAMSES II Transceiver & HGI80 TCP Gateway (Port 6638)
 ramses_esp:
   id: ramses_hub
   cs_pin: GPIO18
   sck_pin: GPIO6
   mosi_pin: GPIO7
   miso_pin: GPIO2
-  gdo0_pin: GPIO15 # Demodulated UART RX from CC1101 GDO0
-  gdo2_pin: GPIO14 # CC1101 GDO2 (optional)
+  gdo0_pin: GPIO15 # CC1101 GDO0 (TX)
+  gdo2_pin: GPIO14 # CC1101 GDO2 (Demodulated RX Data)
   uart_num: 1      # ESP32 hardware UART peripheral (default: 1)
   port: 6638       # TCP port for Home Assistant ramses_rf / ramses_cc (socket://<ip>:6638)
   on_message:
     - lambda: |-
         ESP_LOGD("ramses", "HGI80: %s", x.c_str());
-    # Optional: Flash the activity LED on incoming RAMSES frame
+    # Flash the activity LED on incoming RAMSES frame
     - script.execute: pulse_activity_led
+
 

@@ -1,5 +1,8 @@
 #include "ramses_esp.h"
 #include "esphome/core/log.h"
+#if __has_include("esp_timer.h")
+#include "esp_timer.h"
+#endif
 #include <algorithm>
 #include <arpa/inet.h>
 #include <cstring>
@@ -230,9 +233,19 @@ bool RamsesESPComponent::send_hgi80_command(const std::string &cmd) {
 }
 
 void RamsesESPComponent::process_tx_queue() {
+  if (this->tx_msg_queue_ == nullptr)
+    return;
+
+  // Enforce CSMA/CD quiet window: wait at least 250ms after receiving an RF
+  // packet before transmitting to avoid stepping on reply frames from
+  // destination devices
+  uint32_t now_ms = static_cast<uint32_t>(esp_timer_get_time() / 1000ULL);
+  if (now_ms - this->frame_handler_.get_last_rx_ms() < 250)
+    return;
+
   RamsesMessage tx_msg;
-  if (this->tx_msg_queue_ != nullptr &&
-      xQueueReceive(this->tx_msg_queue_, &tx_msg, 0) == pdTRUE) {
+
+  if (xQueueReceive(this->tx_msg_queue_, &tx_msg, 0) == pdTRUE) {
     if (xSemaphoreTake(this->radio_mutex_, pdMS_TO_TICKS(200)) == pdTRUE) {
       ESP_LOGI(TAG, "Transmitting RAMSES packet: %s",
                tx_msg.to_hgi80().c_str());
@@ -270,9 +283,9 @@ void RamsesESPComponent::dump_config() {
   ESP_LOGCONFIG(TAG, "  MOSI Pin: GPIO%d", this->mosi_pin_);
   ESP_LOGCONFIG(TAG, "  MISO Pin: GPIO%d", this->miso_pin_);
   ESP_LOGCONFIG(TAG, "  CS Pin: GPIO%d", this->cs_pin_);
-  ESP_LOGCONFIG(TAG, "  GDO0 Pin (UART RX): GPIO%d", this->gdo0_pin_);
+  ESP_LOGCONFIG(TAG, "  GDO0 Pin (CC1101 TX): GPIO%d", this->gdo0_pin_);
   if (this->gdo2_pin_ != GPIO_NUM_NC) {
-    ESP_LOGCONFIG(TAG, "  GDO2 Pin: GPIO%d", this->gdo2_pin_);
+    ESP_LOGCONFIG(TAG, "  GDO2 Pin (CC1101 RX): GPIO%d", this->gdo2_pin_);
   }
   ESP_LOGCONFIG(TAG, "  UART Port: UART%d", this->uart_num_);
   ESP_LOGCONFIG(TAG, "  TCP Server Port: %u", this->port_);

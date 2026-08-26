@@ -1,10 +1,10 @@
-#include <iostream>
-#include <cassert>
-#include <vector>
-#include <string>
-#include <cmath>
-#include "components/ramses_esp/ramses_decoder.h"
 #include "components/ramses_devices/ramses_climate.h"
+#include "components/ramses_esp/ramses_decoder.h"
+#include <cassert>
+#include <cmath>
+#include <iostream>
+#include <string>
+#include <vector>
 
 using namespace esphome;
 using namespace esphome::climate;
@@ -14,16 +14,16 @@ using namespace esphome::ramses_devices;
 static int tests_run = 0;
 static int tests_passed = 0;
 
-#define TEST_ASSERT(cond, msg) \
-  do { \
-    tests_run++; \
-    if (cond) { \
-      tests_passed++; \
-      std::cout << "  [PASS] " << msg << "\n"; \
-    } else { \
-      std::cerr << "  [FAIL] " << msg << " (Line " << __LINE__ << ")\n"; \
-      assert(false); \
-    } \
+#define TEST_ASSERT(cond, msg)                                                 \
+  do {                                                                         \
+    tests_run++;                                                               \
+    if (cond) {                                                                \
+      tests_passed++;                                                          \
+      std::cout << "  [PASS] " << msg << "\n";                                 \
+    } else {                                                                   \
+      std::cerr << "  [FAIL] " << msg << " (Line " << __LINE__ << ")\n";       \
+      assert(false);                                                           \
+    }                                                                          \
   } while (0)
 
 static RamsesMessage parse_msg(const std::string &hgi80) {
@@ -43,43 +43,56 @@ void test_climate_rx_temperature_and_setpoint() {
   zone1.set_zone_index(1);
 
   // Broadcast 30C9: Zone 0 = 21.20 C, Zone 1 = 18.50 C
-  RamsesMessage temp_msg = parse_msg("045  I --- 01:145678 --:------ 01:145678 30C9 006 00084801073A");
+  RamsesMessage temp_msg = parse_msg(
+      "045  I --- 01:145678 --:------ 01:145678 30C9 006 00084801073A");
   zone0.on_message(temp_msg);
   zone1.on_message(temp_msg);
 
-  TEST_ASSERT(std::abs(zone0.current_temperature - 21.20f) < 0.01f, "Zone 0 current temperature is 21.20 C");
-  TEST_ASSERT(std::abs(zone1.current_temperature - 18.50f) < 0.01f, "Zone 1 current temperature is 18.50 C");
+  TEST_ASSERT(std::abs(zone0.current_temperature - 21.20f) < 0.01f,
+              "Zone 0 current temperature is 21.20 C");
+  TEST_ASSERT(std::abs(zone1.current_temperature - 18.50f) < 0.01f,
+              "Zone 1 current temperature is 18.50 C");
 
   // Broadcast 2309: Zone 0 = 21.00 C
-  RamsesMessage sp_msg = parse_msg("045  I --- 01:145678 --:------ 01:145678 2309 003 000834");
+  RamsesMessage sp_msg =
+      parse_msg("045  I --- 01:145678 --:------ 01:145678 2309 003 000834");
   zone0.on_message(sp_msg);
-  TEST_ASSERT(std::abs(zone0.target_temperature - 21.00f) < 0.01f, "Zone 0 target setpoint is 21.00 C");
+  TEST_ASSERT(std::abs(zone0.target_temperature - 21.00f) < 0.01f,
+              "Zone 0 target setpoint is 21.00 C");
 }
 
 void test_climate_rx_system_mode_and_demand() {
-  std::cout << "\n--- Testing RamsesClimate RX (System Mode & Heat Demand) ---\n";
+  std::cout
+      << "\n--- Testing RamsesClimate RX (System Mode & Heat Demand) ---\n";
   RamsesClimate climate;
   climate.set_controller_address("01:145678");
   climate.set_zone_index(0);
 
   // 2E04 System mode: AWAY mode (mode=3)
-  RamsesMessage away_msg = parse_msg("045  I --- 01:145678 --:------ 01:145678 2E04 008 0300000000000000");
+  RamsesMessage away_msg = parse_msg(
+      "045  I --- 01:145678 --:------ 01:145678 2E04 008 0300000000000000");
   climate.on_message(away_msg);
   TEST_ASSERT(climate.mode == CLIMATE_MODE_HEAT, "Climate mode is HEAT");
-  TEST_ASSERT(climate.preset.has_value() && *climate.preset == CLIMATE_PRESET_AWAY, "Climate preset is AWAY");
+  TEST_ASSERT(climate.preset.has_value() &&
+                  *climate.preset == CLIMATE_PRESET_AWAY,
+              "Climate preset is AWAY");
 
   // 2E04 System mode: OFF mode (mode=1)
-  RamsesMessage off_msg = parse_msg("045  I --- 01:145678 --:------ 01:145678 2E04 008 0100000000000000");
+  RamsesMessage off_msg = parse_msg(
+      "045  I --- 01:145678 --:------ 01:145678 2E04 008 0100000000000000");
   climate.on_message(off_msg);
   TEST_ASSERT(climate.mode == CLIMATE_MODE_OFF, "Climate mode is OFF");
 
   // 3150 Heat demand: 45% -> action HEATING
-  RamsesMessage demand_msg = parse_msg("045  I --- 01:145678 --:------ 01:145678 3150 002 005A");
+  RamsesMessage demand_msg =
+      parse_msg("045  I --- 01:145678 --:------ 01:145678 3150 002 005A");
   climate.on_message(demand_msg);
-  TEST_ASSERT(climate.action == CLIMATE_ACTION_HEATING, "Climate action is HEATING");
+  TEST_ASSERT(climate.action == CLIMATE_ACTION_HEATING,
+              "Climate action is HEATING");
 
   // 3150 Heat demand: 0% -> action IDLE
-  RamsesMessage idle_msg = parse_msg("045  I --- 01:145678 --:------ 01:145678 3150 002 0000");
+  RamsesMessage idle_msg =
+      parse_msg("045  I --- 01:145678 --:------ 01:145678 3150 002 0000");
   climate.on_message(idle_msg);
   TEST_ASSERT(climate.action == CLIMATE_ACTION_IDLE, "Climate action is IDLE");
 }
@@ -95,25 +108,33 @@ void test_climate_control_tx() {
   call.set_target_temperature(22.5f);
   call.perform();
 
-  TEST_ASSERT(std::abs(climate.target_temperature - 22.5f) < 0.01f, "Target temp updated to 22.5 C");
+  TEST_ASSERT(std::abs(climate.target_temperature - 22.5f) < 0.01f,
+              "Target temp updated to 22.5 C");
 
   // Verify write packet encoding
   RamsesAddress hgi_src = RamsesAddress::from_string("18:005612");
   RamsesAddress ctl = RamsesAddress::from_string("01:145678");
-  RamsesMessage sp_write = SetpointPayload::encode_write(hgi_src, ctl, 0, 22.5f);
-  TEST_ASSERT(sp_write.type == RAMSES_MSG_W, "Setpoint write message type is W");
-  TEST_ASSERT(sp_write.opcode[0] == 0x23 && sp_write.opcode[1] == 0x09, "Opcode is 2309");
+  RamsesMessage sp_write =
+      SetpointPayload::encode_write(hgi_src, ctl, 0, 22.5f);
+  TEST_ASSERT(sp_write.type == RAMSES_MSG_W,
+              "Setpoint write message type is W");
+  TEST_ASSERT(sp_write.opcode[0] == 0x23 && sp_write.opcode[1] == 0x09,
+              "Opcode is 2309");
 
   // Verify system mode write packet encoding
-  RamsesMessage away_write = SystemModePayload::encode_write(hgi_src, ctl, SystemMode::AWAY);
-  TEST_ASSERT(away_write.type == RAMSES_MSG_W, "System mode write message type is W");
-  TEST_ASSERT(away_write.opcode[0] == 0x2E && away_write.opcode[1] == 0x04, "Opcode is 2E04");
+  RamsesMessage away_write =
+      SystemModePayload::encode_write(hgi_src, ctl, SystemMode::AWAY);
+  TEST_ASSERT(away_write.type == RAMSES_MSG_W,
+              "System mode write message type is W");
+  TEST_ASSERT(away_write.opcode[0] == 0x2E && away_write.opcode[1] == 0x04,
+              "Opcode is 2E04");
   TEST_ASSERT(away_write.payload[0] == 0x03, "Payload has AWAY mode (0x03)");
 
   auto preset_call = climate.make_call();
   preset_call.set_preset(CLIMATE_PRESET_ECO);
   preset_call.perform();
-  TEST_ASSERT(climate.preset.has_value() && *climate.preset == CLIMATE_PRESET_ECO,
+  TEST_ASSERT(climate.preset.has_value() &&
+                  *climate.preset == CLIMATE_PRESET_ECO,
               "ECO preset is applied locally");
 
   auto combined_call = climate.make_call();
@@ -124,27 +145,34 @@ void test_climate_control_tx() {
   TEST_ASSERT(std::abs(climate.target_temperature - 19.5f) < 0.01f,
               "Combined call updates target temperature");
   TEST_ASSERT(climate.mode == CLIMATE_MODE_OFF, "Combined call updates mode");
-  TEST_ASSERT(climate.preset.has_value() && *climate.preset == CLIMATE_PRESET_AWAY,
+  TEST_ASSERT(climate.preset.has_value() &&
+                  *climate.preset == CLIMATE_PRESET_AWAY,
               "Combined call updates preset");
 }
 
 void test_climate_rx_ignores_other_zones_and_unavailable_values() {
-  std::cout << "\n--- Testing RamsesClimate RX Filtering and Unavailable Values ---\n";
+  std::cout << "\n--- Testing RamsesClimate RX Filtering and Unavailable "
+               "Values ---\n";
   RamsesClimate climate;
   climate.set_controller_address("01:145678");
   climate.set_zone_index(15);
 
-  RamsesMessage other_zone = parse_msg("045  I --- 01:145678 --:------ 01:145678 30C9 003 000834");
+  RamsesMessage other_zone =
+      parse_msg("045  I --- 01:145678 --:------ 01:145678 30C9 003 000834");
   climate.on_message(other_zone);
-  TEST_ASSERT(std::isnan(climate.current_temperature), "Other zone temperature is ignored");
+  TEST_ASSERT(std::isnan(climate.current_temperature),
+              "Other zone temperature is ignored");
 
-  RamsesMessage selected_zone = parse_msg("045  I --- 01:145678 --:------ 01:145678 30C9 048 "
-                                          "0008340108340208340308340408340508340608340708340808340908340A08340B08340C08340D08340E08340F0834");
+  RamsesMessage selected_zone =
+      parse_msg("045  I --- 01:145678 --:------ 01:145678 30C9 048 "
+                "0008340108340208340308340408340508340608340708340808340908340A"
+                "08340B08340C08340D08340E08340F0834");
   climate.on_message(selected_zone);
   TEST_ASSERT(std::abs(climate.current_temperature - 21.0f) < 0.01f,
               "Configured zone temperature is accepted");
 
-  RamsesMessage unavailable = parse_msg("045  I --- 01:145678 --:------ 01:145678 30C9 003 0F7FFF");
+  RamsesMessage unavailable =
+      parse_msg("045  I --- 01:145678 --:------ 01:145678 30C9 003 0F7FFF");
   climate.on_message(unavailable);
   TEST_ASSERT(std::abs(climate.current_temperature - 21.0f) < 0.01f,
               "Unavailable temperature preserves the previous state");
@@ -161,7 +189,8 @@ int main() {
   test_climate_rx_ignores_other_zones_and_unavailable_values();
 
   std::cout << "\n========================================\n";
-  std::cout << "Results: " << tests_passed << "/" << tests_run << " tests passed.\n";
+  std::cout << "Results: " << tests_passed << "/" << tests_run
+            << " tests passed.\n";
   std::cout << "========================================\n";
 
   return (tests_passed == tests_run) ? 0 : 1;

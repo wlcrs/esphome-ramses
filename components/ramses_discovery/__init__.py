@@ -2,6 +2,14 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.const import CONF_ID
 
+try:
+    from esphome.components import web_server_base
+
+    CONF_WEB_SERVER_BASE_ID = "web_server_base_id"
+    HAS_WEB_SERVER = True
+except ImportError:
+    HAS_WEB_SERVER = False
+
 AUTO_LOAD = ["ramses_esp"]
 DEPENDENCIES = ["ramses_esp"]
 
@@ -17,16 +25,21 @@ CONF_RAMSES_ESP_ID = "ramses_esp_id"
 CONF_ACTIVE_PROBING = "active_probing"
 CONF_PROBING_INTERVAL = "probing_interval"
 
-CONFIG_SCHEMA = cv.Schema(
-    {
-        cv.GenerateID(): cv.declare_id(RamsesDiscoveryComponent),
-        cv.GenerateID(CONF_RAMSES_ESP_ID): cv.use_id(RamsesESPComponent),
-        cv.Optional(CONF_ACTIVE_PROBING, default=True): cv.boolean,
-        cv.Optional(
-            CONF_PROBING_INTERVAL, default="30s"
-        ): cv.positive_time_period_milliseconds,
-    }
-).extend(cv.COMPONENT_SCHEMA)
+schema_dict = {
+    cv.GenerateID(): cv.declare_id(RamsesDiscoveryComponent),
+    cv.GenerateID(CONF_RAMSES_ESP_ID): cv.use_id(RamsesESPComponent),
+    cv.Optional(CONF_ACTIVE_PROBING, default=True): cv.boolean,
+    cv.Optional(
+        CONF_PROBING_INTERVAL, default="30s"
+    ): cv.positive_time_period_milliseconds,
+}
+
+if HAS_WEB_SERVER:
+    schema_dict[cv.Optional(CONF_WEB_SERVER_BASE_ID)] = cv.use_id(
+        web_server_base.WebServerBase
+    )
+
+CONFIG_SCHEMA = cv.Schema(schema_dict).extend(cv.COMPONENT_SCHEMA)
 
 
 async def to_code(config):
@@ -38,3 +51,7 @@ async def to_code(config):
 
     cg.add(var.set_active_probing(config[CONF_ACTIVE_PROBING]))
     cg.add(var.set_probing_interval(config[CONF_PROBING_INTERVAL]))
+
+    if HAS_WEB_SERVER and CONF_WEB_SERVER_BASE_ID in config:
+        web_server = await cg.get_variable(config[CONF_WEB_SERVER_BASE_ID])
+        cg.add(var.set_web_server_base(web_server))

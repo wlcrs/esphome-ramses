@@ -111,6 +111,17 @@ bool CC1101Driver::init(spi_host_device_t host, gpio_num_t sck, gpio_num_t mosi,
   this->strobe(CC_SRES);
   delayMicroseconds(500);
 
+  uint8_t partnum = this->read_reg(CC_PARTNUM);
+  uint8_t version = this->read_reg(CC_VERSION);
+  ESP_LOGI(TAG, "CC1101 Hardware Check: PartNum=0x%02X, Version=0x%02X",
+           partnum, version);
+  if (version == 0x00 || version == 0xFF) {
+    ESP_LOGW(TAG,
+             "WARNING: CC1101 returned invalid version (0x%02X)! Check "
+             "SPI wiring (SCK, MOSI, MISO, CS).",
+             version);
+  }
+
   this->apply_ramses_config();
   return true;
 }
