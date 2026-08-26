@@ -186,7 +186,9 @@ void RamsesFrameHandler::process_rx_byte(uint8_t b) {
 
   case FRM_RX_MESSAGE:
     if (b == RAMSES_TRAILER) {
-      this->handle_rx_done();
+      if (this->current_msg_.is_valid()) {
+        this->handle_rx_done();
+      }
       this->rx_state_ = FRM_RX_IDLE;
       this->reset_rx();
       return;
@@ -194,6 +196,9 @@ void RamsesFrameHandler::process_rx_byte(uint8_t b) {
 
     this->rx_raw_count_++;
     if (this->rx_raw_count_ >= RAMSES_MAX_RAW || !manchester_code_valid(b)) {
+      if (this->current_msg_.is_valid()) {
+        this->handle_rx_done();
+      }
       this->rx_state_ = FRM_RX_IDLE;
       this->reset_rx();
       return;
@@ -278,12 +283,19 @@ void RamsesFrameHandler::process_rx_byte(uint8_t b) {
       case STATE_CHECKSUM:
         this->current_msg_.csum = byte;
         this->msg_parse_state_ = STATE_DONE;
+        if (this->current_msg_.is_valid()) {
+          this->handle_rx_done();
+          this->rx_state_ = FRM_RX_IDLE;
+          this->reset_rx();
+          return;
+        }
         break;
 
       case STATE_DONE:
         break;
       }
     }
+
     break;
 
   case FRM_RX_DONE:

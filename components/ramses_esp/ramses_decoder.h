@@ -163,7 +163,14 @@ struct ZoneRolePayload {
 // Equivalent to: ramses_rf/payloads/hvac.py:FanStatePayload &
 // ramses_rf/models/hvac_schemas.py
 // ----------------------------------------------------------------------
-enum class HvacScheme { AUTO = 0, ORCON = 1, VASCO = 2, ITHO = 3, ZEHNDER = 4 };
+enum class HvacScheme {
+  AUTO = 0,
+  ORCON = 1,
+  VASCO = 2,
+  ITHO = 3,
+  ZEHNDER = 4,
+  HOPPER = 5
+};
 
 uint8_t get_hvac_oem_code(HvacScheme scheme);
 
@@ -199,7 +206,30 @@ struct FanBoostPayload {
 };
 
 // ----------------------------------------------------------------------
+// Opcode 0x31DA: Comprehensive HVAC Status & Telemetry
+// Equivalent to: ramses_rf/payloads/hvac.py:HvacTelemetryPayload
+// ----------------------------------------------------------------------
+struct HvacTelemetryPayload {
+  uint8_t hvac_id{0};
+  std::optional<float> exhaust_temp;
+  std::optional<float> supply_temp;
+  std::optional<float> indoor_temp;
+  std::optional<float> outdoor_temp;
+  std::optional<float> indoor_humidity;
+  std::optional<float> outdoor_humidity;
+  std::optional<uint16_t> co2_ppm;
+  std::optional<float> bypass_position;
+  std::optional<float> supply_fan_speed;
+  std::optional<float> exhaust_fan_speed;
+  std::optional<uint16_t> remaining_mins;
+
+  static std::optional<HvacTelemetryPayload> decode(const uint8_t *payload,
+                                                    size_t len);
+};
+
+// ----------------------------------------------------------------------
 // Opcode 0x10A0 / 0x22E5: Ventilation Info & Bypass Damper
+
 // Equivalent to: ramses_rf/payloads/hvac.py:VentilationPayload
 // ----------------------------------------------------------------------
 struct VentilationInfoPayload {
@@ -249,6 +279,73 @@ struct DeviceBatteryPayload {
 
   static std::optional<DeviceBatteryPayload> decode(const uint8_t *payload,
                                                     size_t len);
+};
+
+// ----------------------------------------------------------------------
+// Opcode 0x12B0: Window / Door Contact State
+// Equivalent to: ramses_rf/payloads/hvac.py:WindowStatePayload
+// ----------------------------------------------------------------------
+struct WindowStatePayload {
+  uint8_t zone_index{0};
+  bool window_open{false};
+
+  static std::optional<WindowStatePayload> decode(const uint8_t *payload,
+                                                  size_t len);
+};
+
+// ----------------------------------------------------------------------
+// Opcode 0x22C9 / 0x2209: UFH / Setpoint Bounds
+// Equivalent to: ramses_rf/payloads/hvac.py:SetpointBoundsPayload
+// ----------------------------------------------------------------------
+struct UfhSetpointBoundsPayload {
+  uint8_t ufh_index{0};
+  std::optional<float> min_temp;
+  std::optional<float> max_temp;
+  uint8_t mode_code{0};
+
+  static std::optional<UfhSetpointBoundsPayload> decode(const uint8_t *payload,
+                                                        size_t len);
+};
+
+// ----------------------------------------------------------------------
+// Opcode 0x3EF0 / 0x3EF1 / 0x3B00: Actuator Modulation & Sync State
+// Equivalent to: ramses_rf/payloads/heating.py:ActuatorStatePayload
+// ----------------------------------------------------------------------
+struct ActuatorStatePayload {
+  uint8_t domain_id{0};
+  float modulation_level{0.0f};   // 0.0 - 1.0
+  float modulation_percent{0.0f}; // 0.0 - 100.0%
+  bool relay_active{false};
+
+  static std::optional<ActuatorStatePayload>
+  decode(const uint8_t *payload, size_t len, uint16_t opcode = 0x3EF0);
+};
+
+// ----------------------------------------------------------------------
+// Opcode 0x0418 / 0x042F / 0x0009 / 0x4401: System Fault Log
+// Equivalent to: ramses_rf/payloads/system.py:SystemFaultLogPayload
+// ----------------------------------------------------------------------
+struct SystemFaultLogPayload {
+  uint8_t log_index{0};
+  uint8_t fault_code{0};
+  uint8_t domain_id{0};
+  bool is_fault{false};
+
+  static std::optional<SystemFaultLogPayload>
+  decode(const uint8_t *payload, size_t len, uint16_t opcode = 0x0418);
+};
+
+// ----------------------------------------------------------------------
+// Opcode 0x4E01 / 0x4E02: Spider / Autotemp Dutch Smart Thermostat
+// Equivalent to: ramses_rf/payloads/hvac.py:HvacSpiderTemperaturesPayload
+// ----------------------------------------------------------------------
+struct SpiderTemperaturesPayload {
+  uint8_t hdr{0};
+  std::vector<float> temperatures;
+  std::optional<float> primary_temp;
+
+  static std::optional<SpiderTemperaturesPayload> decode(const uint8_t *payload,
+                                                         size_t len);
 };
 
 // ----------------------------------------------------------------------

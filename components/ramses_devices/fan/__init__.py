@@ -27,7 +27,10 @@ HVAC_SCHEMES = {
     "vasco": HvacScheme.VASCO,
     "itho": HvacScheme.ITHO,
     "zehnder": HvacScheme.ZEHNDER,
+    "hopper": HvacScheme.HOPPER,
+    "generic": HvacScheme.HOPPER,
 }
+
 
 CONFIG_SCHEMA = (
     fan.fan_schema(RamsesFan)

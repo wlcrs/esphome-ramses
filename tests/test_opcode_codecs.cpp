@@ -444,6 +444,114 @@ void test_struct_unpack_helpers() {
   TEST_ASSERT(buf.size() == 3, "unpack_from advanced buffer span again");
 }
 
+void test_hvac_telemetry_31da() {
+  std::cout
+      << "\n--- Testing Opcode 0x31DA (Comprehensive HVAC Telemetry) ---\n";
+  // Sample Hopper D375 live packet:
+  // 00 EF 00 7FFF EF EF 7FFF 093D 09BC 09E6 F8 00 00 01 46 46 00 00 EFEF 7FFF
+  // 7FFF
+  const uint8_t payload[] = {0x00, 0xEF, 0x00, 0x7F, 0xFF, 0xEF, 0xEF, 0x7F,
+                             0xFF, 0x09, 0x3D, 0x09, 0xBC, 0x09, 0xE6, 0xF8,
+                             0x00, 0x00, 0x01, 0x46, 0x46, 0x00, 0x00, 0xEF,
+                             0xEF, 0x7F, 0xFF, 0x7F, 0xFF};
+
+  auto dec = HvacTelemetryPayload::decode(payload, sizeof(payload));
+  TEST_ASSERT(dec.has_value(), "31DA telemetry decoded successfully");
+  TEST_ASSERT(dec->hvac_id == 0, "HVAC ID is 0");
+  TEST_ASSERT(!dec->exhaust_temp.has_value(), "Exhaust temp is 0x7FFF (null)");
+  TEST_ASSERT(dec->supply_temp.has_value() &&
+                  std::abs(*dec->supply_temp - 23.65f) < 0.01f,
+              "Supply temp is 23.65 C");
+  TEST_ASSERT(dec->indoor_temp.has_value() &&
+                  std::abs(*dec->indoor_temp - 24.92f) < 0.01f,
+              "Indoor temp is 24.92 C");
+  TEST_ASSERT(dec->outdoor_temp.has_value() &&
+                  std::abs(*dec->outdoor_temp - 25.34f) < 0.01f,
+              "Outdoor temp is 25.34 C");
+  TEST_ASSERT(dec->supply_fan_speed.has_value() &&
+                  std::abs(*dec->supply_fan_speed - 35.0f) < 0.1f,
+              "Supply fan speed is 35%");
+  TEST_ASSERT(dec->exhaust_fan_speed.has_value() &&
+                  std::abs(*dec->exhaust_fan_speed - 35.0f) < 0.1f,
+              "Exhaust fan speed is 35%");
+}
+
+void test_window_contact_12b0() {
+  std::cout << "\n--- Testing Opcode 0x12B0 (Window / Contact State) ---\n";
+  const uint8_t payload_open[] = {0x01, 0x01};
+  auto dec_open =
+      WindowStatePayload::decode(payload_open, sizeof(payload_open));
+  TEST_ASSERT(dec_open.has_value(), "12B0 open decoded");
+  TEST_ASSERT(dec_open->zone_index == 1, "Zone index is 1");
+  TEST_ASSERT(dec_open->window_open == true, "Window is open");
+
+  const uint8_t payload_closed[] = {0x02, 0x00};
+  auto dec_closed =
+      WindowStatePayload::decode(payload_closed, sizeof(payload_closed));
+  TEST_ASSERT(dec_closed.has_value(), "12B0 closed decoded");
+  TEST_ASSERT(dec_closed->zone_index == 2, "Zone index is 2");
+  TEST_ASSERT(dec_closed->window_open == false, "Window is closed");
+}
+
+void test_ufh_bounds_22c9() {
+  std::cout << "\n--- Testing Opcode 0x22C9 (UFH Setpoint Bounds) ---\n";
+  // 00 01F4 0E10 01 (00, 5.00C, 36.00C, mode=1)
+  const uint8_t payload[] = {0x00, 0x01, 0xF4, 0x0E, 0x10, 0x01};
+  auto dec = UfhSetpointBoundsPayload::decode(payload, sizeof(payload));
+  TEST_ASSERT(dec.has_value(), "22C9 UFH bounds decoded");
+  TEST_ASSERT(dec->ufh_index == 0, "UFH index is 0");
+  TEST_ASSERT(dec->min_temp.has_value() &&
+                  std::abs(*dec->min_temp - 5.0f) < 0.01f,
+              "Min temp is 5.00 C");
+  TEST_ASSERT(dec->max_temp.has_value() &&
+                  std::abs(*dec->max_temp - 36.0f) < 0.01f,
+              "Max temp is 36.00 C");
+  TEST_ASSERT(dec->mode_code == 1, "Mode code is 1 (Heat)");
+}
+
+void test_actuator_state_3ef0_3b00() {
+  std::cout << "\n--- Testing Opcode 0x3EF0 & 0x3B00 (Actuator State) ---\n";
+  // 3EF0 50% modulation: [0x00, 0x64, 0xFF] (100 / 200 = 50%)
+  const uint8_t payload_3ef0[] = {0x00, 0x64, 0xFF};
+  auto dec_3ef0 =
+      ActuatorStatePayload::decode(payload_3ef0, sizeof(payload_3ef0), 0x3EF0);
+  TEST_ASSERT(dec_3ef0.has_value(), "3EF0 actuator decoded");
+  TEST_ASSERT(std::abs(dec_3ef0->modulation_percent - 50.0f) < 0.1f,
+              "3EF0 modulation is 50.0%");
+  TEST_ASSERT(dec_3ef0->relay_active == true, "3EF0 relay is active");
+
+  // 3B00 sync: [0xFC, 0xC8] (200 / 200 = 100%)
+  const uint8_t payload_3b00[] = {0xFC, 0xC8};
+  auto dec_3b00 =
+      ActuatorStatePayload::decode(payload_3b00, sizeof(payload_3b00), 0x3B00);
+  TEST_ASSERT(dec_3b00.has_value(), "3B00 actuator decoded");
+  TEST_ASSERT(std::abs(dec_3b00->modulation_percent - 100.0f) < 0.1f,
+              "3B00 modulation is 100.0%");
+  TEST_ASSERT(dec_3b00->relay_active == true, "3B00 relay is active");
+}
+
+void test_fault_log_0418() {
+  std::cout << "\n--- Testing Opcode 0x0418 (System Fault Log) ---\n";
+  const uint8_t payload[] = {0x01, 0x00, 0x42};
+  auto dec = SystemFaultLogPayload::decode(payload, sizeof(payload), 0x0418);
+  TEST_ASSERT(dec.has_value(), "0418 fault log decoded");
+  TEST_ASSERT(dec->log_index == 1, "Log index is 1");
+  TEST_ASSERT(dec->fault_code == 0x42, "Fault code is 0x42");
+  TEST_ASSERT(dec->is_fault == true, "Fault flag is true");
+}
+
+void test_spider_temperatures_4e01() {
+  std::cout
+      << "\n--- Testing Opcode 0x4E01 (Spider Autotemp Temperatures) ---\n";
+  // 00 0834 00 (00, 21.00C, 00)
+  const uint8_t payload[] = {0x00, 0x08, 0x34, 0x00};
+  auto dec = SpiderTemperaturesPayload::decode(payload, sizeof(payload));
+  TEST_ASSERT(dec.has_value(), "4E01 Spider decoded");
+  TEST_ASSERT(dec->primary_temp.has_value() &&
+                  std::abs(*dec->primary_temp - 21.0f) < 0.01f,
+              "Spider temp is 21.00 C");
+}
+
 int main() {
   std::cout << "========================================\n";
   std::cout << "Running Ramses Opcode Codecs & Edge Cases Unit Tests\n";
@@ -457,6 +565,12 @@ int main() {
   test_heat_demand_codec_3150();
   test_zone_name_codec_0004();
   test_hvac_fan_codec_22f1();
+  test_hvac_telemetry_31da();
+  test_window_contact_12b0();
+  test_ufh_bounds_22c9();
+  test_actuator_state_3ef0_3b00();
+  test_fault_log_0418();
+  test_spider_temperatures_4e01();
   test_filter_and_battery_codecs();
   test_air_quality_12a0_edge_cases();
   test_opentherm_and_dhw_codecs();

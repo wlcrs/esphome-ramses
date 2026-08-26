@@ -99,6 +99,62 @@ void RamsesSensor::on_message(const ramses_esp::RamsesMessage &msg) {
       if (dec.has_value() && dec->is_valid) {
         this->publish_state(dec->temperature);
       }
+    } else if (opcode == 0x31DA) {
+      auto dec =
+          ramses_esp::HvacTelemetryPayload::decode(msg.payload, msg.n_payload);
+      if (dec.has_value() && dec->outdoor_temp.has_value()) {
+        this->publish_state(*dec->outdoor_temp);
+      }
+    }
+    break;
+
+  case RamsesSensorType::SUPPLY_TEMPERATURE:
+    if (opcode == 0x31DA) {
+      auto dec =
+          ramses_esp::HvacTelemetryPayload::decode(msg.payload, msg.n_payload);
+      if (dec.has_value() && dec->supply_temp.has_value()) {
+        this->publish_state(*dec->supply_temp);
+      }
+    }
+    break;
+
+  case RamsesSensorType::EXHAUST_TEMPERATURE:
+    if (opcode == 0x31DA) {
+      auto dec =
+          ramses_esp::HvacTelemetryPayload::decode(msg.payload, msg.n_payload);
+      if (dec.has_value() && dec->exhaust_temp.has_value()) {
+        this->publish_state(*dec->exhaust_temp);
+      }
+    }
+    break;
+
+  case RamsesSensorType::SUPPLY_FAN_SPEED:
+    if (opcode == 0x31DA) {
+      auto dec =
+          ramses_esp::HvacTelemetryPayload::decode(msg.payload, msg.n_payload);
+      if (dec.has_value() && dec->supply_fan_speed.has_value()) {
+        this->publish_state(*dec->supply_fan_speed);
+      }
+    }
+    break;
+
+  case RamsesSensorType::EXHAUST_FAN_SPEED:
+    if (opcode == 0x31DA) {
+      auto dec =
+          ramses_esp::HvacTelemetryPayload::decode(msg.payload, msg.n_payload);
+      if (dec.has_value() && dec->exhaust_fan_speed.has_value()) {
+        this->publish_state(*dec->exhaust_fan_speed);
+      }
+    }
+    break;
+
+  case RamsesSensorType::REMAINING_MINS:
+    if (opcode == 0x31DA) {
+      auto dec =
+          ramses_esp::HvacTelemetryPayload::decode(msg.payload, msg.n_payload);
+      if (dec.has_value() && dec->remaining_mins.has_value()) {
+        this->publish_state(*dec->remaining_mins);
+      }
     }
     break;
 
@@ -140,6 +196,12 @@ void RamsesSensor::on_message(const ramses_esp::RamsesMessage &msg) {
       if (dec.has_value() && dec->is_valid) {
         this->publish_state(dec->co2_ppm);
       }
+    } else if (opcode == 0x31DA) {
+      auto dec =
+          ramses_esp::HvacTelemetryPayload::decode(msg.payload, msg.n_payload);
+      if (dec.has_value() && dec->co2_ppm.has_value()) {
+        this->publish_state(*dec->co2_ppm);
+      }
     }
     break;
 
@@ -150,6 +212,12 @@ void RamsesSensor::on_message(const ramses_esp::RamsesMessage &msg) {
       if (dec.has_value() && dec->sensor_index == 0 &&
           dec->humidity.has_value()) {
         this->publish_state(*dec->humidity);
+      }
+    } else if (opcode == 0x31DA) {
+      auto dec =
+          ramses_esp::HvacTelemetryPayload::decode(msg.payload, msg.n_payload);
+      if (dec.has_value() && dec->indoor_humidity.has_value()) {
+        this->publish_state(*dec->indoor_humidity);
       }
     }
     break;
@@ -162,6 +230,12 @@ void RamsesSensor::on_message(const ramses_esp::RamsesMessage &msg) {
           dec->humidity.has_value()) {
         this->publish_state(*dec->humidity);
       }
+    } else if (opcode == 0x31DA) {
+      auto dec =
+          ramses_esp::HvacTelemetryPayload::decode(msg.payload, msg.n_payload);
+      if (dec.has_value() && dec->outdoor_humidity.has_value()) {
+        this->publish_state(*dec->outdoor_humidity);
+      }
     }
     break;
 
@@ -172,6 +246,12 @@ void RamsesSensor::on_message(const ramses_esp::RamsesMessage &msg) {
       if (dec.has_value() && dec->temperature.has_value()) {
         this->publish_state(*dec->temperature);
       }
+    } else if (opcode == 0x31DA) {
+      auto dec =
+          ramses_esp::HvacTelemetryPayload::decode(msg.payload, msg.n_payload);
+      if (dec.has_value() && dec->indoor_temp.has_value()) {
+        this->publish_state(*dec->indoor_temp);
+      }
     }
     break;
 
@@ -181,6 +261,12 @@ void RamsesSensor::on_message(const ramses_esp::RamsesMessage &msg) {
                                                             msg.n_payload);
       if (dec.has_value()) {
         this->publish_state(dec->bypass_position);
+      }
+    } else if (opcode == 0x31DA) {
+      auto dec =
+          ramses_esp::HvacTelemetryPayload::decode(msg.payload, msg.n_payload);
+      if (dec.has_value() && dec->bypass_position.has_value()) {
+        this->publish_state(*dec->bypass_position);
       }
     }
     break;
@@ -254,6 +340,63 @@ void RamsesSensor::on_message(const ramses_esp::RamsesMessage &msg) {
       }
     }
     break;
+
+  case RamsesSensorType::ACTUATOR_MODULATION:
+    if (opcode == 0x3EF0 || opcode == 0x3EF1 || opcode == 0x3B00) {
+      auto dec = ramses_esp::ActuatorStatePayload::decode(
+          msg.payload, msg.n_payload, opcode);
+      if (dec.has_value()) {
+        this->publish_state(dec->modulation_percent);
+      }
+    }
+    break;
+
+  case RamsesSensorType::UFH_MIN_TEMP:
+    if (opcode == 0x22C9 || opcode == 0x2209) {
+      auto dec = ramses_esp::UfhSetpointBoundsPayload::decode(msg.payload,
+                                                              msg.n_payload);
+      if (dec.has_value() && dec->min_temp.has_value()) {
+        if (!this->zone_index_.has_value() ||
+            dec->ufh_index == *this->zone_index_) {
+          this->publish_state(*dec->min_temp);
+        }
+      }
+    }
+    break;
+
+  case RamsesSensorType::UFH_MAX_TEMP:
+    if (opcode == 0x22C9 || opcode == 0x2209) {
+      auto dec = ramses_esp::UfhSetpointBoundsPayload::decode(msg.payload,
+                                                              msg.n_payload);
+      if (dec.has_value() && dec->max_temp.has_value()) {
+        if (!this->zone_index_.has_value() ||
+            dec->ufh_index == *this->zone_index_) {
+          this->publish_state(*dec->max_temp);
+        }
+      }
+    }
+    break;
+
+  case RamsesSensorType::SPIDER_TEMPERATURE:
+    if (opcode == 0x4E01 || opcode == 0x4E02) {
+      auto dec = ramses_esp::SpiderTemperaturesPayload::decode(msg.payload,
+                                                               msg.n_payload);
+      if (dec.has_value() && dec->primary_temp.has_value()) {
+        this->publish_state(*dec->primary_temp);
+      }
+    }
+    break;
+
+  case RamsesSensorType::FAULT_CODE:
+    if (opcode == 0x0418 || opcode == 0x042F || opcode == 0x0009 ||
+        opcode == 0x4401) {
+      auto dec = ramses_esp::SystemFaultLogPayload::decode(
+          msg.payload, msg.n_payload, opcode);
+      if (dec.has_value()) {
+        this->publish_state(dec->fault_code);
+      }
+    }
+    break;
   }
 }
 
@@ -297,18 +440,34 @@ void RamsesBinarySensor::on_message(const ramses_esp::RamsesMessage &msg) {
       if (dec.has_value()) {
         this->publish_state(dec->fault_active);
       }
+    } else if (opcode == 0x0418 || opcode == 0x0009 || opcode == 0x4401) {
+      auto dec = ramses_esp::SystemFaultLogPayload::decode(
+          msg.payload, msg.n_payload, opcode);
+      if (dec.has_value()) {
+        this->publish_state(dec->is_fault);
+      }
     }
     break;
 
   case RamsesBinarySensorType::WINDOW_OPEN:
     if (opcode == 0x12B0) {
       auto dec =
-          ramses_esp::ContactSensorPayload::decode(msg.payload, msg.n_payload);
+          ramses_esp::WindowStatePayload::decode(msg.payload, msg.n_payload);
       if (dec.has_value()) {
         if (!this->zone_index_.has_value() ||
             dec->zone_index == *this->zone_index_) {
-          this->publish_state(dec->is_open);
+          this->publish_state(dec->window_open);
         }
+      }
+    }
+    break;
+
+  case RamsesBinarySensorType::ACTUATOR_RELAY:
+    if (opcode == 0x3EF0 || opcode == 0x3EF1 || opcode == 0x3B00) {
+      auto dec = ramses_esp::ActuatorStatePayload::decode(
+          msg.payload, msg.n_payload, opcode);
+      if (dec.has_value()) {
+        this->publish_state(dec->relay_active);
       }
     }
     break;

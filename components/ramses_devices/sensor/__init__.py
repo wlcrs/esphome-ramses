@@ -28,6 +28,11 @@ SENSOR_TYPES = {
     "temperature": RamsesSensorType.ZONE_TEMPERATURE,
     "setpoint": RamsesSensorType.ZONE_SETPOINT,
     "outdoor_temperature": RamsesSensorType.OUTDOOR_TEMPERATURE,
+    "supply_temperature": RamsesSensorType.SUPPLY_TEMPERATURE,
+    "exhaust_temperature": RamsesSensorType.EXHAUST_TEMPERATURE,
+    "supply_fan_speed": RamsesSensorType.SUPPLY_FAN_SPEED,
+    "exhaust_fan_speed": RamsesSensorType.EXHAUST_FAN_SPEED,
+    "remaining_mins": RamsesSensorType.REMAINING_MINS,
     "heat_demand": RamsesSensorType.HEAT_DEMAND,
     "relay_demand": RamsesSensorType.RELAY_DEMAND,
     "co2": RamsesSensorType.CO2,
@@ -42,7 +47,13 @@ SENSOR_TYPES = {
     "flow_temperature": RamsesSensorType.OPENTHERM_FLOW_TEMP,
     "return_temperature": RamsesSensorType.OPENTHERM_RETURN_TEMP,
     "battery_level": RamsesSensorType.BATTERY_LEVEL,
+    "actuator_modulation": RamsesSensorType.ACTUATOR_MODULATION,
+    "ufh_min_temp": RamsesSensorType.UFH_MIN_TEMP,
+    "ufh_max_temp": RamsesSensorType.UFH_MAX_TEMP,
+    "spider_temperature": RamsesSensorType.SPIDER_TEMPERATURE,
+    "fault_code": RamsesSensorType.FAULT_CODE,
 }
+
 
 CONFIG_SCHEMA = (
     sensor.sensor_schema(RamsesSensor)

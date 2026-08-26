@@ -562,6 +562,8 @@ DiscoveredDevice &RamsesDiscoveryComponent::get_or_create_device(
   case 29:
     dev.device_type = "hvac";
     dev.is_hvac = true;
+    dev.hvac_scheme = ramses_esp::HvacScheme::HOPPER;
+    dev.oem_name = "hopper";
     break;
   default:
     dev.device_type = "other";
@@ -722,6 +724,49 @@ void RamsesDiscoveryComponent::process_hvac_packet(
                dev.address.to_string().c_str(), (unsigned)dec->speed_percent,
                ramses_esp::fan_preset_to_string(dec->preset_mode));
     }
+  } else if (opcode == 0x22F3) {
+    auto dec = ramses_esp::FanBoostPayload::decode(msg.payload, msg.n_payload);
+    if (dec.has_value()) {
+      dev.last_telemetry["fan_speed"] = 100.0f;
+      dev.last_telemetry["timer_minutes"] = static_cast<float>(dec->minutes);
+      ESP_LOGI(TAG, "HVAC Unit %s Fan Boost Timer: %u min (Speed: 100%%)",
+               dev.address.to_string().c_str(), (unsigned)dec->minutes);
+    }
+  } else if (opcode == 0x31DA) {
+    auto dec =
+        ramses_esp::HvacTelemetryPayload::decode(msg.payload, msg.n_payload);
+    if (dec.has_value()) {
+      if (dec->supply_temp.has_value())
+        dev.last_telemetry["supply_temperature"] = *dec->supply_temp;
+      if (dec->exhaust_temp.has_value())
+        dev.last_telemetry["exhaust_temperature"] = *dec->exhaust_temp;
+      if (dec->indoor_temp.has_value())
+        dev.last_telemetry["indoor_temperature"] = *dec->indoor_temp;
+      if (dec->outdoor_temp.has_value())
+        dev.last_telemetry["outdoor_temperature"] = *dec->outdoor_temp;
+      if (dec->bypass_position.has_value())
+        dev.last_telemetry["bypass_position"] = *dec->bypass_position;
+      if (dec->supply_fan_speed.has_value())
+        dev.last_telemetry["supply_fan_speed"] = *dec->supply_fan_speed;
+      if (dec->exhaust_fan_speed.has_value())
+        dev.last_telemetry["exhaust_fan_speed"] = *dec->exhaust_fan_speed;
+      if (dec->indoor_humidity.has_value())
+        dev.last_telemetry["indoor_humidity"] = *dec->indoor_humidity;
+      if (dec->outdoor_humidity.has_value())
+        dev.last_telemetry["outdoor_humidity"] = *dec->outdoor_humidity;
+      if (dec->co2_ppm.has_value())
+        dev.last_telemetry["co2"] = static_cast<float>(*dec->co2_ppm);
+      if (dec->remaining_mins.has_value())
+        dev.last_telemetry["timer_minutes"] =
+            static_cast<float>(*dec->remaining_mins);
+      ESP_LOGI(TAG,
+               "HVAC Unit %s Telemetry: Supply=%.1f°C, Exhaust=%.1f°C, "
+               "Indoor=%.1f°C, Bypass=%.0f%%",
+               dev.address.to_string().c_str(), dec->supply_temp.value_or(0.0f),
+               dec->exhaust_temp.value_or(0.0f),
+               dec->indoor_temp.value_or(0.0f),
+               dec->bypass_position.value_or(0.0f));
+    }
   } else if (opcode == 0x1298) {
     auto dec = ramses_esp::Co2SensorPayload::decode(msg.payload, msg.n_payload);
     if (dec.has_value()) {
@@ -780,6 +825,48 @@ void RamsesDiscoveryComponent::process_sensor_packet(
                                                              msg.n_payload);
     if (dec.has_value() && dec->is_valid) {
       dev.last_telemetry["outdoor_temperature"] = dec->temperature;
+    }
+  } else if (opcode == 0x1060) {
+    auto dec =
+        ramses_esp::DeviceBatteryPayload::decode(msg.payload, msg.n_payload);
+    if (dec.has_value()) {
+      dev.last_telemetry["battery_level"] = dec->battery_percent;
+      ESP_LOGI(TAG, "Device %s Battery: %u%% (Low: %s)",
+               dev.address.to_string().c_str(), (unsigned)dec->battery_percent,
+               dec->battery_low ? "YES" : "NO");
+    }
+  } else if (opcode == 0x12B0) {
+    auto dec =
+        ramses_esp::WindowStatePayload::decode(msg.payload, msg.n_payload);
+    if (dec.has_value()) {
+      dev.last_telemetry["window_open"] = dec->window_open ? 1.0f : 0.0f;
+    }
+  } else if (opcode == 0x22C9 || opcode == 0x2209) {
+    auto dec = ramses_esp::UfhSetpointBoundsPayload::decode(msg.payload,
+                                                            msg.n_payload);
+    if (dec.has_value()) {
+      if (dec->min_temp.has_value())
+        dev.last_telemetry["ufh_min_temp"] = *dec->min_temp;
+      if (dec->max_temp.has_value())
+        dev.last_telemetry["ufh_max_temp"] = *dec->max_temp;
+    }
+  } else if (opcode == 0x3EF0 || opcode == 0x3EF1 || opcode == 0x3B00) {
+    auto dec = ramses_esp::ActuatorStatePayload::decode(msg.payload,
+                                                        msg.n_payload, opcode);
+    if (dec.has_value()) {
+      dev.last_telemetry["actuator_modulation"] = dec->modulation_percent;
+    }
+  } else if (opcode == 0x0418 || opcode == 0x0009 || opcode == 0x4401) {
+    auto dec = ramses_esp::SystemFaultLogPayload::decode(msg.payload,
+                                                         msg.n_payload, opcode);
+    if (dec.has_value()) {
+      dev.last_telemetry["fault_code"] = static_cast<float>(dec->fault_code);
+    }
+  } else if (opcode == 0x4E01 || opcode == 0x4E02) {
+    auto dec = ramses_esp::SpiderTemperaturesPayload::decode(msg.payload,
+                                                             msg.n_payload);
+    if (dec.has_value() && dec->primary_temp.has_value()) {
+      dev.last_telemetry["spider_temperature"] = *dec->primary_temp;
     }
   }
 }
@@ -904,6 +991,42 @@ std::string RamsesDiscoveryComponent::generate_device_yaml(
     ss << "sensor:\n";
     ss << "  - platform: ramses_devices\n";
     ss << "    ramses_esp_id: ramses_hub\n";
+    ss << "    type: supply_temperature\n";
+    ss << "    name: \"Ventilation Supply Temperature\"\n";
+    ss << "    ramses_address: \"" << addr_str << "\"\n\n";
+
+    ss << "  - platform: ramses_devices\n";
+    ss << "    ramses_esp_id: ramses_hub\n";
+    ss << "    type: exhaust_temperature\n";
+    ss << "    name: \"Ventilation Exhaust Temperature\"\n";
+    ss << "    ramses_address: \"" << addr_str << "\"\n\n";
+
+    ss << "  - platform: ramses_devices\n";
+    ss << "    ramses_esp_id: ramses_hub\n";
+    ss << "    type: air_quality_temperature\n";
+    ss << "    name: \"Ventilation Indoor Temperature\"\n";
+    ss << "    ramses_address: \"" << addr_str << "\"\n\n";
+
+    ss << "  - platform: ramses_devices\n";
+    ss << "    ramses_esp_id: ramses_hub\n";
+    ss << "    type: bypass_position\n";
+    ss << "    name: \"Ventilation Bypass Position\"\n";
+    ss << "    ramses_address: \"" << addr_str << "\"\n\n";
+
+    ss << "  - platform: ramses_devices\n";
+    ss << "    ramses_esp_id: ramses_hub\n";
+    ss << "    type: supply_fan_speed\n";
+    ss << "    name: \"Ventilation Supply Fan Speed\"\n";
+    ss << "    ramses_address: \"" << addr_str << "\"\n\n";
+
+    ss << "  - platform: ramses_devices\n";
+    ss << "    ramses_esp_id: ramses_hub\n";
+    ss << "    type: exhaust_fan_speed\n";
+    ss << "    name: \"Ventilation Exhaust Fan Speed\"\n";
+    ss << "    ramses_address: \"" << addr_str << "\"\n\n";
+
+    ss << "  - platform: ramses_devices\n";
+    ss << "    ramses_esp_id: ramses_hub\n";
     ss << "    type: filter_remaining_days\n";
     ss << "    name: \"Ventilation Filter Remaining Days\"\n";
     ss << "    ramses_address: \"" << addr_str << "\"\n\n";
@@ -914,6 +1037,7 @@ std::string RamsesDiscoveryComponent::generate_device_yaml(
     ss << "    type: filter_alarm\n";
     ss << "    name: \"Ventilation Filter Dirty Warning\"\n";
     ss << "    ramses_address: \"" << addr_str << "\"\n\n";
+
   } else if (dev.device_type == "remote") {
     ss << "# Discovered RF Remote Control: " << addr_str << "\n";
     if (!dev.associated_target.empty()) {
@@ -1254,7 +1378,11 @@ std::string RamsesDiscoveryComponent::generate_yaml() const {
 
 void RamsesDiscoveryComponent::dump_yaml() const {
   std::string yaml = this->generate_yaml();
-  ESP_LOGI(TAG, "\n%s", yaml.c_str());
+  std::istringstream stream(yaml);
+  std::string line;
+  while (std::getline(stream, line)) {
+    ESP_LOGI(TAG, "%s", line.c_str());
+  }
 }
 
 } // namespace ramses_discovery

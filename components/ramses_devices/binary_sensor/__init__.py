@@ -32,7 +32,9 @@ BINARY_SENSOR_TYPES = {
     "window_open": RamsesBinarySensorType.WINDOW_OPEN,
     "bypass_active": RamsesBinarySensorType.BYPASS_ACTIVE,
     "battery_low": RamsesBinarySensorType.BATTERY_LOW,
+    "actuator_relay": RamsesBinarySensorType.ACTUATOR_RELAY,
 }
+
 
 CONFIG_SCHEMA = (
     binary_sensor.binary_sensor_schema(RamsesBinarySensor)

@@ -37,6 +37,16 @@ enum class RamsesSensorType {
   OPENTHERM_FLOW_TEMP,
   OPENTHERM_RETURN_TEMP,
   BATTERY_LEVEL,
+  SUPPLY_TEMPERATURE,
+  EXHAUST_TEMPERATURE,
+  SUPPLY_FAN_SPEED,
+  EXHAUST_FAN_SPEED,
+  REMAINING_MINS,
+  ACTUATOR_MODULATION,
+  UFH_MIN_TEMP,
+  UFH_MAX_TEMP,
+  SPIDER_TEMPERATURE,
+  FAULT_CODE,
 };
 
 class RamsesSensor : public sensor::Sensor, public Component {
@@ -75,6 +85,7 @@ enum class RamsesBinarySensorType {
   WINDOW_OPEN,
   BYPASS_ACTIVE,
   BATTERY_LOW,
+  ACTUATOR_RELAY,
 };
 
 class RamsesBinarySensor : public binary_sensor::BinarySensor,

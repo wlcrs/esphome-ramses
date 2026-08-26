@@ -416,8 +416,15 @@ struct FanPresetEntry {
 static constexpr FanPresetEntry ORCON_PRESETS[] = {
     {FanPresetMode::AWAY, 15, 0x00},   {FanPresetMode::LOW, 33, 0x01},
     {FanPresetMode::MEDIUM, 66, 0x02}, {FanPresetMode::HIGH, 100, 0x03},
-    {FanPresetMode::AUTO, 50, 0x05},   {FanPresetMode::AUTO, 50, 0x04},
+    {FanPresetMode::AUTO, 50, 0x04},   {FanPresetMode::AUTO, 50, 0x05},
     {FanPresetMode::BOOST, 100, 0x06}, {FanPresetMode::OFF, 0, 0x07},
+};
+
+static constexpr FanPresetEntry HOPPER_PRESETS[] = {
+    {FanPresetMode::AWAY, 15, 0x00},   {FanPresetMode::AWAY, 15, 0x01},
+    {FanPresetMode::LOW, 33, 0x02},    {FanPresetMode::MEDIUM, 66, 0x03},
+    {FanPresetMode::AUTO, 50, 0x04},   {FanPresetMode::AUTO, 50, 0x05},
+    {FanPresetMode::BOOST, 100, 0x06}, {FanPresetMode::HIGH, 100, 0x07},
 };
 
 static constexpr FanPresetEntry VASCO_ZEHNDER_PRESETS[] = {
@@ -435,6 +442,8 @@ static constexpr FanPresetEntry ITHO_PRESETS[] = {
 static inline std::span<const FanPresetEntry>
 get_fan_preset_table(HvacScheme scheme) {
   switch (scheme) {
+  case HvacScheme::HOPPER:
+    return HOPPER_PRESETS;
   case HvacScheme::VASCO:
   case HvacScheme::ZEHNDER:
     return VASCO_ZEHNDER_PRESETS;
@@ -544,7 +553,97 @@ RamsesMessage FanBoostPayload::encode_write(const RamsesAddress &src,
 }
 
 // ----------------------------------------------------------------------
+// Opcode 0x31DA: Comprehensive HVAC Status & Telemetry
+// ramses_rf reference: ramses_rf/payloads/hvac.py:HvacTelemetryPayload
+// ----------------------------------------------------------------------
+static inline std::optional<float> parse_hvac_temp(int16_t raw) {
+  if (raw == RAMSES_TEMP_SENTINEL_INVALID ||
+      raw == RAMSES_TEMP_SENTINEL_DISABLED ||
+      static_cast<uint16_t>(raw) == 0x31FF) {
+    return std::nullopt;
+  }
+  return static_cast<float>(raw) / 100.0f;
+}
+
+std::optional<HvacTelemetryPayload>
+HvacTelemetryPayload::decode(const uint8_t *payload, size_t len) {
+  if (payload == nullptr || len < 18)
+    return std::nullopt;
+
+  HvacTelemetryPayload res;
+  res.hvac_id = payload[0];
+
+  // CO2 [3..4] (0x7FFF = null)
+  if (len >= 5) {
+    uint16_t co2 = (static_cast<uint16_t>(payload[3]) << 8) | payload[4];
+    if (co2 != 0x7FFF)
+      res.co2_ppm = co2;
+  }
+
+  // Indoor Humidity [5] (0xEF = null)
+  if (len >= 6 && payload[5] != 0xEF && payload[5] != 0x00 &&
+      payload[5] <= 100) {
+    res.indoor_humidity = static_cast<float>(payload[5]);
+  }
+
+  // Outdoor Humidity [6] (0xEF = null)
+  if (len >= 7 && payload[6] != 0xEF && payload[6] != 0x00 &&
+      payload[6] <= 100) {
+    res.outdoor_humidity = static_cast<float>(payload[6]);
+  }
+
+  // Exhaust Temp [7..8]
+  if (len >= 9) {
+    int16_t raw = (static_cast<int16_t>(payload[7]) << 8) | payload[8];
+    res.exhaust_temp = parse_hvac_temp(raw);
+  }
+
+  // Supply Temp [9..10]
+  if (len >= 11) {
+    int16_t raw = (static_cast<int16_t>(payload[9]) << 8) | payload[10];
+    res.supply_temp = parse_hvac_temp(raw);
+  }
+
+  // Indoor Temp [11..12]
+  if (len >= 13) {
+    int16_t raw = (static_cast<int16_t>(payload[11]) << 8) | payload[12];
+    res.indoor_temp = parse_hvac_temp(raw);
+  }
+
+  // Outdoor Temp [13..14]
+  if (len >= 15) {
+    int16_t raw = (static_cast<int16_t>(payload[13]) << 8) | payload[14];
+    res.outdoor_temp = parse_hvac_temp(raw);
+  }
+
+  // Bypass Position [17] (scaled by 200.0, 0xEF = null)
+  if (len >= 18 && payload[17] != 0xEF) {
+    res.bypass_position = static_cast<float>(payload[17]) / 2.0f;
+  }
+
+  // Supply Fan Speed & Exhaust Fan Speed [19, 20] (scaled by 200.0, 0xFF =
+  // null)
+  if (len >= 21 && payload[19] != 0xFF) {
+    res.supply_fan_speed = static_cast<float>(payload[19]) / 2.0f;
+  }
+  if (len >= 22 && payload[20] != 0xFF) {
+    res.exhaust_fan_speed = static_cast<float>(payload[20]) / 2.0f;
+  }
+
+  // Remaining Minutes [21..22]
+  if (len >= 23) {
+    uint16_t rem = (static_cast<uint16_t>(payload[21]) << 8) | payload[22];
+    if (rem != 0x3FFF && rem != 0xFFFF) {
+      res.remaining_mins = rem;
+    }
+  }
+
+  return res;
+}
+
+// ----------------------------------------------------------------------
 // Opcode 0x10A0 / 0x22E5: Ventilation Info & Bypass Damper
+
 // ramses_rf reference: ramses_rf/payloads/hvac.py:VentilationPayload
 // ----------------------------------------------------------------------
 using VentilationInfoFmt = binary::Struct<"!BB">;
@@ -628,17 +727,138 @@ using DeviceBatteryFmt = binary::Struct<"!BB">;
 
 std::optional<DeviceBatteryPayload>
 DeviceBatteryPayload::decode(const uint8_t *payload, size_t len) {
-  auto fields = DeviceBatteryFmt::unpack(payload, len);
-  if (!fields)
+  if (payload == nullptr || len < DeviceBatteryFmt::size)
     return std::nullopt;
 
-  auto [domain_or_device, battery_pct] = *fields;
+  auto [dom, raw_val] = *DeviceBatteryFmt::unpack(payload, len);
   DeviceBatteryPayload res;
-  res.domain_or_device = domain_or_device;
-  res.battery_percent = battery_pct;
-  if (len >= 3) {
-    res.battery_low = (payload[2] == 0x00 || battery_pct < 20);
+  res.domain_or_device = dom;
+  if (raw_val != 0xFF) {
+    res.battery_percent = (raw_val > 100) ? 100 : raw_val;
   }
+  if (len >= 3) {
+    res.battery_low = (payload[2] == 0x00 || res.battery_percent < 20);
+  } else {
+    res.battery_low = (res.battery_percent < 20);
+  }
+  return res;
+}
+
+// ----------------------------------------------------------------------
+// Opcode 0x12B0: Window / Door Contact State
+// ramses_rf reference: ramses_rf/payloads/hvac.py:WindowStatePayload
+// ----------------------------------------------------------------------
+using WindowStateFmt = binary::Struct<"!BB">;
+
+std::optional<WindowStatePayload>
+WindowStatePayload::decode(const uint8_t *payload, size_t len) {
+  if (payload == nullptr || len < WindowStateFmt::size)
+    return std::nullopt;
+
+  auto [zone_idx, open_flag] = *WindowStateFmt::unpack(payload, len);
+  WindowStatePayload res;
+  res.zone_index = zone_idx;
+  res.window_open = (open_flag != 0);
+  return res;
+}
+
+// ----------------------------------------------------------------------
+// Opcode 0x22C9 / 0x2209: UFH / Setpoint Bounds
+// ramses_rf reference: ramses_rf/payloads/hvac.py:SetpointBoundsPayload
+// ----------------------------------------------------------------------
+using UfhBoundsFmt = binary::Struct<"!BhhB">;
+
+std::optional<UfhSetpointBoundsPayload>
+UfhSetpointBoundsPayload::decode(const uint8_t *payload, size_t len) {
+  if (payload == nullptr || len < UfhBoundsFmt::size)
+    return std::nullopt;
+
+  auto [idx, raw_min, raw_max, mode] = *UfhBoundsFmt::unpack(payload, len);
+  UfhSetpointBoundsPayload res;
+  res.ufh_index = idx;
+  res.min_temp = parse_hvac_temp(raw_min);
+  res.max_temp = parse_hvac_temp(raw_max);
+  res.mode_code = mode;
+  return res;
+}
+
+// ----------------------------------------------------------------------
+// Opcode 0x3EF0 / 0x3EF1 / 0x3B00: Actuator Modulation & Sync State
+// ramses_rf reference: ramses_rf/payloads/heating.py:ActuatorStatePayload
+// ----------------------------------------------------------------------
+std::optional<ActuatorStatePayload>
+ActuatorStatePayload::decode(const uint8_t *payload, size_t len,
+                             uint16_t opcode) {
+  if (payload == nullptr || len < 2)
+    return std::nullopt;
+
+  ActuatorStatePayload res;
+  res.domain_id = payload[0];
+
+  if (opcode == 0x3B00) {
+    uint8_t sync_flag = payload[1];
+    res.relay_active = (sync_flag > 0);
+    res.modulation_level = static_cast<float>(sync_flag) / 200.0f;
+    res.modulation_percent = (res.modulation_level > 1.0f)
+                                 ? 100.0f
+                                 : (res.modulation_level * 100.0f);
+    return res;
+  }
+
+  // 3EF0 / 3EF1: [0]=domain, [1]=modulation (0..200), [2]=flags
+  uint8_t raw_mod = payload[1];
+  res.modulation_level = static_cast<float>(raw_mod) / 200.0f;
+  if (res.modulation_level > 1.0f)
+    res.modulation_level = 1.0f;
+  res.modulation_percent = res.modulation_level * 100.0f;
+  res.relay_active = (raw_mod > 0);
+
+  return res;
+}
+
+// ----------------------------------------------------------------------
+// Opcode 0x0418 / 0x042F / 0x0009 / 0x4401: System Fault Log
+// ramses_rf reference: ramses_rf/payloads/system.py:SystemFaultLogPayload
+// ----------------------------------------------------------------------
+std::optional<SystemFaultLogPayload>
+SystemFaultLogPayload::decode(const uint8_t *payload, size_t len,
+                              uint16_t opcode) {
+  if (payload == nullptr || len < 2)
+    return std::nullopt;
+
+  SystemFaultLogPayload res;
+  res.log_index = payload[0];
+  res.domain_id = (len >= 3) ? payload[1] : 0;
+  res.fault_code = (len >= 3) ? payload[2] : payload[1];
+  res.is_fault = (res.fault_code != 0);
+
+  return res;
+}
+
+// ----------------------------------------------------------------------
+// Opcode 0x4E01 / 0x4E02: Spider / Autotemp Dutch Smart Thermostat
+// ramses_rf reference: ramses_rf/payloads/hvac.py:HvacSpiderTemperaturesPayload
+// ----------------------------------------------------------------------
+std::optional<SpiderTemperaturesPayload>
+SpiderTemperaturesPayload::decode(const uint8_t *payload, size_t len) {
+  if (payload == nullptr || len < 4)
+    return std::nullopt;
+
+  SpiderTemperaturesPayload res;
+  res.hdr = payload[0];
+
+  // Temp payload between hdr (byte 0) and trailer (last byte)
+  for (size_t i = 1; i + 1 < len; i += 2) {
+    int16_t raw_t = (static_cast<int16_t>(payload[i]) << 8) | payload[i + 1];
+    auto parsed = parse_hvac_temp(raw_t);
+    if (parsed.has_value()) {
+      res.temperatures.push_back(*parsed);
+      if (!res.primary_temp.has_value()) {
+        res.primary_temp = *parsed;
+      }
+    }
+  }
+
   return res;
 }
 
