@@ -47,6 +47,9 @@ jobs:
       - name: Run Full ramses_rf Regression Corpus
         run: uv run --with ramses-rf python tests/test_parity_corpus.py
 
+      - name: Run Native Semantic Corpus Parity
+        run: uv run --with ramses-rf python tests/test_parity_corpus_native.py
+
   esphome-compile:
     name: ESPHome ESP-IDF Firmware Compilation
     runs-on: ubuntu-latest

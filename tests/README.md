@@ -94,6 +94,12 @@ the active environment. The native C++ parity target can be run independently wi
 uv run python tests/test_parity_corpus.py
 ```
 
+Run the native semantic bridge over the subset with:
+
+```bash
+uv run python tests/test_parity_corpus_native.py
+```
+
 ### ESPHome Example Validation
 ```bash
 python3 tests/validate_examples.py

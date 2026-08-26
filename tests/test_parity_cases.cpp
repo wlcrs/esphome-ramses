@@ -195,6 +195,13 @@ void run_parity_fixture(const std::string &fixture_path) {
                   "System sync remaining value matches expected");
       TEST_ASSERT(has_json_key(block, "system_mode") && system_mode_to_string(dec->mode) == extract_json_str(block, "system_mode"),
                   "System mode matches expected");
+    } else if (expected_opcode == "2E04") {
+      auto dec = SystemModePayload::decode(msg.payload, msg.n_payload);
+      TEST_ASSERT(dec.has_value(), "Decoded system mode payload");
+      TEST_ASSERT(has_json_key(block, "system_mode_raw") && dec->mode_raw == extract_json_int(block, "system_mode_raw"),
+                  "System mode raw value matches expected");
+      TEST_ASSERT(has_json_key(block, "system_mode") && system_mode_to_string(dec->mode) == extract_json_str(block, "system_mode"),
+                  "System mode matches expected");
     } else if (expected_opcode == "0004") {
       std::string exp_name = extract_json_str(block, "zone_name");
       auto dec = ZoneNamePayload::decode(msg.payload, msg.n_payload);

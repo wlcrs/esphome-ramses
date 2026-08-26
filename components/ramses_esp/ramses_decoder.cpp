@@ -649,6 +649,16 @@ std::optional<OutdoorTemperaturePayload> OutdoorTemperaturePayload::decode(const
   if (payload == nullptr || len < 2) return std::nullopt;
 
   OutdoorTemperaturePayload res;
+  if (len >= 3 && payload[0] == 0x00) {
+    if (payload[1] == 0x80) return res;
+    if (payload[2] == 0x01) {
+      res.temperature = static_cast<float>(payload[1]) / 2.0f;
+    } else {
+      res.temperature = std::round((static_cast<float>(payload[1]) - 32.0f) * 5.0f / 9.0f * 100.0f) / 100.0f;
+    }
+    res.is_valid = true;
+    return res;
+  }
   int16_t raw_t = static_cast<int16_t>((static_cast<uint16_t>(payload[0]) << 8) | payload[1]);
   res.is_valid = parse_temperature_raw(raw_t, res.temperature);
   return res;

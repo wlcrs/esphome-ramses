@@ -314,6 +314,12 @@ void test_opentherm_and_dhw_codecs() {
   TEST_ASSERT(ot_temp_dec->flow_temp.has_value(), "Flow temp present");
   TEST_ASSERT(std::abs(*ot_temp_dec->flow_temp - 55.50f) < 0.01f, "Flow temp is 55.50 C");
 
+  uint8_t legacy_outdoor[] = {0x00, 45, 0x01};
+  auto legacy_outdoor_dec = OutdoorTemperaturePayload::decode(legacy_outdoor, sizeof(legacy_outdoor));
+  TEST_ASSERT(legacy_outdoor_dec.has_value() && legacy_outdoor_dec->is_valid &&
+                  std::abs(legacy_outdoor_dec->temperature - 22.5f) < 0.01f,
+              "Legacy 12C0 outdoor temperature decoded");
+
   // DHW temp: [0x00, 0x14, 0x50] = 52.00 C
   uint8_t dhw_payload[] = {0x00, 0x14, 0x50};
   auto dhw_dec = DhwStatePayload::decode_temp(dhw_payload, sizeof(dhw_payload));
