@@ -22,24 +22,27 @@ static inline bool parse_temperature_raw(int16_t raw, float &out_temp) {
 // Opcode 0x30C9: Temperature Telemetry
 // ramses_rf reference: ramses_rf/payloads/heating.py:TemperaturePayload / parse_30c9()
 // ----------------------------------------------------------------------
+using TemperatureSingleFmt = binary::Struct<"!h">;
+using TemperatureZoneFmt = binary::Struct<"!Bh">;
+
 std::optional<TemperaturePayload> TemperaturePayload::decode(const uint8_t *payload, size_t len) {
-  if (payload == nullptr || len < 2) return std::nullopt;
+  if (payload == nullptr || len < TemperatureSingleFmt::size) return std::nullopt;
 
   TemperaturePayload res;
-  if (len == 2) {
+  if (len == TemperatureSingleFmt::size) {
     ZoneTemperatureItem item;
     item.zone_index = 0;
-    int16_t raw_temp = static_cast<int16_t>((static_cast<uint16_t>(payload[0]) << 8) | payload[1]);
+    auto [raw_temp] = *TemperatureSingleFmt::unpack(payload, len);
     item.is_valid = parse_temperature_raw(raw_temp, item.temperature);
     res.zones.push_back(item);
     return res;
   }
 
-  // Multi-zone arrays: each zone item is 3 bytes: [zone_index (1B), temp_hi (1B), temp_lo (1B)]
-  for (size_t i = 0; i + 3 <= len; i += 3) {
+  // Multi-zone arrays: each zone item is 3 bytes: [zone_index (1B), temp (2B signed BE int)]
+  for (size_t i = 0; i + TemperatureZoneFmt::size <= len; i += TemperatureZoneFmt::size) {
+    auto [zone_idx, raw_temp] = *TemperatureZoneFmt::unpack(payload + i, TemperatureZoneFmt::size);
     ZoneTemperatureItem item;
-    item.zone_index = payload[i];
-    int16_t raw_temp = static_cast<int16_t>((static_cast<uint16_t>(payload[i + 1]) << 8) | payload[i + 2]);
+    item.zone_index = zone_idx;
     item.is_valid = parse_temperature_raw(raw_temp, item.temperature);
     res.zones.push_back(item);
   }
@@ -50,14 +53,17 @@ std::optional<TemperaturePayload> TemperaturePayload::decode(const uint8_t *payl
 // Opcode 0x2309: Zone Setpoints
 // ramses_rf reference: ramses_rf/payloads/heating.py:SetpointPayload
 // ----------------------------------------------------------------------
+using SetpointFmt = binary::Struct<"!Bh">;
+
 std::optional<SetpointPayload> SetpointPayload::decode(const uint8_t *payload, size_t len) {
-  if (payload == nullptr || len < 3) return std::nullopt;
+  if (payload == nullptr || len < SetpointFmt::size) return std::nullopt;
 
   SetpointPayload res;
-  for (size_t i = 0; i + 3 <= len; i += 3) {
+  for (size_t i = 0; i + SetpointFmt::size <= len; i += SetpointFmt::size) {
+    auto [zone_idx, raw_sp] = *SetpointFmt::unpack(payload + i, SetpointFmt::size);
+
     ZoneSetpointItem item;
-    item.zone_index = payload[i];
-    int16_t raw_sp = static_cast<int16_t>((static_cast<uint16_t>(payload[i + 1]) << 8) | payload[i + 2]);
+    item.zone_index = zone_idx;
     item.is_valid = parse_temperature_raw(raw_sp, item.setpoint);
     res.zones.push_back(item);
   }
@@ -72,11 +78,8 @@ RamsesMessage SetpointPayload::encode_write(const RamsesAddress &src, const Rams
   dst.to_bytes(msg.addr[1]);
   msg.opcode[0] = 0x23;
   msg.opcode[1] = 0x09;
-  msg.len = msg.n_payload = 3;
-  msg.payload[0] = zone_index;
   int16_t raw_sp = static_cast<int16_t>(std::round(setpoint * 100.0f));
-  msg.payload[1] = (raw_sp >> 8) & 0xFF;
-  msg.payload[2] = raw_sp & 0xFF;
+  msg.len = msg.n_payload = SetpointFmt::pack(msg.payload, zone_index, raw_sp);
   return msg;
 }
 
@@ -110,11 +113,14 @@ SystemMode system_mode_from_string(const std::string &str) {
   return SystemMode::UNKNOWN;
 }
 
+using SystemModeFmt = binary::Struct<"!B">;
+
 std::optional<SystemModePayload> SystemModePayload::decode(const uint8_t *payload, size_t len) {
-  if (payload == nullptr || len < 1) return std::nullopt;
+  if (payload == nullptr || len < SystemModeFmt::size) return std::nullopt;
 
   SystemModePayload res;
-  res.mode_raw = payload[0];
+  auto [mode_raw] = *SystemModeFmt::unpack(payload, len);
+  res.mode_raw = mode_raw;
   res.mode = SystemMode::UNKNOWN;
   switch (res.mode_raw) {
     case 0: res.mode = SystemMode::AUTO; break;
@@ -138,15 +144,19 @@ RamsesMessage SystemModePayload::encode_write(const RamsesAddress &src, const Ra
   msg.opcode[0] = 0x2E;
   msg.opcode[1] = 0x04;
   msg.len = msg.n_payload = 8;
-  msg.payload[0] = static_cast<uint8_t>(mode);
+  SystemModeFmt::pack(msg.payload, static_cast<uint8_t>(mode));
   return msg;
 }
 
+using SystemSync1Fmt = binary::Struct<"!B">;
+using SystemSync3Fmt = binary::Struct<"!BH">;
+
 std::optional<SystemSyncPayload> SystemSyncPayload::decode(const uint8_t *payload, size_t len) {
-  if (payload == nullptr || len < 1) return std::nullopt;
+  if (payload == nullptr || len < SystemSync1Fmt::size) return std::nullopt;
 
   SystemSyncPayload res;
-  res.mode_raw = payload[0];
+  auto [mode_raw] = *SystemSync1Fmt::unpack(payload, len);
+  res.mode_raw = mode_raw;
   switch (res.mode_raw) {
     case 0: res.mode = SystemMode::AUTO; break;
     case 1: res.mode = SystemMode::AWAY; break;
@@ -157,8 +167,9 @@ std::optional<SystemSyncPayload> SystemSyncPayload::decode(const uint8_t *payloa
     default: res.mode = SystemMode::UNKNOWN; break;
   }
 
-  if (len >= 3) {
-    res.remaining_raw = (static_cast<uint16_t>(payload[1]) << 8) | payload[2];
+  if (len >= SystemSync3Fmt::size) {
+    auto [mode, remaining] = *SystemSync3Fmt::unpack(payload, len);
+    res.remaining_raw = remaining;
   }
   return res;
 }
@@ -171,8 +182,7 @@ RamsesMessage SystemSyncPayload::encode_write(const RamsesAddress &src, const Ra
   dst.to_bytes(msg.addr[1]);
   msg.opcode[0] = 0x1F;
   msg.opcode[1] = 0x09;
-  msg.len = msg.n_payload = 1;
-  msg.payload[0] = static_cast<uint8_t>(mode);
+  msg.len = msg.n_payload = SystemSync1Fmt::pack(msg.payload, static_cast<uint8_t>(mode));
   return msg;
 }
 
@@ -180,13 +190,17 @@ RamsesMessage SystemSyncPayload::encode_write(const RamsesAddress &src, const Ra
 // Opcode 0x3150: Heat Demand
 // ramses_rf reference: ramses_rf/payloads/heating.py:HeatDemandPayload
 // ----------------------------------------------------------------------
-std::optional<HeatDemandPayload> HeatDemandPayload::decode(const uint8_t *payload, size_t len) {
-  if (payload == nullptr || len < 2) return std::nullopt;
+using HeatDemandFmt = binary::Struct<"!BB">;
 
+std::optional<HeatDemandPayload> HeatDemandPayload::decode(const uint8_t *payload, size_t len) {
+  auto fields = HeatDemandFmt::unpack(payload, len);
+  if (!fields) return std::nullopt;
+
+  auto [zone, demand_raw] = *fields;
   HeatDemandPayload res;
-  res.domain_or_zone_index = payload[0];
+  res.domain_or_zone_index = zone;
   // Value 0..200 maps to 0.0%..100.0%
-  res.demand_percent = (static_cast<float>(payload[1]) / 200.0f) * 100.0f;
+  res.demand_percent = (static_cast<float>(demand_raw) / 200.0f) * 100.0f;
   return res;
 }
 
@@ -194,11 +208,15 @@ std::optional<HeatDemandPayload> HeatDemandPayload::decode(const uint8_t *payloa
 // Opcode 0x0004: Zone Name
 // ramses_rf reference: ramses_rf/payloads/heating.py:ZoneNamePayload (ZoneName22BPayload)
 // ----------------------------------------------------------------------
-std::optional<ZoneNamePayload> ZoneNamePayload::decode(const uint8_t *payload, size_t len) {
-  if (payload == nullptr || len < 3) return std::nullopt;
+using ZoneNameHeaderFmt = binary::Struct<"!BB">;
+using ZoneNameQueryFmt = binary::Struct<"!B">;
 
+std::optional<ZoneNamePayload> ZoneNamePayload::decode(const uint8_t *payload, size_t len) {
+  if (payload == nullptr || len < ZoneNameHeaderFmt::size + 1) return std::nullopt;
+
+  auto [zone_idx, flag] = *ZoneNameHeaderFmt::unpack(payload, len);
   ZoneNamePayload res;
-  res.zone_index = payload[0];
+  res.zone_index = zone_idx;
   // 22B layout: [index (1B), flag (1B), ASCII chars up to 20B]
   size_t name_len = (len >= 22) ? 20 : (len - 2);
   const char *raw_chars = reinterpret_cast<const char *>(&payload[2]);
@@ -220,8 +238,7 @@ RamsesMessage ZoneNamePayload::encode_query(const RamsesAddress &src, const Rams
   dst.to_bytes(msg.addr[1]);
   msg.opcode[0] = 0x00;
   msg.opcode[1] = 0x04;
-  msg.len = msg.n_payload = 1;
-  msg.payload[0] = zone_index;
+  msg.len = msg.n_payload = ZoneNameQueryFmt::pack(msg.payload, zone_index);
   return msg;
 }
 
@@ -229,12 +246,17 @@ RamsesMessage ZoneNamePayload::encode_query(const RamsesAddress &src, const Rams
 // Opcode 0x0005: Zone Structure
 // ramses_rf reference: ramses_rf/payloads/heating.py:ZoneStructurePayload
 // ----------------------------------------------------------------------
-std::optional<ZoneStructurePayload> ZoneStructurePayload::decode(const uint8_t *payload, size_t len) {
-  if (payload == nullptr || len < 3) return std::nullopt;
+using ZoneStructureFmt = binary::Struct<"!BH">;
+using ZoneStructureQueryFmt = binary::Struct<"!B">;
 
+std::optional<ZoneStructurePayload> ZoneStructurePayload::decode(const uint8_t *payload, size_t len) {
+  auto fields = ZoneStructureFmt::unpack(payload, len);
+  if (!fields) return std::nullopt;
+
+  auto [zone_type, active_mask] = *fields;
   ZoneStructurePayload res;
-  res.zone_type = payload[0];
-  res.active_zone_mask = (static_cast<uint16_t>(payload[1]) << 8) | payload[2];
+  res.zone_type = zone_type;
+  res.active_zone_mask = active_mask;
   if (len >= 4) {
     res.zone_count = payload[3];
   } else {
@@ -255,8 +277,7 @@ RamsesMessage ZoneStructurePayload::encode_query(const RamsesAddress &src, const
   dst.to_bytes(msg.addr[1]);
   msg.opcode[0] = 0x00;
   msg.opcode[1] = 0x05;
-  msg.len = msg.n_payload = 1;
-  msg.payload[0] = 0x00;
+  msg.len = msg.n_payload = ZoneStructureQueryFmt::pack(msg.payload, 0x00);
   return msg;
 }
 
@@ -264,15 +285,18 @@ RamsesMessage ZoneStructurePayload::encode_query(const RamsesAddress &src, const
 // Opcode 0x000C: Zone Role Bindings
 // ramses_rf reference: ramses_rf/payloads/heating.py:ZoneRolePayload
 // ----------------------------------------------------------------------
+using ZoneRoleItemHeaderFmt = binary::Struct<"!BB">;
+
 std::optional<ZoneRolePayload> ZoneRolePayload::decode(const uint8_t *payload, size_t len) {
   if (payload == nullptr || len < 5) return std::nullopt;
 
   ZoneRolePayload res;
   // Each entry is 5 bytes: [zone_idx (1B), role (1B), addr_bytes (3B)]
   for (size_t i = 0; i + 5 <= len; i += 5) {
+    auto [zone_idx, role] = *ZoneRoleItemHeaderFmt::unpack(payload + i, 2);
     ZoneRoleBindingItem item;
-    item.zone_index = payload[i];
-    item.role = payload[i + 1];
+    item.zone_index = zone_idx;
+    item.role = role;
     item.device_address = RamsesAddress::from_bytes(&payload[i + 2]);
     res.bindings.push_back(item);
   }
@@ -296,11 +320,17 @@ const char *fan_preset_to_string(FanPresetMode mode) {
   }
 }
 
+using FanStateFmt = binary::Struct<"!BB">;
+using FanState3Fmt = binary::Struct<"!BBB">;
+
 std::optional<FanStatePayload> FanStatePayload::decode(const uint8_t *payload, size_t len, HvacScheme scheme) {
-  if (payload == nullptr || len < 2) return std::nullopt;
+  auto fields = FanStateFmt::unpack(payload, len);
+  if (!fields) return std::nullopt;
+
+  auto [hdr, raw_mode] = *fields;
 
   FanStatePayload res;
-  res.raw_mode = payload[1];
+  res.raw_mode = raw_mode;
 
   switch (scheme) {
     case HvacScheme::ORCON:
@@ -356,8 +386,6 @@ RamsesMessage FanStatePayload::encode_write(const RamsesAddress &src, const Rams
   dst.to_bytes(msg.addr[1]);
   msg.opcode[0] = 0x22;
   msg.opcode[1] = 0xF1;
-  msg.len = msg.n_payload = 3;
-  msg.payload[0] = 0x00;
 
   uint8_t mode_byte = 0x00;
   switch (scheme) {
@@ -399,18 +427,21 @@ RamsesMessage FanStatePayload::encode_write(const RamsesAddress &src, const Rams
       break;
   }
 
-  msg.payload[1] = mode_byte;
-  msg.payload[2] = 0xFF;
+  msg.len = msg.n_payload = FanState3Fmt::pack(msg.payload, 0x00, mode_byte, 0xFF);
   return msg;
 }
 
-std::optional<FanBoostPayload> FanBoostPayload::decode(const uint8_t *payload, size_t len) {
-  if (payload == nullptr || len < 3) return std::nullopt;
+using FanBoostFmt = binary::Struct<"!BBB">;
 
+std::optional<FanBoostPayload> FanBoostPayload::decode(const uint8_t *payload, size_t len) {
+  auto fields = FanBoostFmt::unpack(payload, len);
+  if (!fields) return std::nullopt;
+
+  auto [header, flags, minutes] = *fields;
   FanBoostPayload res;
-  res.header = payload[0];
-  res.flags = payload[1];
-  res.minutes = payload[2];
+  res.header = header;
+  res.flags = flags;
+  res.minutes = minutes;
   if (res.flags & 0x40) res.minutes = static_cast<uint16_t>(res.minutes * 60);
   return res;
 }
@@ -423,15 +454,17 @@ RamsesMessage FanBoostPayload::encode_write(const RamsesAddress &src, const Rams
   dst.to_bytes(msg.addr[1]);
   msg.opcode[0] = 0x22;
   msg.opcode[1] = 0xF3;
-  msg.len = msg.n_payload = 3;
-  msg.payload[0] = 0x00;
+
+  uint8_t flags = 0x00;
+  uint8_t min_byte = 0;
   if (minutes > 255 && minutes % 60 == 0 && minutes / 60 <= 255) {
-    msg.payload[1] = 0x40;
-    msg.payload[2] = static_cast<uint8_t>(minutes / 60);
+    flags = 0x40;
+    min_byte = static_cast<uint8_t>(minutes / 60);
   } else {
-    msg.payload[1] = 0x00;
-    msg.payload[2] = static_cast<uint8_t>(std::min<uint16_t>(minutes, 255));
+    flags = 0x00;
+    min_byte = static_cast<uint8_t>(std::min<uint16_t>(minutes, static_cast<uint16_t>(255)));
   }
+  msg.len = msg.n_payload = FanBoostFmt::pack(msg.payload, 0x00, flags, min_byte);
   return msg;
 }
 
@@ -439,13 +472,17 @@ RamsesMessage FanBoostPayload::encode_write(const RamsesAddress &src, const Rams
 // Opcode 0x10A0 / 0x22E5: Ventilation Info & Bypass Damper
 // ramses_rf reference: ramses_rf/payloads/hvac.py:VentilationPayload
 // ----------------------------------------------------------------------
-std::optional<VentilationInfoPayload> VentilationInfoPayload::decode(const uint8_t *payload, size_t len) {
-  if (payload == nullptr || len < 2) return std::nullopt;
+using VentilationInfoFmt = binary::Struct<"!BB">;
 
+std::optional<VentilationInfoPayload> VentilationInfoPayload::decode(const uint8_t *payload, size_t len) {
+  auto fields = VentilationInfoFmt::unpack(payload, len);
+  if (!fields) return std::nullopt;
+
+  auto [bypass_pos, status_flags] = *fields;
   VentilationInfoPayload res;
-  res.bypass_position = payload[0];
+  res.bypass_position = bypass_pos;
   res.bypass_active = (res.bypass_position > 0);
-  res.filter_dirty = (payload[1] & 0x01) != 0;
+  res.filter_dirty = (status_flags & 0x01) != 0;
   return res;
 }
 
@@ -453,26 +490,28 @@ std::optional<VentilationInfoPayload> VentilationInfoPayload::decode(const uint8
 // Opcode 0x12A0: Multi-Sensor Array (Air Quality, Humidity, Temps)
 // ramses_rf reference: ramses_rf/payloads/hvac.py:AirQualityPayload & ramses_rf/quirks.py
 // ----------------------------------------------------------------------
+using AirQuality2Fmt = binary::Struct<"!BB">;
+using AirQuality4Fmt = binary::Struct<"!BBh">;
+
 std::optional<AirQualityPayload> AirQualityPayload::decode(const uint8_t *payload, size_t len) {
-  if (payload == nullptr || len < 2) return std::nullopt;
+  if (payload == nullptr || len < AirQuality2Fmt::size) return std::nullopt;
 
   AirQualityPayload res;
-  res.sensor_index = payload[0];
-
-  if (len == 2) {
-    if (payload[1] <= 100) res.humidity = static_cast<float>(payload[1]);
+  if (len == AirQuality2Fmt::size) {
+    auto [s_idx, hum] = *AirQuality2Fmt::unpack(payload, len);
+    res.sensor_index = s_idx;
+    if (hum <= 100) res.humidity = static_cast<float>(hum);
     return res;
   }
 
-  if (len < 4) return std::nullopt;
-  
-  // Humidity is payload[1] (0..100%)
-  if (payload[1] <= 100) {
-    res.humidity = static_cast<float>(payload[1]);
+  if (len < AirQuality4Fmt::size) return std::nullopt;
+
+  auto [s_idx, hum, raw_t] = *AirQuality4Fmt::unpack(payload, len);
+  res.sensor_index = s_idx;
+  if (hum <= 100) {
+    res.humidity = static_cast<float>(hum);
   }
 
-  // Temperature is payload[2..3] fixed point 0.01 C
-  int16_t raw_t = static_cast<int16_t>((static_cast<uint16_t>(payload[2]) << 8) | payload[3]);
   float t_val = 0.0f;
   if (parse_temperature_raw(raw_t, t_val)) {
     res.temperature = t_val;
@@ -485,14 +524,18 @@ std::optional<AirQualityPayload> AirQualityPayload::decode(const uint8_t *payloa
 // Opcode 0x10D0: Filter Life Remaining
 // ramses_rf reference: ramses_rf/payloads/hvac.py:FilterInfoPayload
 // ----------------------------------------------------------------------
+using FilterFmt = binary::Struct<"!xBBB">;
+
 std::optional<FilterInfoPayload> FilterInfoPayload::decode(const uint8_t *payload, size_t len) {
-  if (payload == nullptr || len < 4) return std::nullopt;
+  auto fields = FilterFmt::unpack(payload, len);
+  if (!fields) return std::nullopt;
+
+  auto [remaining_days, total_days, raw_pct] = *fields;
 
   FilterInfoPayload res;
-  // 6-byte layout: [hdr (1B), remaining_days (1B), total_days (1B), remaining_pct_raw (1B), trailer (2B)]
-  res.remaining_days = payload[1];
-  res.lifetime_days = payload[2];
-  res.remaining_percent = (static_cast<float>(payload[3]) / 200.0f) * 100.0f;
+  res.remaining_days = remaining_days;
+  res.lifetime_days = total_days;
+  res.remaining_percent = (static_cast<float>(raw_pct) / 200.0f) * 100.0f;
   return res;
 }
 
@@ -500,14 +543,18 @@ std::optional<FilterInfoPayload> FilterInfoPayload::decode(const uint8_t *payloa
 // Opcode 0x1060: Device Battery & State
 // ramses_rf reference: ramses_rf/payloads/helpers.py
 // ----------------------------------------------------------------------
-std::optional<DeviceBatteryPayload> DeviceBatteryPayload::decode(const uint8_t *payload, size_t len) {
-  if (payload == nullptr || len < 2) return std::nullopt;
+using DeviceBatteryFmt = binary::Struct<"!BB">;
 
+std::optional<DeviceBatteryPayload> DeviceBatteryPayload::decode(const uint8_t *payload, size_t len) {
+  auto fields = DeviceBatteryFmt::unpack(payload, len);
+  if (!fields) return std::nullopt;
+
+  auto [domain_or_device, battery_pct] = *fields;
   DeviceBatteryPayload res;
-  res.domain_or_device = payload[0];
-  res.battery_percent = payload[1];
+  res.domain_or_device = domain_or_device;
+  res.battery_percent = battery_pct;
   if (len >= 3) {
-    res.battery_low = (payload[2] == 0x00 || payload[1] < 20);
+    res.battery_low = (payload[2] == 0x00 || battery_pct < 20);
   }
   return res;
 }
@@ -516,6 +563,8 @@ std::optional<DeviceBatteryPayload> DeviceBatteryPayload::decode(const uint8_t *
 // Opcode 0x10E0: Device Info & OEM Signature
 // ramses_rf reference: ramses_rf/protocol/fingerprints.py & binding_fsm.py
 // ----------------------------------------------------------------------
+using DeviceInfoQueryFmt = binary::Struct<"!B">;
+
 std::optional<DeviceInfoPayload> DeviceInfoPayload::decode(const uint8_t *payload, size_t len) {
   if (payload == nullptr || len < 1) return std::nullopt;
 
@@ -537,8 +586,7 @@ RamsesMessage DeviceInfoPayload::encode_query(const RamsesAddress &src, const Ra
   dst.to_bytes(msg.addr[1]);
   msg.opcode[0] = 0x10;
   msg.opcode[1] = 0xE0;
-  msg.len = msg.n_payload = 1;
-  msg.payload[0] = 0x00;
+  msg.len = msg.n_payload = DeviceInfoQueryFmt::pack(msg.payload, 0x00);
   return msg;
 }
 
@@ -546,13 +594,19 @@ RamsesMessage DeviceInfoPayload::encode_query(const RamsesAddress &src, const Ra
 // Opcode 0x3220: OpenTherm Telemetry
 // ramses_rf reference: ramses_rf/payloads/opentherm.py:OpenthermPayload
 // ----------------------------------------------------------------------
+using OpenThermFmt = binary::Struct<"!BB">;
+
 std::optional<OpenThermPayload> OpenThermPayload::decode(const uint8_t *payload, size_t len) {
   if (payload == nullptr || len < 3) return std::nullopt;
 
+  auto fields = OpenThermFmt::unpack(payload, len);
+  if (!fields) return std::nullopt;
+
+  auto [msg_id, status] = *fields;
   OpenThermPayload res;
-  res.msg_id = payload[0];
-  res.flame_active = (payload[1] & 0x08) != 0;
-  res.fault_active = (payload[1] & 0x01) != 0;
+  res.msg_id = msg_id;
+  res.flame_active = (status & 0x08) != 0;
+  res.fault_active = (status & 0x01) != 0;
 
   if (len >= 5) {
     uint8_t data_id = payload[2];
@@ -585,11 +639,15 @@ std::optional<OpenThermPayload> OpenThermPayload::decode(const uint8_t *payload,
 // Opcode 0x1260 / 0x1F41: DHW State & Setpoints
 // ramses_rf reference: ramses_rf/payloads/dhw.py:DhwStatePayload & DhwTempPayload
 // ----------------------------------------------------------------------
-std::optional<DhwStatePayload> DhwStatePayload::decode_temp(const uint8_t *payload, size_t len) {
-  if (payload == nullptr || len < 3) return std::nullopt;
+using DhwSetpointFmt = binary::Struct<"!Bh">;
+using DhwModeFmt = binary::Struct<"!BBBBBB">;
 
+std::optional<DhwStatePayload> DhwStatePayload::decode_temp(const uint8_t *payload, size_t len) {
+  auto fields = DhwSetpointFmt::unpack(payload, len);
+  if (!fields) return std::nullopt;
+
+  auto [zone_idx, raw_t] = *fields;
   DhwStatePayload res;
-  int16_t raw_t = static_cast<int16_t>((static_cast<uint16_t>(payload[1]) << 8) | payload[2]);
   res.current_temp_valid = parse_temperature_raw(raw_t, res.current_temp);
   return res;
 }
@@ -614,16 +672,12 @@ RamsesMessage DhwStatePayload::encode_write_setpoint(const RamsesAddress &src, c
   dst.to_bytes(msg.addr[1]);
   msg.opcode[0] = 0x12;
   msg.opcode[1] = 0x60;
-  msg.len = msg.n_payload = 3;
-  msg.payload[0] = 0x00; // DHW zone index
   int16_t raw_sp = static_cast<int16_t>(std::round(setpoint * 100.0f));
-  msg.payload[1] = (raw_sp >> 8) & 0xFF;
-  msg.payload[2] = raw_sp & 0xFF;
+  msg.len = msg.n_payload = DhwSetpointFmt::pack(msg.payload, 0x00, raw_sp);
   return msg;
 }
 
-RamsesMessage DhwStatePayload::encode_write_mode(const RamsesAddress &src, const RamsesAddress &dst,
-                                                 OperationMode mode) {
+RamsesMessage DhwStatePayload::encode_write_mode(const RamsesAddress &src, const RamsesAddress &dst, OperationMode mode) {
   RamsesMessage msg;
   msg.type = RAMSES_MSG_W;
   msg.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR1;
@@ -631,13 +685,9 @@ RamsesMessage DhwStatePayload::encode_write_mode(const RamsesAddress &src, const
   dst.to_bytes(msg.addr[1]);
   msg.opcode[0] = 0x1F;
   msg.opcode[1] = 0x41;
-  msg.len = msg.n_payload = 6;
-  msg.payload[0] = 0x00;
-  msg.payload[1] = mode == OperationMode::FOLLOW_SCHEDULE ? 0xFF : mode == OperationMode::PERMANENT_ON ? 0x01 : 0x00;
-  msg.payload[2] = mode == OperationMode::FOLLOW_SCHEDULE ? 0x00 : mode == OperationMode::TEMPORARY_ON ? 0x04 : 0x02;
-  msg.payload[3] = 0xFF;
-  msg.payload[4] = 0xFF;
-  msg.payload[5] = 0xFF;
+  uint8_t p1 = mode == OperationMode::FOLLOW_SCHEDULE ? 0xFF : mode == OperationMode::PERMANENT_ON ? 0x01 : 0x00;
+  uint8_t p2 = mode == OperationMode::FOLLOW_SCHEDULE ? 0x00 : mode == OperationMode::TEMPORARY_ON ? 0x04 : 0x02;
+  msg.len = msg.n_payload = DhwModeFmt::pack(msg.payload, 0x00, p1, p2, 0xFF, 0xFF, 0xFF);
   return msg;
 }
 
@@ -645,21 +695,25 @@ RamsesMessage DhwStatePayload::encode_write_mode(const RamsesAddress &src, const
 // Opcode 0x12C0: Outdoor Temperature
 // ramses_rf reference: ramses_rf/payloads/heating.py:OutdoorTempPayload
 // ----------------------------------------------------------------------
+using OutdoorTemp3Fmt = binary::Struct<"!BBB">;
+using OutdoorTemp2Fmt = binary::Struct<"!h">;
+
 std::optional<OutdoorTemperaturePayload> OutdoorTemperaturePayload::decode(const uint8_t *payload, size_t len) {
-  if (payload == nullptr || len < 2) return std::nullopt;
+  if (payload == nullptr || len < OutdoorTemp2Fmt::size) return std::nullopt;
 
   OutdoorTemperaturePayload res;
-  if (len >= 3 && payload[0] == 0x00) {
-    if (payload[1] == 0x80) return res;
-    if (payload[2] == 0x01) {
-      res.temperature = static_cast<float>(payload[1]) / 2.0f;
+  if (len >= OutdoorTemp3Fmt::size && payload[0] == 0x00) {
+    auto [hdr, val, scale] = *OutdoorTemp3Fmt::unpack(payload, len);
+    if (val == 0x80) return res;
+    if (scale == 0x01) {
+      res.temperature = static_cast<float>(val) / 2.0f;
     } else {
-      res.temperature = std::round((static_cast<float>(payload[1]) - 32.0f) * 5.0f / 9.0f * 100.0f) / 100.0f;
+      res.temperature = std::round((static_cast<float>(val) - 32.0f) * 5.0f / 9.0f * 100.0f) / 100.0f;
     }
     res.is_valid = true;
     return res;
   }
-  int16_t raw_t = static_cast<int16_t>((static_cast<uint16_t>(payload[0]) << 8) | payload[1]);
+  auto [raw_t] = *OutdoorTemp2Fmt::unpack(payload, len);
   res.is_valid = parse_temperature_raw(raw_t, res.temperature);
   return res;
 }
@@ -668,15 +722,19 @@ std::optional<OutdoorTemperaturePayload> OutdoorTemperaturePayload::decode(const
 // Opcode 0x1298: CO2 Sensor Telemetry
 // ramses_rf reference: ramses_rf/payloads/hvac.py:Co2Payload
 // ----------------------------------------------------------------------
+using Co2Sensor2Fmt = binary::Struct<"!H">;
+using Co2Sensor3Fmt = binary::Struct<"!xH">;
+
 std::optional<Co2SensorPayload> Co2SensorPayload::decode(const uint8_t *payload, size_t len) {
-  if (payload == nullptr || len < 2) return std::nullopt;
+  if (payload == nullptr || len < Co2Sensor2Fmt::size) return std::nullopt;
 
   Co2SensorPayload res;
-  // 2-byte or 3-byte variants
-  if (len == 2) {
-    res.co2_ppm = (static_cast<uint16_t>(payload[0]) << 8) | payload[1];
+  if (len == Co2Sensor2Fmt::size) {
+    auto [ppm] = *Co2Sensor2Fmt::unpack(payload, len);
+    res.co2_ppm = ppm;
   } else {
-    res.co2_ppm = (static_cast<uint16_t>(payload[1]) << 8) | payload[2];
+    auto [ppm] = *Co2Sensor3Fmt::unpack(payload, len);
+    res.co2_ppm = ppm;
   }
   res.is_valid = (res.co2_ppm < 0x7FFF);
   return res;
@@ -686,13 +744,17 @@ std::optional<Co2SensorPayload> Co2SensorPayload::decode(const uint8_t *payload,
 // Opcode 0x0008: Relay / Actuator Demand
 // ramses_rf reference: ramses_rf/payloads/heating.py:RelayDemandPayload
 // ----------------------------------------------------------------------
-std::optional<RelayDemandPayload> RelayDemandPayload::decode(const uint8_t *payload, size_t len) {
-  if (payload == nullptr || len < 2) return std::nullopt;
+using RelayDemandFmt = binary::Struct<"!BB">;
 
+std::optional<RelayDemandPayload> RelayDemandPayload::decode(const uint8_t *payload, size_t len) {
+  auto fields = RelayDemandFmt::unpack(payload, len);
+  if (!fields) return std::nullopt;
+
+  auto [relay_idx, demand_raw] = *fields;
   RelayDemandPayload res;
-  res.relay_index = payload[0];
-  res.demand_percent = (static_cast<float>(payload[1]) / 200.0f) * 100.0f;
-  res.is_active = (payload[1] > 0);
+  res.relay_index = relay_idx;
+  res.demand_percent = (static_cast<float>(demand_raw) / 200.0f) * 100.0f;
+  res.is_active = (demand_raw > 0);
   return res;
 }
 
@@ -700,12 +762,16 @@ std::optional<RelayDemandPayload> RelayDemandPayload::decode(const uint8_t *payl
 // Opcode 0x12B0: Window / Door Contact Sensor
 // ramses_rf reference: ramses_rf/payloads/heating.py:WindowStatePayload
 // ----------------------------------------------------------------------
-std::optional<ContactSensorPayload> ContactSensorPayload::decode(const uint8_t *payload, size_t len) {
-  if (payload == nullptr || len < 2) return std::nullopt;
+using ContactSensorFmt = binary::Struct<"!BB">;
 
+std::optional<ContactSensorPayload> ContactSensorPayload::decode(const uint8_t *payload, size_t len) {
+  auto fields = ContactSensorFmt::unpack(payload, len);
+  if (!fields) return std::nullopt;
+
+  auto [zone_idx, state] = *fields;
   ContactSensorPayload res;
-  res.zone_index = payload[0];
-  res.is_open = (payload[1] != 0x00);
+  res.zone_index = zone_idx;
+  res.is_open = (state != 0x00);
   return res;
 }
 
@@ -713,12 +779,15 @@ std::optional<ContactSensorPayload> ContactSensorPayload::decode(const uint8_t *
 // Opcode 0x12F0: DHW Flow Rate
 // ramses_rf reference: ramses_rf/payloads/dhw.py:DhwFlowRatePayload
 // ----------------------------------------------------------------------
-std::optional<DhwConfigPayload> DhwConfigPayload::decode(const uint8_t *payload, size_t len) {
-  if (payload == nullptr || len < 3) return std::nullopt;
+using DhwConfigFmt = binary::Struct<"!Bh">;
 
+std::optional<DhwConfigPayload> DhwConfigPayload::decode(const uint8_t *payload, size_t len) {
+  auto fields = DhwConfigFmt::unpack(payload, len);
+  if (!fields) return std::nullopt;
+
+  auto [dhw_idx, raw_flow_rate] = *fields;
   DhwConfigPayload res;
-  res.dhw_index = payload[0];
-  int16_t raw_flow_rate = static_cast<int16_t>((static_cast<uint16_t>(payload[1]) << 8) | payload[2]);
+  res.dhw_index = dhw_idx;
   res.flow_rate = static_cast<float>(raw_flow_rate) / 100.0f;
   return res;
 }
@@ -727,6 +796,8 @@ std::optional<DhwConfigPayload> DhwConfigPayload::decode(const uint8_t *payload,
 // Opcode 0x1FC9: Device Binding & Remote Pairing Handshake
 // ramses_rf reference: ramses_rf/binding_fsm.py
 // ----------------------------------------------------------------------
+using BindingTuple = binary::Struct<"!BH">;
+
 std::optional<BindingPayload> BindingPayload::decode(const RamsesMessage &msg) {
   uint16_t opcode = ((uint16_t)msg.opcode[0] << 8) | msg.opcode[1];
   if (opcode != 0x1FC9) return std::nullopt;
@@ -744,9 +815,10 @@ std::optional<BindingPayload> BindingPayload::decode(const RamsesMessage &msg) {
 
   // Parse 6-byte binding tuples [oem_code (1B), opcode (2B), addr (3B)]
   for (size_t i = 0; i + 6 <= msg.n_payload; i += 6) {
+    auto [oem_code, op_code] = *BindingTuple::unpack(msg.payload + i, 3);
     BindingItem item;
-    item.oem_code = msg.payload[i];
-    item.opcode = (static_cast<uint16_t>(msg.payload[i + 1]) << 8) | msg.payload[i + 2];
+    item.oem_code = oem_code;
+    item.opcode = op_code;
     item.address = RamsesAddress::from_bytes(&msg.payload[i + 3]);
     res.bindings.push_back(item);
   }

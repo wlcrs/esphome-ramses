@@ -6,6 +6,7 @@
 #include <vector>
 #include <optional>
 #include "ramses_message.h"
+#include "struct.h"
 
 namespace esphome {
 namespace ramses_esp {
