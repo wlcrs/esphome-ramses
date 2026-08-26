@@ -102,3 +102,11 @@ binary_sensor:
     type: battery_low
     name: "TRV Battery Low"
     ramses_address: "04:089123"
+
+climate:
+  - platform: ramses_devices
+    ramses_esp_id: ramses_hub
+    name: "Living Room Heating"
+    controller_address: "01:145678"
+    zone_index: 0
+    zone_name: "Living Room"
