@@ -115,6 +115,39 @@ void test_climate_control_tx() {
   preset_call.perform();
   TEST_ASSERT(climate.preset.has_value() && *climate.preset == CLIMATE_PRESET_ECO,
               "ECO preset is applied locally");
+
+  auto combined_call = climate.make_call();
+  combined_call.set_target_temperature(19.5f);
+  combined_call.set_mode(CLIMATE_MODE_OFF);
+  combined_call.set_preset(CLIMATE_PRESET_AWAY);
+  combined_call.perform();
+  TEST_ASSERT(std::abs(climate.target_temperature - 19.5f) < 0.01f,
+              "Combined call updates target temperature");
+  TEST_ASSERT(climate.mode == CLIMATE_MODE_OFF, "Combined call updates mode");
+  TEST_ASSERT(climate.preset.has_value() && *climate.preset == CLIMATE_PRESET_AWAY,
+              "Combined call updates preset");
+}
+
+void test_climate_rx_ignores_other_zones_and_unavailable_values() {
+  std::cout << "\n--- Testing RamsesClimate RX Filtering and Unavailable Values ---\n";
+  RamsesClimate climate;
+  climate.set_controller_address("01:145678");
+  climate.set_zone_index(15);
+
+  RamsesMessage other_zone = parse_msg("045  I --- 01:145678 --:------ 01:145678 30C9 003 000834");
+  climate.on_message(other_zone);
+  TEST_ASSERT(std::isnan(climate.current_temperature), "Other zone temperature is ignored");
+
+  RamsesMessage selected_zone = parse_msg("045  I --- 01:145678 --:------ 01:145678 30C9 048 "
+                                          "0008340108340208340308340408340508340608340708340808340908340A08340B08340C08340D08340E08340F0834");
+  climate.on_message(selected_zone);
+  TEST_ASSERT(std::abs(climate.current_temperature - 21.0f) < 0.01f,
+              "Configured zone temperature is accepted");
+
+  RamsesMessage unavailable = parse_msg("045  I --- 01:145678 --:------ 01:145678 30C9 003 0F7FFF");
+  climate.on_message(unavailable);
+  TEST_ASSERT(std::abs(climate.current_temperature - 21.0f) < 0.01f,
+              "Unavailable temperature preserves the previous state");
 }
 
 int main() {
@@ -125,6 +158,7 @@ int main() {
   test_climate_rx_temperature_and_setpoint();
   test_climate_rx_system_mode_and_demand();
   test_climate_control_tx();
+  test_climate_rx_ignores_other_zones_and_unavailable_values();
 
   std::cout << "\n========================================\n";
   std::cout << "Results: " << tests_passed << "/" << tests_run << " tests passed.\n";
