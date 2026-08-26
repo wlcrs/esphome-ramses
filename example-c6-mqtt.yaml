@@ -45,6 +45,7 @@ time:
 
 # MQTT Client configured for 1-to-1 parity with ramses-mqtt / ramses_esp
 mqtt:
+  id: mqtt_client
   broker: ${mqtt_broker}
   username: ${mqtt_user}
   password: ${mqtt_password}
