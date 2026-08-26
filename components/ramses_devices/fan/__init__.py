@@ -7,6 +7,8 @@ AUTO_LOAD = ["ramses_devices"]
 DEPENDENCIES = ["ramses_esp"]
 
 CONF_SCHEME = "scheme"
+CONF_FAKE_REMOTE_ADDRESS = "fake_remote_address"
+CONF_REMOTE_ADDRESS = "remote_address"
 
 from .. import (
     CONF_DEVICE_ADDRESS,
@@ -34,6 +36,8 @@ CONFIG_SCHEMA = (
             cv.GenerateID(CONF_RAMSES_ESP_ID): cv.use_id(RamsesESPComponent),
             cv.Optional(CONF_DEVICE_ADDRESS): cv.string,
             cv.Optional(CONF_RAMSES_ADDRESS): cv.string,
+            cv.Optional(CONF_FAKE_REMOTE_ADDRESS): cv.string,
+            cv.Optional(CONF_REMOTE_ADDRESS): cv.string,
             cv.Optional(CONF_SCHEME, default="orcon"): cv.enum(HVAC_SCHEMES, lower=True),
         }
     )
@@ -52,6 +56,10 @@ async def to_code(config):
     addr = config.get(CONF_DEVICE_ADDRESS) or config.get(CONF_RAMSES_ADDRESS)
     if addr is not None:
         cg.add(var.set_device_address(addr))
+
+    remote_addr = config.get(CONF_FAKE_REMOTE_ADDRESS) or config.get(CONF_REMOTE_ADDRESS)
+    if remote_addr is not None:
+        cg.add(var.set_fake_remote_address(remote_addr))
 
     if CONF_SCHEME in config:
         cg.add(var.set_scheme(config[CONF_SCHEME]))

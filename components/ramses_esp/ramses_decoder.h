@@ -306,5 +306,26 @@ struct DhwConfigPayload {
   static std::optional<DhwConfigPayload> decode(const uint8_t *payload, size_t len);
 };
 
+// ----------------------------------------------------------------------
+// Opcode 0x1FC9: Device Binding & Remote Pairing Handshake
+// Equivalent to: ramses_rf/binding_fsm.py
+// ----------------------------------------------------------------------
+struct BindingItem {
+  uint8_t oem_code{0};
+  uint16_t opcode{0};
+  RamsesAddress address;
+};
+
+struct BindingPayload {
+  std::vector<BindingItem> bindings;
+  bool is_offer{false};
+  bool is_accept{false};
+  bool is_confirm{false};
+
+  static std::optional<BindingPayload> decode(const RamsesMessage &msg);
+  static RamsesMessage encode_offer(const RamsesAddress &remote_addr, HvacScheme scheme);
+  static RamsesMessage encode_confirm(const RamsesAddress &remote_addr, const RamsesAddress &fan_addr);
+};
+
 } // namespace ramses_esp
 } // namespace esphome

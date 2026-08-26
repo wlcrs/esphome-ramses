@@ -574,5 +574,87 @@ std::optional<DhwConfigPayload> DhwConfigPayload::decode(const uint8_t *payload,
   return res;
 }
 
+// ----------------------------------------------------------------------
+// Opcode 0x1FC9: Device Binding & Remote Pairing Handshake
+// ramses_rf reference: ramses_rf/binding_fsm.py
+// ----------------------------------------------------------------------
+std::optional<BindingPayload> BindingPayload::decode(const RamsesMessage &msg) {
+  uint16_t opcode = ((uint16_t)msg.opcode[0] << 8) | msg.opcode[1];
+  if (opcode != 0x1FC9) return std::nullopt;
+
+  BindingPayload res;
+  if (msg.type == RAMSES_MSG_I) {
+    if (msg.len == 1) {
+      res.is_confirm = true;
+      return res;
+    }
+    res.is_offer = true;
+  } else if (msg.type == RAMSES_MSG_W) {
+    res.is_accept = true;
+  }
+
+  // Parse 6-byte binding tuples [oem_code (1B), opcode (2B), addr (3B)]
+  for (size_t i = 0; i + 6 <= msg.n_payload; i += 6) {
+    BindingItem item;
+    item.oem_code = msg.payload[i];
+    item.opcode = (static_cast<uint16_t>(msg.payload[i + 1]) << 8) | msg.payload[i + 2];
+    item.address = RamsesAddress::from_bytes(&msg.payload[i + 3]);
+    res.bindings.push_back(item);
+  }
+
+  return res;
+}
+
+RamsesMessage BindingPayload::encode_offer(const RamsesAddress &remote_addr, HvacScheme scheme) {
+  RamsesMessage msg;
+  msg.type = RAMSES_MSG_I;
+  msg.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR1;
+  remote_addr.to_bytes(msg.addr[0]);
+
+  // Target: 63:262142 (broadcast)
+  RamsesAddress bcast_addr;
+  bcast_addr.dev_class = 63;
+  bcast_addr.id = 262142;
+  bcast_addr.is_valid = true;
+  bcast_addr.to_bytes(msg.addr[1]);
+
+  msg.opcode[0] = 0x1F;
+  msg.opcode[1] = 0xC9;
+
+  uint8_t oem = 0x67; // Orcon default
+  if (scheme == HvacScheme::ORCON) oem = 0x67;
+  else if (scheme == HvacScheme::VASCO) oem = 0x66;
+  else if (scheme == HvacScheme::ITHO) oem = 0x01;
+  else if (scheme == HvacScheme::ZEHNDER) oem = 0x02;
+
+  uint8_t remote_b[3];
+  remote_addr.to_bytes(remote_b);
+
+  uint8_t p[24] = {
+    0x00, 0x22, 0xF1, remote_b[0], remote_b[1], remote_b[2],
+    0x00, 0x22, 0xF3, remote_b[0], remote_b[1], remote_b[2],
+    oem,  0x10, 0xE0, remote_b[0], remote_b[1], remote_b[2],
+    0x00, 0x1F, 0xC9, remote_b[0], remote_b[1], remote_b[2]
+  };
+
+  msg.len = msg.n_payload = 24;
+  memcpy(msg.payload, p, 24);
+  return msg;
+}
+
+RamsesMessage BindingPayload::encode_confirm(const RamsesAddress &remote_addr, const RamsesAddress &fan_addr) {
+  RamsesMessage msg;
+  msg.type = RAMSES_MSG_I;
+  msg.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR1;
+  remote_addr.to_bytes(msg.addr[0]);
+  fan_addr.to_bytes(msg.addr[1]);
+
+  msg.opcode[0] = 0x1F;
+  msg.opcode[1] = 0xC9;
+  msg.len = msg.n_payload = 1;
+  msg.payload[0] = 0x00;
+  return msg;
+}
+
 } // namespace ramses_esp
 } // namespace esphome
