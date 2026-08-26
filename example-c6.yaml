@@ -33,6 +33,41 @@ wifi:
 
 captive_portal:
 
+# ==============================================================================
+# Optional LED Configuration (RF Activity & Status Indication)
+# ==============================================================================
+# What it does:
+#   Provides visual feedback by flashing the LED whenever a RAMSES II RF frame
+#   is received or transmitted (matching the behavior of the original ramses_esp).
+#
+# Why it is optional:
+#   - Different ESP32 / ESP32-C6 hardware boards route LEDs to different pins.
+#   - For example, the Elecram / IMMRMKW ESP32-C6 board routes the RX/TX LED to GPIO19.
+#   - Standard Espressif ESP32-C6 DevKit boards use GPIO8 for an on-board WS2812 RGB LED.
+#   - If your hardware does not have an LED or uses GPIO19 for another purpose,
+#     you can safely comment out or delete this section.
+# ==============================================================================
+output:
+  - platform: gpio
+    pin: GPIO19
+    id: led_output
+
+light:
+  - platform: binary
+    name: "Activity LED"
+    output: led_output
+    id: activity_led
+    restore_mode: ALWAYS_OFF
+
+# Fast 40ms pulse script triggered on RF packet events
+script:
+  - id: pulse_activity_led
+    mode: restart
+    then:
+      - light.turn_on: activity_led
+      - delay: 40ms
+      - light.turn_off: activity_led
+
 # RAMSES II Transceiver & HGI80 TCP Gateway
 ramses_esp:
   id: ramses_hub
@@ -47,3 +82,6 @@ ramses_esp:
   on_message:
     - lambda: |-
         ESP_LOGD("ramses", "HGI80: %s", x.c_str());
+    # Optional: Flash the activity LED on incoming RAMSES frame
+    - script.execute: pulse_activity_led
+
