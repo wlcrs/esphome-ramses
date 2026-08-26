@@ -50,27 +50,27 @@ This document provides a comprehensive, step-by-step roadmap for implementing na
 └────────────────────────────────────────┬─────────────────────────────────────────┘
                                          │
 ┌────────────────────────────────────────▼─────────────────────────────────────────┐
-│ PHASE 2: Telemetry Sensor & Binary Sensor Platforms (`sensor/binary_sensor.ramses_devices`) │
+│ PHASE 2: Telemetry Sensor & Binary Sensor Platforms (`ramses_devices`)     [DONE] │
 └────────────────────────────────────────┬─────────────────────────────────────────┘
                                          │
 ┌────────────────────────────────────────▼─────────────────────────────────────────┐
-│ PHASE 3: Climate Platform (`climate.ramses_devices` for Evohome / Heating)       │
+│ PHASE 3: Climate Platform (`climate.ramses_devices` for Evohome / Heating) [DONE] │
 └────────────────────────────────────────┬─────────────────────────────────────────┘
                                          │
 ┌────────────────────────────────────────▼─────────────────────────────────────────┐
-│ PHASE 4: Ventilation / Fan Platform (`fan.ramses_devices` for MVHR Units)        │
+│ PHASE 4: Ventilation / Fan Platform (`fan.ramses_devices` for MVHR Units)  [DONE] │
 └────────────────────────────────────────┬─────────────────────────────────────────┘
                                          │
 ┌────────────────────────────────────────▼─────────────────────────────────────────┐
-│ PHASE 5: Domestic Hot Water (`water_heater.ramses_devices`) & OpenTherm Diagnostics │
+│ PHASE 5: Domestic Hot Water (`water_heater.ramses_devices`) & Diagnostics  [DONE] │
 └────────────────────────────────────────┬─────────────────────────────────────────┘
                                          │
 ┌────────────────────────────────────────▼─────────────────────────────────────────┐
-│ PHASE 6: Dedicated Discovery Component (`ramses_discovery`) & YAML Generator     │
+│ PHASE 6: Dedicated Discovery Component (`ramses_discovery`) & Generator   [DONE] │
 └────────────────────────────────────────┬─────────────────────────────────────────┘
                                          │
 ┌────────────────────────────────────────▼─────────────────────────────────────────┐
-│ PHASE 7: End-to-End Dual Parity Test Suite, CI Integration & Final Polish         │
+│ PHASE 7: End-to-End Dual Parity Suite, CI Integration & Real Corpus        [DONE] │
 └──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
