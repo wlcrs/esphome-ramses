@@ -80,6 +80,15 @@ add_executable(test_parser_corpus
     ../components/ramses_esp/ramses_decoder.cpp
 )
 
+add_executable(test_discovery
+    test_discovery.cpp
+    mock/mock_ramses_esp.cpp
+    ../components/ramses_esp/ramses_codec.cpp
+    ../components/ramses_esp/ramses_message.cpp
+    ../components/ramses_esp/ramses_decoder.cpp
+    ../components/ramses_discovery/ramses_discovery.cpp
+)
+
 enable_testing()
 add_test(NAME ProtocolTest COMMAND test_protocol)
 add_test(NAME MockTest COMMAND test_mock)
@@ -90,3 +99,4 @@ add_test(NAME DevicesClimateTest COMMAND test_devices_climate)
 add_test(NAME DevicesFanTest COMMAND test_devices_fan)
 add_test(NAME DevicesWaterHeaterTest COMMAND test_devices_water_heater)
 add_test(NAME ParserCorpusTest COMMAND test_parser_corpus "${CMAKE_CURRENT_SOURCE_DIR}/../ramses_rf/tests/tests_rf")
+add_test(NAME DiscoveryTest COMMAND test_discovery)

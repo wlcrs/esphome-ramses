@@ -1,0 +1,31 @@
+esphome:
+  name: esphome-ramses-discovery
+  friendly_name: "RAMSES ESP Discovery Engine"
+
+esp32:
+  board: esp32-c6-devkitc-1
+  variant: esp32c6
+  framework:
+    type: esp-idf
+
+external_components:
+  - source: components
+    components: [ ramses_esp, ramses_discovery ]
+
+logger:
+  level: DEBUG
+
+ramses_esp:
+  id: ramses_hub
+  sck_pin: GPIO6
+  miso_pin: GPIO2
+  mosi_pin: GPIO7
+  cs_pin: GPIO5
+  gdo0_pin: GPIO4
+  gdo2_pin: GPIO15
+  port: 6638
+
+ramses_discovery:
+  ramses_esp_id: ramses_hub
+  active_probing: true
+  probing_interval: 30s
