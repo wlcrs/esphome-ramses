@@ -123,6 +123,37 @@ void test_environmental_and_opentherm_sensors() {
   TEST_ASSERT(std::abs(ot_mod_sensor.last_state - 40.0f) < 0.1f, "Modulation is 40.0%");
 }
 
+void test_relay_and_hvac_diagnostic_sensors() {
+  std::cout << "\n--- Testing RamsesSensor (Relay and HVAC Diagnostics) ---\n";
+  TestableRamsesSensor relay_sensor;
+  relay_sensor.set_device_address("13:123456");
+  relay_sensor.set_relay_index(2);
+  relay_sensor.set_sensor_type(RamsesSensorType::RELAY_DEMAND);
+
+  RamsesMessage other_relay = parse_msg("045  I --- 13:123456 --:------ 13:123456 0008 002 01C8");
+  relay_sensor.on_message(other_relay);
+  TEST_ASSERT(!relay_sensor.state_published, "Other relay demand is ignored");
+
+  RamsesMessage relay = parse_msg("045  I --- 13:123456 --:------ 13:123456 0008 002 02C8");
+  relay_sensor.on_message(relay);
+  TEST_ASSERT(relay_sensor.state_published, "Selected relay demand published");
+  TEST_ASSERT(std::abs(relay_sensor.last_state - 100.0f) < 0.1f, "Selected relay demand is 100%");
+
+  TestableRamsesSensor filter_lifetime;
+  filter_lifetime.set_device_address("32:155617");
+  filter_lifetime.set_sensor_type(RamsesSensorType::FILTER_LIFETIME_DAYS);
+  filter_lifetime.on_message(parse_msg("045  I --- 32:155617 --:------ 32:155617 10D0 006 00B4B4C80000"));
+  TEST_ASSERT(filter_lifetime.state_published && filter_lifetime.last_state == 180.0f,
+              "Filter lifetime is 180 days");
+
+  TestableRamsesSensor bypass_position;
+  bypass_position.set_device_address("32:155617");
+  bypass_position.set_sensor_type(RamsesSensorType::BYPASS_POSITION);
+  bypass_position.on_message(parse_msg("045  I --- 32:155617 --:------ 32:155617 10A0 002 3201"));
+  TEST_ASSERT(bypass_position.state_published && bypass_position.last_state == 50.0f,
+              "Bypass position is 50%");
+}
+
 void test_binary_sensors() {
   std::cout << "\n--- Testing RamsesBinarySensor (Flame, Filter, Window, Battery) ---\n";
   TestableRamsesBinarySensor flame_sensor;
@@ -142,6 +173,13 @@ void test_binary_sensors() {
   filter_sensor.on_message(filter_dirty_msg);
   TEST_ASSERT(filter_sensor.state_published, "Filter alarm state published");
   TEST_ASSERT(filter_sensor.last_state == true, "Filter dirty is true");
+
+  TestableRamsesBinarySensor bypass_sensor;
+  bypass_sensor.set_device_address("32:155617");
+  bypass_sensor.set_sensor_type(RamsesBinarySensorType::BYPASS_ACTIVE);
+  bypass_sensor.on_message(parse_msg("045  I --- 32:155617 --:------ 32:155617 10A0 002 3200"));
+  TEST_ASSERT(bypass_sensor.state_published && bypass_sensor.last_state,
+              "Bypass active state is true");
 
   TestableRamsesBinarySensor bat_low_sensor;
   bat_low_sensor.set_device_address("04:089123");

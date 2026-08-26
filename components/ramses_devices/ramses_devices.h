@@ -24,10 +24,15 @@ enum class RamsesSensorType {
   ZONE_SETPOINT,
   OUTDOOR_TEMPERATURE,
   HEAT_DEMAND,
+  RELAY_DEMAND,
   CO2,
   INDOOR_HUMIDITY,
   OUTDOOR_HUMIDITY,
+  AIR_QUALITY_TEMPERATURE,
+  BYPASS_POSITION,
   FILTER_REMAINING_DAYS,
+  FILTER_LIFETIME_DAYS,
+  FILTER_REMAINING_PERCENT,
   OPENTHERM_MODULATION,
   OPENTHERM_FLOW_TEMP,
   OPENTHERM_RETURN_TEMP,
@@ -41,6 +46,7 @@ class RamsesSensor : public sensor::Sensor, public Component {
   void set_parent(ramses_esp::RamsesESPComponent *parent) { this->parent_ = parent; }
   void set_device_address(const std::string &addr) { this->device_address_ = ramses_esp::RamsesAddress::from_string(addr); }
   void set_zone_index(uint8_t zone) { this->zone_index_ = zone; }
+  void set_relay_index(uint8_t relay) { this->relay_index_ = relay; }
   void set_sensor_type(RamsesSensorType type) { this->sensor_type_ = type; }
 
   void setup() override;
@@ -50,6 +56,7 @@ class RamsesSensor : public sensor::Sensor, public Component {
   ramses_esp::RamsesESPComponent *parent_{nullptr};
   ramses_esp::RamsesAddress device_address_;
   std::optional<uint8_t> zone_index_;
+  std::optional<uint8_t> relay_index_;
   RamsesSensorType sensor_type_{RamsesSensorType::ZONE_TEMPERATURE};
 };
 
@@ -62,6 +69,7 @@ enum class RamsesBinarySensorType {
   FLAME_ACTIVE,
   FAULT_ALARM,
   WINDOW_OPEN,
+  BYPASS_ACTIVE,
   BATTERY_LOW,
 };
 

@@ -37,10 +37,15 @@ SENSOR_TYPES = {
     "setpoint": RamsesSensorType.ZONE_SETPOINT,
     "outdoor_temperature": RamsesSensorType.OUTDOOR_TEMPERATURE,
     "heat_demand": RamsesSensorType.HEAT_DEMAND,
+    "relay_demand": RamsesSensorType.RELAY_DEMAND,
     "co2": RamsesSensorType.CO2,
     "indoor_humidity": RamsesSensorType.INDOOR_HUMIDITY,
     "outdoor_humidity": RamsesSensorType.OUTDOOR_HUMIDITY,
+    "air_quality_temperature": RamsesSensorType.AIR_QUALITY_TEMPERATURE,
+    "bypass_position": RamsesSensorType.BYPASS_POSITION,
     "filter_remaining_days": RamsesSensorType.FILTER_REMAINING_DAYS,
+    "filter_lifetime_days": RamsesSensorType.FILTER_LIFETIME_DAYS,
+    "filter_remaining_percent": RamsesSensorType.FILTER_REMAINING_PERCENT,
     "opentherm_modulation": RamsesSensorType.OPENTHERM_MODULATION,
     "flow_temperature": RamsesSensorType.OPENTHERM_FLOW_TEMP,
     "return_temperature": RamsesSensorType.OPENTHERM_RETURN_TEMP,
@@ -58,6 +63,7 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_RAMSES_ADDRESS): cv.string,
             cv.Optional(CONF_ZONE_INDEX): cv.int_range(min=0, max=15),
             cv.Optional(CONF_ZONE): cv.int_range(min=0, max=15),
+            cv.Optional("relay_index"): cv.int_range(min=0, max=255),
         }
     )
     .extend(cv.COMPONENT_SCHEMA)
@@ -88,3 +94,6 @@ async def to_code(config):
         zone_idx = config.get(CONF_ZONE)
     if zone_idx is not None:
         cg.add(var.set_zone_index(zone_idx))
+
+    if (relay_idx := config.get("relay_index")) is not None:
+        cg.add(var.set_relay_index(relay_idx))

@@ -98,7 +98,16 @@ void RamsesSensor::on_message(const ramses_esp::RamsesMessage &msg) {
         }
       } else if (opcode == 0x0008) {
         auto dec = ramses_esp::RelayDemandPayload::decode(msg.payload, msg.n_payload);
-        if (dec.has_value()) {
+        if (dec.has_value() && (!this->relay_index_.has_value() || dec->relay_index == *this->relay_index_)) {
+          this->publish_state(dec->demand_percent);
+        }
+      }
+      break;
+
+    case RamsesSensorType::RELAY_DEMAND:
+      if (opcode == 0x0008) {
+        auto dec = ramses_esp::RelayDemandPayload::decode(msg.payload, msg.n_payload);
+        if (dec.has_value() && (!this->relay_index_.has_value() || dec->relay_index == *this->relay_index_)) {
           this->publish_state(dec->demand_percent);
         }
       }
@@ -131,11 +140,47 @@ void RamsesSensor::on_message(const ramses_esp::RamsesMessage &msg) {
       }
       break;
 
+    case RamsesSensorType::AIR_QUALITY_TEMPERATURE:
+      if (opcode == 0x12A0) {
+        auto dec = ramses_esp::AirQualityPayload::decode(msg.payload, msg.n_payload);
+        if (dec.has_value() && dec->temperature.has_value()) {
+          this->publish_state(*dec->temperature);
+        }
+      }
+      break;
+
+    case RamsesSensorType::BYPASS_POSITION:
+      if (opcode == 0x10A0 || opcode == 0x22E5) {
+        auto dec = ramses_esp::VentilationInfoPayload::decode(msg.payload, msg.n_payload);
+        if (dec.has_value()) {
+          this->publish_state(dec->bypass_position);
+        }
+      }
+      break;
+
     case RamsesSensorType::FILTER_REMAINING_DAYS:
       if (opcode == 0x10D0) {
         auto dec = ramses_esp::FilterInfoPayload::decode(msg.payload, msg.n_payload);
         if (dec.has_value()) {
           this->publish_state(dec->remaining_days);
+        }
+      }
+      break;
+
+    case RamsesSensorType::FILTER_LIFETIME_DAYS:
+      if (opcode == 0x10D0) {
+        auto dec = ramses_esp::FilterInfoPayload::decode(msg.payload, msg.n_payload);
+        if (dec.has_value()) {
+          this->publish_state(dec->lifetime_days);
+        }
+      }
+      break;
+
+    case RamsesSensorType::FILTER_REMAINING_PERCENT:
+      if (opcode == 0x10D0) {
+        auto dec = ramses_esp::FilterInfoPayload::decode(msg.payload, msg.n_payload);
+        if (dec.has_value()) {
+          this->publish_state(dec->remaining_percent);
         }
       }
       break;
@@ -223,6 +268,15 @@ void RamsesBinarySensor::on_message(const ramses_esp::RamsesMessage &msg) {
           if (!this->zone_index_.has_value() || dec->zone_index == *this->zone_index_) {
             this->publish_state(dec->is_open);
           }
+        }
+      }
+      break;
+
+    case RamsesBinarySensorType::BYPASS_ACTIVE:
+      if (opcode == 0x10A0 || opcode == 0x22E5) {
+        auto dec = ramses_esp::VentilationInfoPayload::decode(msg.payload, msg.n_payload);
+        if (dec.has_value()) {
+          this->publish_state(dec->bypass_active);
         }
       }
       break;

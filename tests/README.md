@@ -58,7 +58,7 @@ To solve both challenges, we use a **Dual-Sided Parity Testing Architecture**:
 * **`test_parser_corpus.cpp`**:  
   Bulk corpus regression test runner that recursively ingests the local corpus of **170 `packet.log` files**. It reports candidate frames, invalid packets, per-opcode coverage, and known-opcode decode failures; supported inbound payloads must decode successfully.
 * **`test_devices_sensors.cpp`**:  
-  Integration tests for all sensor and binary sensor types (`temperature`, `setpoint`, `co2`, `humidity`, `filter_alarm`, `flame_active`, `battery_low`, etc.).
+  Integration tests for sensor and binary sensor types, including relay-index filtering and HVAC diagnostics such as bypass position/activity and filter lifetime.
 * **`test_devices_climate.cpp`**:  
   Unit tests for multi-zone heating climate entities, target setpoint overrides, and mode synchronizations.
 * **`test_devices_fan.cpp`**:  

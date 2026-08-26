@@ -36,6 +36,7 @@ BINARY_SENSOR_TYPES = {
     "flame_active": RamsesBinarySensorType.FLAME_ACTIVE,
     "fault_alarm": RamsesBinarySensorType.FAULT_ALARM,
     "window_open": RamsesBinarySensorType.WINDOW_OPEN,
+    "bypass_active": RamsesBinarySensorType.BYPASS_ACTIVE,
     "battery_low": RamsesBinarySensorType.BATTERY_LOW,
 }
 
