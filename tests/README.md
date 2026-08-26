@@ -55,25 +55,32 @@ To solve both challenges, we use a **Dual-Sided Parity Testing Architecture**:
   Integration tests verifying virtual device simulation and bidirectional query/reply flows.
 * **`test_parity_cases.cpp`**:  
   C++ test runner that ingests `fixtures/parity_cases.json` and verifies that C++ decoders match all expected values.
-* **`test_parity_harness.py`**:  
-  Python runner that feeds `fixtures/parity_cases.json` to Python `ramses_rf` AND executes the compiled C++ test runner to guarantee cross-language parity.
+* **`test_parser_corpus.cpp`**:  
+  High-throughput bulk corpus regression test runner that recursively ingests all **174 real-world test log files** (~10,000+ packet lines) from `ramses_rf/tests/tests_rf/`, ensuring that 100% of real-world captures parse cleanly through `RamsesMessage::from_hgi80()` and our zero-heap C++ codecs.
+* **`test_devices_sensors.cpp`**:  
+  Integration tests for all sensor and binary sensor types (`temperature`, `setpoint`, `co2`, `humidity`, `filter_alarm`, `flame_active`, `battery_low`, etc.).
+* **`test_devices_climate.cpp`**:  
+  Unit tests for multi-zone heating climate entities, target setpoint overrides, and mode synchronizations.
+* **`test_devices_fan.cpp`**:  
+  Unit tests for ventilation / fan platform across OEM schemes (Orcon, Vasco, Itho, Zehnder).
+* **`test_devices_water_heater.cpp`**:  
+  Unit tests for Domestic Hot Water (DHW) cylinder temperatures, setpoints, and operating states.
 
 ---
 
 ## 3. How to Run the Tests
 
-### A. Run C++ Unit & Integration Tests (CMake / CTest)
+### C++ Native Unit Tests & Corpus Regression (Instant Native Execution)
 ```bash
-mkdir -p tests/build
-cd tests/build
+mkdir -p tests/build && cd tests/build
 cmake ..
-make
+make -j4
 ctest --output-on-failure
 ```
 
-### B. Run the Dual-Sided Parity Test Harness (Python + C++)
+### Full Python & C++ Parity Harness
 ```bash
-python3 tests/test_parity_harness.py
+uv run python tests/test_parity_harness.py
 ```
 
 ### C. Adding a New Test Case

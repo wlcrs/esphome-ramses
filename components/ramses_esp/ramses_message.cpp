@@ -213,33 +213,42 @@ bool RamsesMessage::from_hgi80(const std::string &line) {
     tokens.push_back(token);
   }
 
-  if (tokens.size() < 7) {
+  if (tokens.size() < 5) {
     ESP_LOGW(TAG, "HGI80 line too short (%d tokens)", (int)tokens.size());
     return false;
   }
 
-  size_t idx = 0;
-  // Optional RSSI token (e.g. "---" or "045" or "000")
-  if (tokens[0] == "---" || (tokens[0].length() == 3 && isdigit(tokens[0][0]))) {
-    if (tokens[0] != "---") {
-      this->rssi = std::strtoul(tokens[0].c_str(), nullptr, 10);
+  // Find the verb index (RQ, I, W, RP)
+  int verb_idx = -1;
+  for (size_t i = 0; i < tokens.size() && i < 3; i++) {
+    if (tokens[i] == "RQ" || tokens[i] == "I" || tokens[i] == "W" || tokens[i] == "RP") {
+      verb_idx = static_cast<int>(i);
+      break;
     }
-    idx++;
   }
 
-  if (idx >= tokens.size()) return false;
+  if (verb_idx == -1) return false;
+
+  // If there is an RSSI token before the verb
+  if (verb_idx > 0) {
+    if (tokens[0] != "---" && tokens[0] != "..." && tokens[0] != "???") {
+      this->rssi = std::strtoul(tokens[0].c_str(), nullptr, 10);
+    }
+  }
 
   // Verb: RQ, I, W, RP
-  std::string verb = tokens[idx++];
+  std::string verb = tokens[verb_idx];
   if (verb == "RQ") this->type = RAMSES_MSG_RQ;
   else if (verb == "I") this->type = RAMSES_MSG_I;
   else if (verb == "W") this->type = RAMSES_MSG_W;
   else if (verb == "RP") this->type = RAMSES_MSG_RP;
   else return false;
 
-  // Optional Param0
-  if (idx < tokens.size() && (tokens[idx] == "---" || isdigit(tokens[idx][0]))) {
-    if (tokens[idx] != "---") {
+  size_t idx = verb_idx + 1;
+
+  // Optional sequence / Param0 (if not an address e.g. doesn't have ':' and isn't '--:------')
+  if (idx < tokens.size() && tokens[idx].find(':') == std::string::npos && tokens[idx] != "--:------") {
+    if (tokens[idx] != "---" && tokens[idx] != "..." && tokens[idx] != "???") {
       this->param[0] = std::strtoul(tokens[idx].c_str(), nullptr, 10);
       this->fields |= RAMSES_F_PARAM0;
     }
@@ -269,30 +278,34 @@ bool RamsesMessage::from_hgi80(const std::string &line) {
       this->opcode[0] = (op >> 8) & 0xFF;
       this->opcode[1] = op & 0xFF;
       this->rx_fields |= RAMSES_F_OPCODE;
+      idx++;
+    } else {
+      return false;
     }
-    idx++;
   } else {
     return false;
   }
 
-  // Payload Length (3 digits e.g. 003)
+  // Length (decimal or hex, typically 3 digits e.g. 003)
   if (idx < tokens.size()) {
-    this->len = std::strtoul(tokens[idx].c_str(), nullptr, 10);
+    this->len = static_cast<uint8_t>(std::strtoul(tokens[idx].c_str(), nullptr, 10));
     this->rx_fields |= RAMSES_F_LEN;
     idx++;
   } else {
     return false;
   }
 
-  // Payload hex string (e.g. 0007D0)
-  if (this->len > 0 && idx < tokens.size()) {
+  // Payload (hex string)
+  if (idx < tokens.size() && this->len > 0) {
     std::string payload_hex = tokens[idx];
-    for (size_t i = 0; i < payload_hex.length() && (i / 2) < this->len && (i / 2) < RAMSES_MAX_PAYLOAD; i += 2) {
-      std::string byte_str = payload_hex.substr(i, 2);
-      unsigned int val = 0;
-      sscanf(byte_str.c_str(), "%02x", &val);
-      this->payload[i / 2] = val;
-      this->n_payload++;
+    size_t expected_hex_len = static_cast<size_t>(this->len) * 2;
+    if (payload_hex.length() >= expected_hex_len) {
+      for (size_t i = 0; i < this->len && i < RAMSES_MAX_PAYLOAD; i++) {
+        unsigned int b = 0;
+        sscanf(payload_hex.substr(i * 2, 2).c_str(), "%02x", &b);
+        this->payload[i] = static_cast<uint8_t>(b);
+      }
+      this->n_payload = this->len;
     }
   }
 
