@@ -106,6 +106,11 @@ void test_corpus_file(const fs::path &file_path) {
           record_decode(opcode, dec.has_value(), frame);
           break;
         }
+        case 0x2E04: {
+          auto dec = SystemModePayload::decode(msg.payload, msg.n_payload);
+          record_decode(opcode, dec.has_value(), frame);
+          break;
+        }
         case 0x0004: {
           auto dec = ZoneNamePayload::decode(msg.payload, msg.n_payload);
           record_decode(opcode, dec.has_value(), frame);
@@ -267,7 +272,7 @@ int main(int argc, char **argv) {
   std::cout << "\nKnown opcode coverage:\n";
   const std::vector<uint16_t> supported_opcodes = {
       0x0004, 0x0005, 0x0008, 0x000C, 0x10A0, 0x10D0, 0x10E0, 0x1060, 0x1260, 0x1298, 0x12A0,
-      0x12B0, 0x12C0, 0x12F0, 0x1F09, 0x1F41, 0x22E5, 0x22F1, 0x22F3, 0x2309, 0x30C9, 0x3150, 0x3220,
+      0x12B0, 0x12C0, 0x12F0, 0x1F09, 0x1F41, 0x22E5, 0x22F1, 0x22F3, 0x2309, 0x2E04, 0x30C9, 0x3150, 0x3220,
   };
   bool all_supported_opcodes_seen = true;
   for (const auto &[opcode, counts] : opcode_counts) {

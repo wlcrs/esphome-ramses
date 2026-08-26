@@ -3,24 +3,35 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from datetime import datetime as dt
 from pathlib import Path
 
 from ramses_rf.messages import Message
 from ramses_tx.packet import Packet
 
-from extract_parity_corpus import extract
+from extract_parity_corpus import SUPPORTED_OPCODES, extract, normalise_frame
 
 
 def main() -> int:
     source = Path(__file__).resolve().parents[1] / "ramses_rf/tests/fixtures/regression_packets_sorted.txt"
     cases = extract(source)
-    for case in cases:
-        packet = Packet.from_port(dt.now(), case["hgi80"])
+    counts: Counter[str] = Counter()
+    valid_frames = 0
+    for line in source.read_text(encoding="utf-8", errors="replace").splitlines():
+        result = normalise_frame(line)
+        if result is None:
+            continue
+        frame, opcode, _ = result
+        packet = Packet.from_port(dt.now(), frame)
         message = Message(packet.to_dto() if hasattr(packet, "to_dto") else packet)
-        assert f"{int(message.code, 16):04X}" == case["opcode"]
+        assert f"{int(message.code, 16):04X}" == opcode
         assert str(message.verb).strip() in {"I", "RP"}
-    print(f"Validated {len(cases)} corpus parity cases across 23 opcodes.")
+        counts[opcode] += 1
+        valid_frames += 1
+    assert valid_frames >= 10000
+    assert set(counts) == SUPPORTED_OPCODES
+    print(f"Validated {valid_frames} full-corpus frames and {len(cases)} variant cases across {len(counts)} opcodes.")
     return 0
 
 
