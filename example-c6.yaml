@@ -1,0 +1,49 @@
+substitutions:
+  name: "esphome-ramses"
+  friendly_name: "ESPHome RAMSES Gateway"
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+
+esp32:
+  board: esp32-c6-devkitc-1
+  framework:
+    type: esp-idf
+
+external_components:
+  - source: components
+    components: [ ramses_esp ]
+
+# Enable Home Assistant API & Web Server / Logging / OTA
+api:
+
+ota:
+  - platform: esphome
+
+logger:
+  level: DEBUG
+
+wifi:
+  ssid: "MyWiFiNetwork"
+  password: "MyWiFiPassword"
+  ap:
+    ssid: "ESPHome-RAMSES-AP"
+    password: "fallbackpassword"
+
+captive_portal:
+
+# RAMSES II Transceiver & HGI80 TCP Gateway
+ramses_esp:
+  id: ramses_hub
+  cs_pin: GPIO18
+  sck_pin: GPIO6
+  mosi_pin: GPIO7
+  miso_pin: GPIO2
+  gdo0_pin: GPIO15 # Demodulated UART RX from CC1101 GDO0
+  gdo2_pin: GPIO14 # CC1101 GDO2 (optional)
+  uart_num: 1      # ESP32 hardware UART peripheral (default: 1)
+  port: 6638       # TCP port for Home Assistant ramses_rf / ramses_cc (socket://<ip>:6638)
+  on_message:
+    - lambda: |-
+        ESP_LOGD("ramses", "HGI80: %s", x.c_str());

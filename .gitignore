@@ -1,0 +1,20 @@
+# ESPHome build output
+.esphome/
+*.bin
+*.elf
+
+# CMake / Native Test Build
+tests/build/
+tests/test_runner
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+build/
+dist/
+
+# Cloned reference repos (anchored to root)
+/ramses_esp/
+/ramses_rf/
+/esphome/
