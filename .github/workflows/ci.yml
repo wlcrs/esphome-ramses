@@ -2,9 +2,6 @@ name: CI
 
 on:
   push:
-    branches: [ main, master, ramses_rf_on_esp ]
-  pull_request:
-    branches: [ main, master, ramses_rf_on_esp ]
 
 jobs:
   native-tests:
