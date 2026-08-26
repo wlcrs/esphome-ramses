@@ -67,6 +67,10 @@ void test_water_heater_rx_state() {
   RamsesMessage idle_msg = parse_msg("045  I --- 01:145678 --:------ 01:145678 1F41 002 0000");
   dhw.on_message(idle_msg);
   TEST_ASSERT(dhw.get_mode() == WATER_HEATER_MODE_ECO, "DHW mode is ECO (Relay idle)");
+  
+    RamsesMessage disabled_msg = parse_msg("045  I --- 01:145678 --:------ 01:145678 1F41 006 00FF00FFFFFF");
+    dhw.on_message(disabled_msg);
+    TEST_ASSERT(dhw.get_mode() == WATER_HEATER_MODE_OFF, "Extended DHW state disables the water heater");
 }
 
 void test_water_heater_control_tx() {
