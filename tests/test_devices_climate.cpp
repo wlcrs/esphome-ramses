@@ -62,14 +62,14 @@ void test_climate_rx_system_mode_and_demand() {
   climate.set_controller_address("01:145678");
   climate.set_zone_index(0);
 
-  // 1F09 System sync: AWAY mode (mode=1)
-  RamsesMessage away_msg = parse_msg("045  I --- 01:145678 --:------ 01:145678 1F09 003 010000");
+  // 2E04 System mode: AWAY mode (mode=3)
+  RamsesMessage away_msg = parse_msg("045  I --- 01:145678 --:------ 01:145678 2E04 008 0300000000000000");
   climate.on_message(away_msg);
   TEST_ASSERT(climate.mode == CLIMATE_MODE_HEAT, "Climate mode is HEAT");
   TEST_ASSERT(climate.preset.has_value() && *climate.preset == CLIMATE_PRESET_AWAY, "Climate preset is AWAY");
 
-  // 1F09 System sync: OFF mode (mode=5)
-  RamsesMessage off_msg = parse_msg("045  I --- 01:145678 --:------ 01:145678 1F09 003 050000");
+  // 2E04 System mode: OFF mode (mode=1)
+  RamsesMessage off_msg = parse_msg("045  I --- 01:145678 --:------ 01:145678 2E04 008 0100000000000000");
   climate.on_message(off_msg);
   TEST_ASSERT(climate.mode == CLIMATE_MODE_OFF, "Climate mode is OFF");
 
@@ -105,10 +105,16 @@ void test_climate_control_tx() {
   TEST_ASSERT(sp_write.opcode[0] == 0x23 && sp_write.opcode[1] == 0x09, "Opcode is 2309");
 
   // Verify system mode write packet encoding
-  RamsesMessage away_write = SystemSyncPayload::encode_write(hgi_src, ctl, SystemMode::AWAY);
+  RamsesMessage away_write = SystemModePayload::encode_write(hgi_src, ctl, SystemMode::AWAY);
   TEST_ASSERT(away_write.type == RAMSES_MSG_W, "System mode write message type is W");
-  TEST_ASSERT(away_write.opcode[0] == 0x1F && away_write.opcode[1] == 0x09, "Opcode is 1F09");
-  TEST_ASSERT(away_write.payload[0] == 0x01, "Payload has AWAY mode (0x01)");
+  TEST_ASSERT(away_write.opcode[0] == 0x2E && away_write.opcode[1] == 0x04, "Opcode is 2E04");
+  TEST_ASSERT(away_write.payload[0] == 0x03, "Payload has AWAY mode (0x03)");
+
+  auto preset_call = climate.make_call();
+  preset_call.set_preset(CLIMATE_PRESET_ECO);
+  preset_call.perform();
+  TEST_ASSERT(climate.preset.has_value() && *climate.preset == CLIMATE_PRESET_ECO,
+              "ECO preset is applied locally");
 }
 
 int main() {

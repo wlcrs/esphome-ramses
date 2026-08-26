@@ -97,13 +97,13 @@ void test_setpoint_codec_2309() {
 }
 
 void test_system_sync_codec_1f09() {
-  std::cout << "\n--- Testing Opcode 0x1F09 (System Sync & Mode) ---\n";
-  uint8_t payload[] = {0x01, 0x07, 0xD0}; // Mode 1 = Away
-  auto dec = SystemSyncPayload::decode(payload, sizeof(payload));
+  std::cout << "\n--- Testing Opcode 0x1F09 (Synchronization Heartbeat) ---\n";
+  uint8_t payload[] = {0x01, 0x07, 0xD0}; // Mode 1 = Heat off
+  auto dec = SystemModePayload::decode(payload, sizeof(payload));
 
   TEST_ASSERT(dec.has_value(), "System sync decoded successfully");
-  TEST_ASSERT(dec->mode == SystemMode::AWAY, "Decoded system mode as AWAY");
-  TEST_ASSERT(std::string(system_mode_to_string(dec->mode)) == "away", "String representation is 'away'");
+  TEST_ASSERT(dec->mode == SystemMode::HEAT_OFF, "Decoded system mode as HEAT_OFF");
+  TEST_ASSERT(std::string(system_mode_to_string(dec->mode)) == "heat_off", "String representation is 'heat_off'");
 
   // Unknown mode byte
   uint8_t unknown_payload[] = {0x09};
@@ -113,8 +113,27 @@ void test_system_sync_codec_1f09() {
 
   RamsesAddress src = RamsesAddress::from_string("18:005612");
   RamsesAddress dst = RamsesAddress::from_string("01:145678");
-  RamsesMessage msg = SystemSyncPayload::encode_write(src, dst, SystemMode::ECO);
-  TEST_ASSERT(msg.payload[0] == 4, "Encoded ECO mode as 4");
+  RamsesMessage msg = SystemModePayload::encode_write(src, dst, SystemMode::ECO_BOOST);
+  TEST_ASSERT(msg.opcode[0] == 0x2E && msg.opcode[1] == 0x04, "Encoded system mode uses opcode 2E04");
+  TEST_ASSERT(msg.payload[0] == 2, "Encoded ECO mode as 2");
+}
+
+void test_system_mode_values_2e04() {
+  std::cout << "\n--- Testing Opcode 0x2E04 System Mode Values ---\n";
+  const SystemMode expected_modes[] = {
+      SystemMode::AUTO, SystemMode::HEAT_OFF, SystemMode::ECO_BOOST, SystemMode::AWAY,
+      SystemMode::DAY_OFF, SystemMode::DAY_OFF_ECO, SystemMode::AUTO_WITH_RESET,
+  };
+  for (uint8_t raw = 0; raw < 7; raw++) {
+    uint8_t payload[] = {raw};
+    auto dec = SystemModePayload::decode(payload, sizeof(payload));
+    TEST_ASSERT(dec.has_value() && dec->mode == expected_modes[raw], "2E04 mode value decoded");
+    TEST_ASSERT(dec->mode_raw == raw, "2E04 raw mode retained");
+  }
+
+  uint8_t unknown_payload[] = {0xFF};
+  auto unknown = SystemModePayload::decode(unknown_payload, sizeof(unknown_payload));
+  TEST_ASSERT(unknown.has_value() && unknown->mode == SystemMode::UNKNOWN, "2E04 unknown mode handled");
 }
 
 void test_heat_demand_codec_3150() {
@@ -282,6 +301,7 @@ int main() {
   test_temperature_edge_cases();
   test_setpoint_codec_2309();
   test_system_sync_codec_1f09();
+  test_system_mode_values_2e04();
   test_heat_demand_codec_3150();
   test_zone_name_codec_0004();
   test_hvac_fan_codec_22f1();

@@ -78,23 +78,59 @@ RamsesMessage SetpointPayload::encode_write(const RamsesAddress &src, const Rams
 const char *system_mode_to_string(SystemMode mode) {
   switch (mode) {
     case SystemMode::AUTO: return "auto";
+    case SystemMode::HEAT_OFF: return "heat_off";
+    case SystemMode::ECO_BOOST: return "eco_boost";
     case SystemMode::AWAY: return "away";
     case SystemMode::DAY_OFF: return "day_off";
+    case SystemMode::DAY_OFF_ECO: return "day_off_eco";
+    case SystemMode::AUTO_WITH_RESET: return "auto_with_reset";
     case SystemMode::CUSTOM: return "custom";
-    case SystemMode::ECO: return "eco";
-    case SystemMode::OFF: return "off";
     default: return "unknown";
   }
 }
 
 SystemMode system_mode_from_string(const std::string &str) {
   if (str == "auto") return SystemMode::AUTO;
+  if (str == "heat_off" || str == "off") return SystemMode::HEAT_OFF;
+  if (str == "eco_boost" || str == "eco") return SystemMode::ECO_BOOST;
   if (str == "away") return SystemMode::AWAY;
   if (str == "day_off") return SystemMode::DAY_OFF;
+  if (str == "day_off_eco") return SystemMode::DAY_OFF_ECO;
+  if (str == "auto_with_reset") return SystemMode::AUTO_WITH_RESET;
   if (str == "custom") return SystemMode::CUSTOM;
-  if (str == "eco") return SystemMode::ECO;
-  if (str == "off") return SystemMode::OFF;
   return SystemMode::UNKNOWN;
+}
+
+std::optional<SystemModePayload> SystemModePayload::decode(const uint8_t *payload, size_t len) {
+  if (payload == nullptr || len < 1) return std::nullopt;
+
+  SystemModePayload res;
+  res.mode_raw = payload[0];
+  res.mode = SystemMode::UNKNOWN;
+  switch (res.mode_raw) {
+    case 0: res.mode = SystemMode::AUTO; break;
+    case 1: res.mode = SystemMode::HEAT_OFF; break;
+    case 2: res.mode = SystemMode::ECO_BOOST; break;
+    case 3: res.mode = SystemMode::AWAY; break;
+    case 4: res.mode = SystemMode::DAY_OFF; break;
+    case 5: res.mode = SystemMode::DAY_OFF_ECO; break;
+    case 6: res.mode = SystemMode::AUTO_WITH_RESET; break;
+    default: break;
+  }
+  return res;
+}
+
+RamsesMessage SystemModePayload::encode_write(const RamsesAddress &src, const RamsesAddress &dst, SystemMode mode) {
+  RamsesMessage msg;
+  msg.type = RAMSES_MSG_W;
+  msg.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR1;
+  src.to_bytes(msg.addr[0]);
+  dst.to_bytes(msg.addr[1]);
+  msg.opcode[0] = 0x2E;
+  msg.opcode[1] = 0x04;
+  msg.len = msg.n_payload = 8;
+  msg.payload[0] = static_cast<uint8_t>(mode);
+  return msg;
 }
 
 std::optional<SystemSyncPayload> SystemSyncPayload::decode(const uint8_t *payload, size_t len) {

@@ -82,11 +82,11 @@ void RamsesClimate::on_message(const ramses_esp::RamsesMessage &msg) {
         }
       }
     }
-  } else if (opcode == 0x1F09) {
-    auto dec = ramses_esp::SystemSyncPayload::decode(msg.payload, msg.n_payload);
+  } else if (opcode == 0x2E04) {
+    auto dec = ramses_esp::SystemModePayload::decode(msg.payload, msg.n_payload);
     if (dec.has_value()) {
       switch (dec->mode) {
-        case ramses_esp::SystemMode::OFF:
+        case ramses_esp::SystemMode::HEAT_OFF:
           this->mode = climate::CLIMATE_MODE_OFF;
           this->preset = climate::CLIMATE_PRESET_NONE;
           break;
@@ -94,13 +94,21 @@ void RamsesClimate::on_message(const ramses_esp::RamsesMessage &msg) {
           this->mode = climate::CLIMATE_MODE_HEAT;
           this->preset = climate::CLIMATE_PRESET_AWAY;
           break;
-        case ramses_esp::SystemMode::ECO:
+        case ramses_esp::SystemMode::ECO_BOOST:
           this->mode = climate::CLIMATE_MODE_HEAT;
           this->preset = climate::CLIMATE_PRESET_ECO;
           break;
         case ramses_esp::SystemMode::DAY_OFF:
           this->mode = climate::CLIMATE_MODE_HEAT;
           this->preset = climate::CLIMATE_PRESET_HOME;
+          break;
+        case ramses_esp::SystemMode::DAY_OFF_ECO:
+          this->mode = climate::CLIMATE_MODE_HEAT;
+          this->preset = climate::CLIMATE_PRESET_HOME;
+          break;
+        case ramses_esp::SystemMode::AUTO_WITH_RESET:
+          this->mode = climate::CLIMATE_MODE_AUTO;
+          this->preset = climate::CLIMATE_PRESET_NONE;
           break;
         case ramses_esp::SystemMode::CUSTOM:
           this->mode = climate::CLIMATE_MODE_HEAT;
@@ -151,11 +159,14 @@ void RamsesClimate::control(const climate::ClimateCall &call) {
     climate::ClimateMode new_mode = *call.get_mode();
     this->mode = new_mode;
 
-    ramses_esp::SystemMode sys_mode = (new_mode == climate::CLIMATE_MODE_OFF) 
-        ? ramses_esp::SystemMode::OFF 
-        : ramses_esp::SystemMode::AUTO;
+    ramses_esp::SystemMode sys_mode = ramses_esp::SystemMode::AUTO;
+    if (new_mode == climate::CLIMATE_MODE_OFF) {
+      sys_mode = ramses_esp::SystemMode::HEAT_OFF;
+    } else if (new_mode == climate::CLIMATE_MODE_AUTO) {
+      sys_mode = ramses_esp::SystemMode::AUTO_WITH_RESET;
+    }
 
-    ramses_esp::RamsesMessage msg = ramses_esp::SystemSyncPayload::encode_write(
+    ramses_esp::RamsesMessage msg = ramses_esp::SystemModePayload::encode_write(
         hgi_src, this->controller_address_, sys_mode);
 
 #ifdef USE_ESP_IDF
@@ -172,7 +183,7 @@ void RamsesClimate::control(const climate::ClimateCall &call) {
     ramses_esp::SystemMode sys_mode = ramses_esp::SystemMode::AUTO;
     switch (new_preset) {
       case climate::CLIMATE_PRESET_AWAY: sys_mode = ramses_esp::SystemMode::AWAY; break;
-      case climate::CLIMATE_PRESET_ECO: sys_mode = ramses_esp::SystemMode::ECO; break;
+      case climate::CLIMATE_PRESET_ECO: sys_mode = ramses_esp::SystemMode::ECO_BOOST; break;
       case climate::CLIMATE_PRESET_HOME: sys_mode = ramses_esp::SystemMode::DAY_OFF; break;
       case climate::CLIMATE_PRESET_COMFORT: sys_mode = ramses_esp::SystemMode::CUSTOM; break;
       case climate::CLIMATE_PRESET_NONE:
@@ -181,7 +192,7 @@ void RamsesClimate::control(const climate::ClimateCall &call) {
         break;
     }
 
-    ramses_esp::RamsesMessage msg = ramses_esp::SystemSyncPayload::encode_write(
+    ramses_esp::RamsesMessage msg = ramses_esp::SystemModePayload::encode_write(
         hgi_src, this->controller_address_, sys_mode);
 
 #ifdef USE_ESP_IDF

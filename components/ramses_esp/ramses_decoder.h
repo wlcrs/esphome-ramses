@@ -49,21 +49,35 @@ struct SetpointPayload {
 };
 
 // ----------------------------------------------------------------------
-// Opcode 0x1F09: System Sync & Mode
-// Equivalent to: ramses_rf/payloads/system.py:SystemSyncPayload
+// Opcode 0x1F09: Gateway synchronization heartbeat / legacy sync payload
+// Climate system mode is carried by 0x2E04; see SystemModePayload below.
 // ----------------------------------------------------------------------
 enum class SystemMode : uint8_t {
   AUTO = 0,
-  AWAY = 1,
-  DAY_OFF = 2,
-  CUSTOM = 3,
-  ECO = 4,
-  OFF = 5,
+  HEAT_OFF = 1,
+  ECO_BOOST = 2,
+  AWAY = 3,
+  DAY_OFF = 4,
+  DAY_OFF_ECO = 5,
+  AUTO_WITH_RESET = 6,
+  CUSTOM = 7,
+  ECO = ECO_BOOST,
+  OFF = HEAT_OFF,
   UNKNOWN = 0xFF
 };
 
 const char *system_mode_to_string(SystemMode mode);
 SystemMode system_mode_from_string(const std::string &str);
+
+// Opcode 0x2E04: System Mode
+// Equivalent to: ramses_rf/commands/builders/system.py:build_set_system_mode
+struct SystemModePayload {
+  SystemMode mode{SystemMode::AUTO};
+  uint8_t mode_raw{0};
+
+  static std::optional<SystemModePayload> decode(const uint8_t *payload, size_t len);
+  static RamsesMessage encode_write(const RamsesAddress &src, const RamsesAddress &dst, SystemMode mode);
+};
 
 struct SystemSyncPayload {
   SystemMode mode{SystemMode::AUTO};
