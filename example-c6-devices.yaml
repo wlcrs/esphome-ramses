@@ -117,3 +117,9 @@ fan:
     name: "MVHR Ventilation Fan"
     device_address: "32:155617"
     scheme: orcon
+
+water_heater:
+  - platform: ramses_devices
+    ramses_esp_id: ramses_hub
+    name: "Domestic Hot Water"
+    controller_address: "01:145678"

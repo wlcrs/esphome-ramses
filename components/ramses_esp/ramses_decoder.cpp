@@ -471,12 +471,15 @@ std::optional<DhwStatePayload> DhwStatePayload::decode_temp(const uint8_t *paylo
   return res;
 }
 
+// Opcode 0x1F41: DHW State
+// Equivalent to: ramses_rf/payloads/dhw.py:DhwState2BPayload / DhwState3BPayload
 std::optional<DhwStatePayload> DhwStatePayload::decode_state(const uint8_t *payload, size_t len) {
   if (payload == nullptr || len < 2) return std::nullopt;
 
   DhwStatePayload res;
-  res.dhw_enabled = (payload[0] != 0);
-  res.relay_active = (payload[1] != 0);
+  uint8_t active_flag = payload[1];
+  res.dhw_enabled = (active_flag != 0xFF);
+  res.relay_active = (active_flag == 0x01);
   return res;
 }
 

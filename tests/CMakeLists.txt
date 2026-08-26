@@ -64,6 +64,15 @@ add_executable(test_devices_fan
     ../components/ramses_devices/ramses_fan.cpp
 )
 
+add_executable(test_devices_water_heater
+    test_devices_water_heater.cpp
+    mock/mock_ramses_esp.cpp
+    ../components/ramses_esp/ramses_codec.cpp
+    ../components/ramses_esp/ramses_message.cpp
+    ../components/ramses_esp/ramses_decoder.cpp
+    ../components/ramses_devices/ramses_water_heater.cpp
+)
+
 enable_testing()
 add_test(NAME ProtocolTest COMMAND test_protocol)
 add_test(NAME MockTest COMMAND test_mock)
@@ -72,3 +81,4 @@ add_test(NAME OpcodeCodecsTest COMMAND test_opcode_codecs)
 add_test(NAME DevicesSensorsTest COMMAND test_devices_sensors)
 add_test(NAME DevicesClimateTest COMMAND test_devices_climate)
 add_test(NAME DevicesFanTest COMMAND test_devices_fan)
+add_test(NAME DevicesWaterHeaterTest COMMAND test_devices_water_heater)
