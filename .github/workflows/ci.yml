@@ -2,28 +2,54 @@ name: CI
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, ramses_rf_on_esp ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main, master, ramses_rf_on_esp ]
 
 jobs:
   native-tests:
-    name: Native C++ Unit Tests
+    name: Native C++ & Corpus Regression Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Configure CMake
         run: cmake -B tests/build -S tests
 
       - name: Build Tests
-        run: cmake --build tests/build
+        run: cmake --build tests/build -j4
 
-      - name: Run Tests
+      - name: Run CTest Suite (10 Test Suites)
         run: ctest --test-dir tests/build --output-on-failure
 
+  parity-harness:
+    name: Dual Python & C++ Parity Test Harness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Build Native C++ Codecs
+        run: |
+          cmake -B tests/build -S tests
+          cmake --build tests/build -j4
+
+      - name: Run Differential Parity Harness
+        run: uv run python tests/test_parity_harness.py
+
   esphome-compile:
-    name: ESPHome Compilation Test
+    name: ESPHome ESP-IDF Firmware Compilation
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -38,7 +64,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install esphome
 
-      - name: Validate ESPHome Config & Compile
-        run: |
-          esphome compile example-c6.yaml
-          esphome compile example-c6-mqtt.yaml
+      - name: Validate Core Hub Config & Compile
+        run: esphome compile example-c6.yaml
+
+      - name: Validate Devices Platforms Config & Compile
+        run: esphome compile example-c6-devices.yaml
+
+      - name: Validate Auto-Discovery Config & Compile
+        run: esphome compile example-c6-discovery.yaml
