@@ -104,6 +104,21 @@ ramses_cc:
 
 ---
 
+## MQTT Gateway Mode (`ramses-mqtt` Parity)
+
+If you prefer to communicate with `ramses_rf` / `ramses_cc` over MQTT instead of a direct TCP socket, ESPHome can achieve **100% feature parity** with the standalone `ramses-mqtt` firmware.
+
+This includes:
+- **LWT & Availability**: `online`/`offline` published on `<root>/<device_id>`
+- **Info Topics**: `<root>/<device_id>/info/firmware` and `version`
+- **RX Packets**: Published to `<root>/<device_id>/rx` as JSON `{"msg": "<hgi80_frame>", "ts": "<timestamp>"}`
+- **TX Packets**: Subscribed to `<root>/<device_id>/tx` expecting JSON `{"msg": "<hgi80_frame>"}`
+- **CLI Commands**: Handshake response to `!V` on `<root>/<device_id>/cmd/cmd` -> `<root>/<device_id>/cmd/result`
+
+Check out [`example-c6-mqtt.yaml`](example-c6-mqtt.yaml) for a complete, ready-to-flash MQTT configuration.
+
+---
+
 ## Configuration Reference: `ramses_esp`
 
 | Option | Type | Default | Description |

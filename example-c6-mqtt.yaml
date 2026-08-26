@@ -1,0 +1,142 @@
+substitutions:
+  name: "esphome-ramses-mqtt"
+  friendly_name: "ESPHome RAMSES MQTT Gateway"
+  ramses_device_id: "18_000001"
+  mqtt_root: "ramses_esp"
+  mqtt_broker: "192.168.1.50"
+  mqtt_user: "mqtt_user"
+  mqtt_password: "mqtt_password"
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+  includes:
+    - cJSON.h
+
+esp32:
+  board: esp32-c6-devkitc-1
+  framework:
+    type: esp-idf
+
+external_components:
+  - source: components
+    components: [ ramses_esp ]
+
+# Logging and OTA
+logger:
+  level: DEBUG
+
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: "MyWiFiNetwork"
+  password: "MyWiFiPassword"
+  ap:
+    ssid: "ESPHome-RAMSES-AP"
+    password: "fallbackpassword"
+
+captive_portal:
+
+# Time synchronization for RAMSES packet timestamps
+time:
+  - platform: sntp
+    id: sntp_time
+
+# MQTT Client configured for 1-to-1 parity with ramses-mqtt / ramses_esp
+mqtt:
+  broker: ${mqtt_broker}
+  username: ${mqtt_user}
+  password: ${mqtt_password}
+
+  # 1. Availability Status
+  birth_message:
+    topic: ${mqtt_root}/${ramses_device_id}
+    payload: "online"
+    qos: 1
+    retain: true
+  will_message:
+    topic: ${mqtt_root}/${ramses_device_id}
+    payload: "offline"
+    qos: 1
+    retain: true
+
+  # 2. Publish firmware & version information upon connecting
+  on_connect:
+    - mqtt.publish:
+        topic: ${mqtt_root}/${ramses_device_id}/info/firmware
+        payload: "esphome-ramses"
+        retain: true
+    - mqtt.publish:
+        topic: ${mqtt_root}/${ramses_device_id}/info/version
+        payload: "0.1.0"
+        retain: true
+
+  # 3. Subscribed Channels (Packet TX and Gateway Commands)
+  on_message:
+    # Handle Outbound RAMSES Packets from Home Assistant / MQTT
+    - topic: ${mqtt_root}/${ramses_device_id}/tx
+      then:
+        - lambda: |-
+            cJSON *root = cJSON_Parse(payload.c_str());
+            if (root != nullptr) {
+              cJSON *msg_item = cJSON_GetObjectItem(root, "msg");
+              if (msg_item != nullptr && msg_item->valuestring != nullptr) {
+                std::string msg(msg_item->valuestring);
+                ESP_LOGI("ramses_mqtt", "MQTT TX Request: %s", msg.c_str());
+                id(ramses_hub).send_hgi80_command(msg);
+              }
+              cJSON_Delete(root);
+            }
+
+    # Handle evofw3 / ramses_rf handshake commands (e.g. "!V")
+    - topic: ${mqtt_root}/${ramses_device_id}/cmd/cmd
+      then:
+        - lambda: |-
+            std::string cmd = payload;
+            if (cmd == "!V") {
+              // Return evofw3 version response expected by ramses_rf
+              id(mqtt_client).publish(
+                "${mqtt_root}/${ramses_device_id}/cmd/result",
+                "{\"cmd\":\"!V\",\"err\":\"ESP_OK\",\"return\":\"# evofw3 0.1.0\"}"
+              );
+            } else {
+              id(mqtt_client).publish(
+                "${mqtt_root}/${ramses_device_id}/cmd/result",
+                "{\"cmd\":\"" + cmd + "\",\"err\":\"ESP_OK\",\"return\":0}"
+              );
+            }
+
+# RAMSES II Transceiver & Gateway
+ramses_esp:
+  id: ramses_hub
+  cs_pin: GPIO18
+  sck_pin: GPIO6
+  mosi_pin: GPIO7
+  miso_pin: GPIO2
+  gdo0_pin: GPIO15 # Connects to CC1101 GDO0
+  gdo2_pin: GPIO14 # Connects to CC1101 GDO2 (optional)
+  uart_num: 1
+  port: 6638       # Concurrent TCP Socket server is also active
+
+  # 4. Forward received RAMSES packets to MQTT /rx topic with timestamp
+  on_message:
+    - lambda: |-
+        char ts_buf[32];
+        auto now = id(sntp_time).now();
+        if (now.is_valid()) {
+          now.strftime(ts_buf, sizeof(ts_buf), "%Y-%m-%dT%H:%M:%S%z");
+        } else {
+          snprintf(ts_buf, sizeof(ts_buf), "1970-01-01T00:00:00Z");
+        }
+
+        cJSON *json = cJSON_CreateObject();
+        cJSON_AddStringToObject(json, "msg", x.c_str());
+        cJSON_AddStringToObject(json, "ts", ts_buf);
+        char *rendered = cJSON_PrintUnformatted(json);
+
+        if (rendered != nullptr) {
+          id(mqtt_client).publish("${mqtt_root}/${ramses_device_id}/rx", rendered);
+          free(rendered);
+        }
+        cJSON_Delete(json);
