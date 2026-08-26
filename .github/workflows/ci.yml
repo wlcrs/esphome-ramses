@@ -19,7 +19,7 @@ jobs:
       - name: Build Tests
         run: cmake --build tests/build -j4
 
-      - name: Run CTest Suite (10 Test Suites)
+      - name: Run CTest Suite (11 Test Suites)
         run: ctest --test-dir tests/build --output-on-failure
 
   parity-harness:
@@ -43,6 +43,9 @@ jobs:
 
       - name: Run Differential Parity Harness
         run: uv run --with ramses-rf python tests/test_parity_harness.py
+
+      - name: Run Full ramses_rf Regression Corpus
+        run: uv run --with ramses-rf python tests/test_parity_corpus.py
 
   esphome-compile:
     name: ESPHome ESP-IDF Firmware Compilation
