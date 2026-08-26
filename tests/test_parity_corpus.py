@@ -13,11 +13,20 @@ from ramses_rf.messages import Message
 from ramses_tx.packet import Packet
 
 
-def main() -> int:
-    source = (
+def get_source_path() -> Path:
+    fixtures_file = (
+        Path(__file__).resolve().parent / "fixtures/regression_packets_sorted.txt"
+    )
+    if fixtures_file.exists():
+        return fixtures_file
+    return (
         Path(__file__).resolve().parents[1]
         / "ramses_rf/tests/fixtures/regression_packets_sorted.txt"
     )
+
+
+def main() -> int:
+    source = get_source_path()
     cases = extract(source)
     counts: Counter[str] = Counter()
     valid_frames = 0

@@ -1,8 +1,8 @@
 #include "cc1101_driver.h"
-#include "esphome/core/log.h"
 #include "esp_rom_sys.h"
-#include <cstring>
+#include "esphome/core/log.h"
 #include <cmath>
+#include <cstring>
 
 static const char *TAG = "ramses_esp.cc1101";
 
@@ -61,11 +61,10 @@ static const uint8_t CC_RAMSES_CFG[CC_PARAM_MAX] = {
     0x09  // CC_TEST0
 };
 
-static const uint8_t CC_DEFAULT_PA[CC_PA_MAX] = {
-    0xC3, 0, 0, 0, 0, 0, 0, 0
-};
+static const uint8_t CC_DEFAULT_PA[CC_PA_MAX] = {0xC3, 0, 0, 0, 0, 0, 0, 0};
 
-bool CC1101Driver::init(spi_host_device_t host, gpio_num_t sck, gpio_num_t mosi, gpio_num_t miso, gpio_num_t cs) {
+bool CC1101Driver::init(spi_host_device_t host, gpio_num_t sck, gpio_num_t mosi,
+                        gpio_num_t miso, gpio_num_t cs) {
   this->host_ = host;
   this->sck_pin_ = sck;
   this->mosi_pin_ = mosi;
@@ -127,8 +126,10 @@ void CC1101Driver::spi_reset() {
   delayMicroseconds(41);
 }
 
-bool CC1101Driver::spi_write_bytes(uint8_t *status, const uint8_t *data, size_t len) {
-  if (len == 0 || this->spi_handle_ == nullptr) return false;
+bool CC1101Driver::spi_write_bytes(uint8_t *status, const uint8_t *data,
+                                   size_t len) {
+  if (len == 0 || this->spi_handle_ == nullptr)
+    return false;
   spi_transaction_t t = {
       .length = len * 8,
       .tx_buffer = data,
@@ -137,8 +138,10 @@ bool CC1101Driver::spi_write_bytes(uint8_t *status, const uint8_t *data, size_t 
   return spi_device_transmit(this->spi_handle_, &t) == ESP_OK;
 }
 
-bool CC1101Driver::spi_read_bytes(uint8_t *rx_data, const uint8_t *tx_data, size_t len) {
-  if (len == 0 || this->spi_handle_ == nullptr) return false;
+bool CC1101Driver::spi_read_bytes(uint8_t *rx_data, const uint8_t *tx_data,
+                                  size_t len) {
+  if (len == 0 || this->spi_handle_ == nullptr)
+    return false;
   spi_transaction_t t = {
       .length = len * 8,
       .tx_buffer = tx_data,
@@ -173,7 +176,8 @@ uint8_t CC1101Driver::write_fifo(uint8_t b) {
 }
 
 void CC1101Driver::write_fifo_burst(const uint8_t *data, size_t len) {
-  if (len == 0) return;
+  if (len == 0)
+    return;
   std::vector<uint8_t> buf(len + 1);
   buf[0] = CC_FIFO | CC_BURST;
   memcpy(buf.data() + 1, data, len);
@@ -241,13 +245,22 @@ void CC1101Driver::apply_custom_tx_config(const CustomTxConfig &cfg) {
   this->write_reg(CC_FREQ1, (freq_reg >> 8) & 0xFF);
   this->write_reg(CC_FREQ0, freq_reg & 0xFF);
 
-  // 2. Calculate symbol rate registers: DRATE = ((256 + DRATE_M) * 2^DRATE_E / 2^28) * 26 MHz
-  int drate_e = static_cast<int>(std::floor(std::log2(cfg.symbol_rate * 1048576.0f / 26000000.0f)));
-  if (drate_e < 0) drate_e = 0;
-  if (drate_e > 15) drate_e = 15;
-  int drate_m = static_cast<int>(std::round((cfg.symbol_rate * 268435456.0f) / (26000000.0f * std::pow(2.0f, drate_e)) - 256.0f));
-  if (drate_m < 0) drate_m = 0;
-  if (drate_m > 255) drate_m = 255;
+  // 2. Calculate symbol rate registers: DRATE = ((256 + DRATE_M) * 2^DRATE_E /
+  // 2^28) * 26 MHz
+  int drate_e = static_cast<int>(
+      std::floor(std::log2(cfg.symbol_rate * 1048576.0f / 26000000.0f)));
+  if (drate_e < 0)
+    drate_e = 0;
+  if (drate_e > 15)
+    drate_e = 15;
+  int drate_m =
+      static_cast<int>(std::round((cfg.symbol_rate * 268435456.0f) /
+                                      (26000000.0f * std::pow(2.0f, drate_e)) -
+                                  256.0f));
+  if (drate_m < 0)
+    drate_m = 0;
+  if (drate_m > 255)
+    drate_m = 255;
 
   uint8_t mdmcfg4 = (CC_RAMSES_CFG[CC_MDMCFG4] & 0xF0) | (drate_e & 0x0F);
   this->write_reg(CC_MDMCFG4, mdmcfg4);
@@ -259,7 +272,8 @@ void CC1101Driver::apply_custom_tx_config(const CustomTxConfig &cfg) {
   this->write_reg(CC_MDMCFG2, 0x03); // 2-FSK, 16/16 sync bits, no Manchester
 
   // 4. Packet Control
-  uint8_t pktctrl0 = (cfg.crc_enable ? 0x04 : 0x00) | (cfg.packet_length == 0 ? 0x01 : 0x00);
+  uint8_t pktctrl0 =
+      (cfg.crc_enable ? 0x04 : 0x00) | (cfg.packet_length == 0 ? 0x01 : 0x00);
   this->write_reg(CC_PKTCTRL0, pktctrl0);
   this->write_reg(CC_PKTCTRL1, 0x04); // Append status (RSSI/LQI)
   this->write_reg(CC_PKTLEN, cfg.packet_length == 0 ? 0xFF : cfg.packet_length);
@@ -268,7 +282,9 @@ void CC1101Driver::apply_custom_tx_config(const CustomTxConfig &cfg) {
   this->write_reg(CC_IOCFG0, 0x06);
 
   this->strobe(CC_SFTX);
-  ESP_LOGV(TAG, "CC1101 custom TX profile applied (Freq: %lu Hz, Rate: %.1f Baud, Sync: %02X%02X)",
+  ESP_LOGV(TAG,
+           "CC1101 custom TX profile applied (Freq: %lu Hz, Rate: %.1f Baud, "
+           "Sync: %02X%02X)",
            (unsigned long)cfg.frequency, cfg.symbol_rate, cfg.sync1, cfg.sync0);
 }
 

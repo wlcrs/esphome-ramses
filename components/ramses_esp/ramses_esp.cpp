@@ -1,12 +1,12 @@
 #include "ramses_esp.h"
 #include "esphome/core/log.h"
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <cstring>
 #include <algorithm>
+#include <arpa/inet.h>
+#include <cstring>
+#include <fcntl.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 static const char *const TAG = "ramses_esp";
 
@@ -20,33 +20,30 @@ void RamsesESPComponent::setup() {
   this->rx_msg_queue_ = xQueueCreate(16, sizeof(RamsesMessage));
   this->tx_msg_queue_ = xQueueCreate(8, sizeof(RamsesMessage));
 
-  if (!this->cc1101_.init(SPI2_HOST, this->sck_pin_, this->mosi_pin_, this->miso_pin_, this->cs_pin_)) {
+  if (!this->cc1101_.init(SPI2_HOST, this->sck_pin_, this->mosi_pin_,
+                          this->miso_pin_, this->cs_pin_)) {
     ESP_LOGE(TAG, "Failed to initialize CC1101 transceiver!");
     this->mark_failed();
     return;
   }
 
-  if (!this->frame_handler_.init(this->uart_num_, this->gdo0_pin_, this->gdo2_pin_, &this->cc1101_)) {
+  if (!this->frame_handler_.init(this->uart_num_, this->gdo0_pin_,
+                                 this->gdo2_pin_, &this->cc1101_)) {
     ESP_LOGE(TAG, "Failed to initialize RAMSES frame handler!");
     this->mark_failed();
     return;
   }
 
-  this->frame_handler_.set_on_message_callback([this](const RamsesMessage &msg) {
-    if (this->rx_msg_queue_ != nullptr) {
-      xQueueSend(this->rx_msg_queue_, &msg, 0);
-    }
-  });
+  this->frame_handler_.set_on_message_callback(
+      [this](const RamsesMessage &msg) {
+        if (this->rx_msg_queue_ != nullptr) {
+          xQueueSend(this->rx_msg_queue_, &msg, 0);
+        }
+      });
 
-  xTaskCreatePinnedToCore(
-      RamsesESPComponent::radio_task_trampoline,
-      "ramses_radio",
-      4096,
-      this,
-      10,
-      &this->radio_task_handle_,
-      0
-  );
+  xTaskCreatePinnedToCore(RamsesESPComponent::radio_task_trampoline,
+                          "ramses_radio", 4096, this, 10,
+                          &this->radio_task_handle_, 0);
 
   this->start_tcp_server();
 }
@@ -71,7 +68,8 @@ void RamsesESPComponent::radio_task() {
 }
 
 void RamsesESPComponent::pause() {
-  if (this->paused_) return;
+  if (this->paused_)
+    return;
   ESP_LOGD(TAG, "Pausing RAMSES Radio for external operation...");
   if (xSemaphoreTake(this->radio_mutex_, pdMS_TO_TICKS(200)) == pdTRUE) {
     this->paused_ = true;
@@ -81,7 +79,8 @@ void RamsesESPComponent::pause() {
 }
 
 void RamsesESPComponent::resume() {
-  if (!this->paused_) return;
+  if (!this->paused_)
+    return;
   ESP_LOGD(TAG, "Resuming RAMSES Radio reception...");
   this->cc1101_.apply_ramses_config();
   this->frame_handler_.rx_enable();
@@ -103,14 +102,17 @@ void RamsesESPComponent::start_tcp_server() {
   struct sockaddr_in dest_addr = {
       .sin_family = AF_INET,
       .sin_port = htons(this->port_),
-      .sin_addr = {
-          .s_addr = htonl(INADDR_ANY),
-      },
+      .sin_addr =
+          {
+              .s_addr = htonl(INADDR_ANY),
+          },
   };
 
-  int err = bind(this->server_fd_, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
+  int err =
+      bind(this->server_fd_, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
   if (err != 0) {
-    ESP_LOGE(TAG, "Socket unable to bind on port %u: errno %d", this->port_, errno);
+    ESP_LOGE(TAG, "Socket unable to bind on port %u: errno %d", this->port_,
+             errno);
     close(this->server_fd_);
     this->server_fd_ = -1;
     return;
@@ -130,7 +132,8 @@ void RamsesESPComponent::start_tcp_server() {
 void RamsesESPComponent::loop() {
   // 1. Drain decoded incoming RAMSES messages from Radio queue
   RamsesMessage rx_msg;
-  while (this->rx_msg_queue_ != nullptr && xQueueReceive(this->rx_msg_queue_, &rx_msg, 0) == pdTRUE) {
+  while (this->rx_msg_queue_ != nullptr &&
+         xQueueReceive(this->rx_msg_queue_, &rx_msg, 0) == pdTRUE) {
     std::string hgi80 = rx_msg.to_hgi80();
     this->broadcast_hgi80(hgi80);
     for (auto &cb : this->on_message_callbacks_) {
@@ -151,17 +154,20 @@ void RamsesESPComponent::loop() {
 }
 
 bool RamsesESPComponent::send_message(const RamsesMessage &msg) {
-  if (this->tx_msg_queue_ == nullptr) return false;
+  if (this->tx_msg_queue_ == nullptr)
+    return false;
   return xQueueSend(this->tx_msg_queue_, &msg, 0) == pdTRUE;
 }
 
 void RamsesESPComponent::handle_tcp_clients() {
-  if (this->server_fd_ < 0) return;
+  if (this->server_fd_ < 0)
+    return;
 
   // Accept new clients
   struct sockaddr_in source_addr;
   socklen_t addr_len = sizeof(source_addr);
-  int client_fd = accept(this->server_fd_, (struct sockaddr *)&source_addr, &addr_len);
+  int client_fd =
+      accept(this->server_fd_, (struct sockaddr *)&source_addr, &addr_len);
   if (client_fd >= 0) {
     fcntl(client_fd, F_SETFL, O_NONBLOCK);
     this->client_fds_.push_back(client_fd);
@@ -185,7 +191,8 @@ void RamsesESPComponent::handle_tcp_clients() {
         this->send_hgi80_command(line);
       }
       ++it;
-    } else if (len == 0 || (len < 0 && errno != EAGAIN && errno != EWOULDBLOCK)) {
+    } else if (len == 0 ||
+               (len < 0 && errno != EAGAIN && errno != EWOULDBLOCK)) {
       ESP_LOGI(TAG, "TCP Client disconnected");
       close(fd);
       it = this->client_fds_.erase(it);
@@ -224,9 +231,11 @@ bool RamsesESPComponent::send_hgi80_command(const std::string &cmd) {
 
 void RamsesESPComponent::process_tx_queue() {
   RamsesMessage tx_msg;
-  if (this->tx_msg_queue_ != nullptr && xQueueReceive(this->tx_msg_queue_, &tx_msg, 0) == pdTRUE) {
+  if (this->tx_msg_queue_ != nullptr &&
+      xQueueReceive(this->tx_msg_queue_, &tx_msg, 0) == pdTRUE) {
     if (xSemaphoreTake(this->radio_mutex_, pdMS_TO_TICKS(200)) == pdTRUE) {
-      ESP_LOGI(TAG, "Transmitting RAMSES packet: %s", tx_msg.to_hgi80().c_str());
+      ESP_LOGI(TAG, "Transmitting RAMSES packet: %s",
+               tx_msg.to_hgi80().c_str());
 
       this->frame_handler_.rx_disable();
       this->cc1101_.enter_idle_mode();

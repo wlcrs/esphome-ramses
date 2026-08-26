@@ -1,46 +1,64 @@
 #pragma once
 
-#include "esphome/core/component.h"
-#include "esphome/core/automation.h"
-#include "esphome/core/gpio.h"
 #include "cc1101_driver.h"
+#include "esphome/core/automation.h"
+#include "esphome/core/component.h"
+#include "esphome/core/gpio.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+#include "freertos/semphr.h"
+#include "freertos/task.h"
 #include "ramses_frame.h"
 #include "ramses_message.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/semphr.h"
-#include "freertos/queue.h"
-#include <vector>
 #include <string>
+#include <vector>
 
 namespace esphome {
 namespace ramses_esp {
 
 class RamsesESPComponent : public Component {
- public:
+public:
   RamsesESPComponent() = default;
 
-  void set_sck_pin(InternalGPIOPin *pin) { this->sck_pin_ = static_cast<gpio_num_t>(pin->get_pin()); }
-  void set_mosi_pin(InternalGPIOPin *pin) { this->mosi_pin_ = static_cast<gpio_num_t>(pin->get_pin()); }
-  void set_miso_pin(InternalGPIOPin *pin) { this->miso_pin_ = static_cast<gpio_num_t>(pin->get_pin()); }
-  void set_cs_pin(InternalGPIOPin *pin) { this->cs_pin_ = static_cast<gpio_num_t>(pin->get_pin()); }
-  void set_gdo0_pin(InternalGPIOPin *pin) { this->gdo0_pin_ = static_cast<gpio_num_t>(pin->get_pin()); }
-  void set_gdo2_pin(InternalGPIOPin *pin) { this->gdo2_pin_ = static_cast<gpio_num_t>(pin->get_pin()); }
-  void set_uart_num(uint8_t uart_num) { this->uart_num_ = static_cast<uart_port_t>(uart_num); }
+  void set_sck_pin(InternalGPIOPin *pin) {
+    this->sck_pin_ = static_cast<gpio_num_t>(pin->get_pin());
+  }
+  void set_mosi_pin(InternalGPIOPin *pin) {
+    this->mosi_pin_ = static_cast<gpio_num_t>(pin->get_pin());
+  }
+  void set_miso_pin(InternalGPIOPin *pin) {
+    this->miso_pin_ = static_cast<gpio_num_t>(pin->get_pin());
+  }
+  void set_cs_pin(InternalGPIOPin *pin) {
+    this->cs_pin_ = static_cast<gpio_num_t>(pin->get_pin());
+  }
+  void set_gdo0_pin(InternalGPIOPin *pin) {
+    this->gdo0_pin_ = static_cast<gpio_num_t>(pin->get_pin());
+  }
+  void set_gdo2_pin(InternalGPIOPin *pin) {
+    this->gdo2_pin_ = static_cast<gpio_num_t>(pin->get_pin());
+  }
+  void set_uart_num(uint8_t uart_num) {
+    this->uart_num_ = static_cast<uart_port_t>(uart_num);
+  }
   void set_port(uint16_t port) { this->port_ = port; }
 
-  void add_on_message_callback(std::function<void(const std::string &)> callback) {
+  void
+  add_on_message_callback(std::function<void(const std::string &)> callback) {
     this->on_message_callbacks_.push_back(callback);
   }
 
-  void add_raw_message_callback(std::function<void(const RamsesMessage &)> callback) {
+  void add_raw_message_callback(
+      std::function<void(const RamsesMessage &)> callback) {
     this->raw_message_callbacks_.push_back(callback);
   }
 
   void setup() override;
   void loop() override;
   void dump_config() override;
-  float get_setup_priority() const override { return setup_priority::AFTER_WIFI; }
+  float get_setup_priority() const override {
+    return setup_priority::AFTER_WIFI;
+  }
 
   // High-level Actions
   bool send_hgi80_command(const std::string &cmd);
@@ -51,7 +69,7 @@ class RamsesESPComponent : public Component {
   void resume();
   bool is_paused() const { return this->paused_; }
 
- protected:
+protected:
   void start_tcp_server();
   void handle_tcp_clients();
   void broadcast_hgi80(const std::string &hgi80);
@@ -83,12 +101,12 @@ class RamsesESPComponent : public Component {
   bool paused_{false};
 
   std::vector<std::function<void(const std::string &)>> on_message_callbacks_;
-  std::vector<std::function<void(const RamsesMessage &)>> raw_message_callbacks_;
+  std::vector<std::function<void(const RamsesMessage &)>>
+      raw_message_callbacks_;
 };
 
-template<typename... Ts>
-class SendHgi80Action : public Action<Ts...> {
- public:
+template <typename... Ts> class SendHgi80Action : public Action<Ts...> {
+public:
   SendHgi80Action(RamsesESPComponent *parent) : parent_(parent) {}
   TEMPLATABLE_VALUE(std::string, command)
 
@@ -97,16 +115,15 @@ class SendHgi80Action : public Action<Ts...> {
     this->parent_->send_hgi80_command(cmd);
   }
 
- protected:
+protected:
   RamsesESPComponent *parent_;
 };
 
 class RamsesMessageTrigger : public Trigger<std::string> {
- public:
+public:
   explicit RamsesMessageTrigger(RamsesESPComponent *parent) {
-    parent->add_on_message_callback([this](const std::string &msg) {
-      this->trigger(msg);
-    });
+    parent->add_on_message_callback(
+        [this](const std::string &msg) { this->trigger(msg); });
   }
 };
 

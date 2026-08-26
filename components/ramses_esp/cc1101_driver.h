@@ -1,29 +1,30 @@
 #pragma once
 
-#include <cstdint>
-#include <cstddef>
-#include <vector>
-#include "driver/spi_master.h"
-#include "driver/gpio.h"
 #include "cc_const.h"
+#include "driver/gpio.h"
+#include "driver/spi_master.h"
+#include <cstddef>
+#include <cstdint>
+#include <vector>
 
 namespace esphome {
 namespace ramses_esp {
 
 struct CustomTxConfig {
   uint32_t frequency{868300000}; // Hz
-  float symbol_rate{64000.0f};    // Baud
+  float symbol_rate{64000.0f};   // Baud
   uint8_t sync0{0x91};
   uint8_t sync1{0xD3};
   bool crc_enable{true};
-  uint8_t packet_length{0};      // 0 = variable length
+  uint8_t packet_length{0}; // 0 = variable length
 };
 
 class CC1101Driver {
- public:
+public:
   CC1101Driver() = default;
 
-  bool init(spi_host_device_t host, gpio_num_t sck, gpio_num_t mosi, gpio_num_t miso, gpio_num_t cs);
+  bool init(spi_host_device_t host, gpio_num_t sck, gpio_num_t mosi,
+            gpio_num_t miso, gpio_num_t cs);
 
   uint8_t read_reg(uint8_t addr);
   uint8_t write_reg(uint8_t addr, uint8_t val);
@@ -40,7 +41,7 @@ class CC1101Driver {
   void apply_ramses_config();
   void apply_custom_tx_config(const CustomTxConfig &cfg);
 
- protected:
+protected:
   void spi_reset();
   bool spi_write_bytes(uint8_t *status, const uint8_t *data, size_t len);
   bool spi_read_bytes(uint8_t *rx_data, const uint8_t *tx_data, size_t len);

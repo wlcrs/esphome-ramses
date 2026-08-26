@@ -3,9 +3,9 @@
 #include <algorithm>
 
 #ifdef USE_ESP_IDF
+#include "components/ramses_esp/ramses_esp.h"
 #include "esphome/core/hal.h"
 #include "esphome/core/helpers.h"
-#include "components/ramses_esp/ramses_esp.h"
 #include <esp_efuse.h>
 #include <esp_mac.h>
 #endif
@@ -23,9 +23,11 @@ ramses_esp::RamsesAddress RamsesFan::derive_remote_from_chip_id() const {
   uint8_t mac[6] = {};
   esp_efuse_mac_get_default(mac);
   // Lower 22 bits of the 6-byte MAC give a stable per-board unique ID
-  uint32_t chip_id = ((uint32_t)mac[3] << 16) | ((uint32_t)mac[4] << 8) | mac[5];
+  uint32_t chip_id =
+      ((uint32_t)mac[3] << 16) | ((uint32_t)mac[4] << 8) | mac[5];
   chip_id &= 0x3FFFFF;
-  // Device class 37 (HVAC display switch / DIS) is the canonical virtual remote class
+  // Device class 37 (HVAC display switch / DIS) is the canonical virtual remote
+  // class
   return ramses_esp::RamsesAddress{
       .dev_class = 37,
       .id = chip_id,
@@ -47,10 +49,14 @@ ramses_esp::RamsesAddress RamsesFan::derive_remote_from_chip_id() const {
 void RamsesFan::load_preferences() {
 #ifdef USE_ESP_IDF
   // Hash is derived from the entity name so each fan instance has its own slot
-  uint32_t hash_dev = fnv1_hash(std::string("ramses_fan_dev_") + this->get_name());
-  uint32_t hash_rem = fnv1_hash(std::string("ramses_fan_rem_") + this->get_name());
-  this->pref_device_addr_ = global_preferences->make_preference<uint32_t>(hash_dev, true);
-  this->pref_remote_addr_ = global_preferences->make_preference<uint32_t>(hash_rem, true);
+  uint32_t hash_dev =
+      fnv1_hash(std::string("ramses_fan_dev_") + this->get_name());
+  uint32_t hash_rem =
+      fnv1_hash(std::string("ramses_fan_rem_") + this->get_name());
+  this->pref_device_addr_ =
+      global_preferences->make_preference<uint32_t>(hash_dev, true);
+  this->pref_remote_addr_ =
+      global_preferences->make_preference<uint32_t>(hash_rem, true);
 
   // Load device address from NVS (only when not overridden by YAML)
   uint32_t stored_dev = 0;
@@ -58,10 +64,13 @@ void RamsesFan::load_preferences() {
     ramses_esp::RamsesAddress nvs_dev = u32_to_addr(stored_dev);
     if (!this->device_address_from_yaml_.is_valid) {
       this->device_address_ = nvs_dev;
-      ESP_LOGI(TAG, "Loaded device address from NVS: %s", nvs_dev.to_string().c_str());
+      ESP_LOGI(TAG, "Loaded device address from NVS: %s",
+               nvs_dev.to_string().c_str());
     } else if (!(this->device_address_from_yaml_ == nvs_dev)) {
-      ESP_LOGW(TAG, "NVS device address (%s) differs from YAML (%s); using YAML",
-               nvs_dev.to_string().c_str(), this->device_address_from_yaml_.to_string().c_str());
+      ESP_LOGW(TAG,
+               "NVS device address (%s) differs from YAML (%s); using YAML",
+               nvs_dev.to_string().c_str(),
+               this->device_address_from_yaml_.to_string().c_str());
     }
   }
 
@@ -71,10 +80,13 @@ void RamsesFan::load_preferences() {
     ramses_esp::RamsesAddress nvs_rem = u32_to_addr(stored_rem);
     if (!this->remote_address_from_yaml_.is_valid) {
       this->remote_address_ = nvs_rem;
-      ESP_LOGI(TAG, "Loaded remote address from NVS: %s", nvs_rem.to_string().c_str());
+      ESP_LOGI(TAG, "Loaded remote address from NVS: %s",
+               nvs_rem.to_string().c_str());
     } else if (!(this->remote_address_from_yaml_ == nvs_rem)) {
-      ESP_LOGW(TAG, "NVS remote address (%s) differs from YAML (%s); using YAML",
-               nvs_rem.to_string().c_str(), this->remote_address_from_yaml_.to_string().c_str());
+      ESP_LOGW(TAG,
+               "NVS remote address (%s) differs from YAML (%s); using YAML",
+               nvs_rem.to_string().c_str(),
+               this->remote_address_from_yaml_.to_string().c_str());
     }
   }
 #endif
@@ -85,7 +97,8 @@ void RamsesFan::save_device_address() {
   uint32_t v = addr_to_u32(this->device_address_);
   this->pref_device_addr_.save(&v);
   global_preferences->sync();
-  ESP_LOGI(TAG, "Saved device address to NVS: %s", this->device_address_.to_string().c_str());
+  ESP_LOGI(TAG, "Saved device address to NVS: %s",
+           this->device_address_.to_string().c_str());
 #endif
 }
 
@@ -94,7 +107,8 @@ void RamsesFan::save_remote_address() {
   uint32_t v = addr_to_u32(this->remote_address_);
   this->pref_remote_addr_.save(&v);
   global_preferences->sync();
-  ESP_LOGI(TAG, "Saved remote address to NVS: %s", this->remote_address_.to_string().c_str());
+  ESP_LOGI(TAG, "Saved remote address to NVS: %s",
+           this->remote_address_.to_string().c_str());
 #endif
 }
 
@@ -102,33 +116,39 @@ void RamsesFan::save_remote_address() {
 // Component lifecycle
 // ----------------------------------------------------------------
 void RamsesFan::setup() {
-  this->set_supported_preset_modes({"auto", "low", "medium", "high", "boost", "away"});
+  this->set_supported_preset_modes(
+      {"auto", "low", "medium", "high", "boost", "away"});
 
   // Ensure a stable remote address exists before we ever transmit
   if (!this->remote_address_.is_valid) {
     this->remote_address_ = this->derive_remote_from_chip_id();
-    ESP_LOGI(TAG, "Derived virtual remote address from chip ID: %s", this->remote_address_.to_string().c_str());
+    ESP_LOGI(TAG, "Derived virtual remote address from chip ID: %s",
+             this->remote_address_.to_string().c_str());
   }
 
-  // Load NVS state (may override the chip-ID address if a pairing was previously completed)
+  // Load NVS state (may override the chip-ID address if a pairing was
+  // previously completed)
   this->load_preferences();
 
 #ifdef USE_ESP_IDF
   if (this->parent_ != nullptr) {
-    this->parent_->add_raw_message_callback([this](const ramses_esp::RamsesMessage &msg) {
-      this->on_message(msg);
-    });
+    this->parent_->add_raw_message_callback(
+        [this](const ramses_esp::RamsesMessage &msg) {
+          this->on_message(msg);
+        });
   }
 #endif
 }
 
 void RamsesFan::loop() {
-  if (!this->pairing_active_) return;
+  if (!this->pairing_active_)
+    return;
 
   uint32_t now = millis();
   if (now - this->pairing_start_time_ >= this->pairing_timeout_ms_) {
     this->stop_pairing();
-    ESP_LOGW(TAG, "Ventilation pairing timed out after %u ms", (unsigned int)this->pairing_timeout_ms_);
+    ESP_LOGW(TAG, "Ventilation pairing timed out after %u ms",
+             (unsigned int)this->pairing_timeout_ms_);
     return;
   }
 
@@ -138,8 +158,10 @@ void RamsesFan::loop() {
 #ifdef USE_ESP_IDF
     if (this->parent_ != nullptr) {
       ramses_esp::RamsesAddress sender = this->get_effective_sender_address();
-      ramses_esp::RamsesMessage offer = ramses_esp::BindingPayload::encode_offer(sender, this->scheme_);
-      ESP_LOGI(TAG, "Broadcasting 1FC9 Pairing Offer from Remote %s...", sender.to_string().c_str());
+      ramses_esp::RamsesMessage offer =
+          ramses_esp::BindingPayload::encode_offer(sender, this->scheme_);
+      ESP_LOGI(TAG, "Broadcasting 1FC9 Pairing Offer from Remote %s...",
+               sender.to_string().c_str());
       this->parent_->send_message(offer);
     }
 #endif
@@ -155,13 +177,13 @@ void RamsesFan::start_pairing(uint32_t timeout_ms) {
   this->pairing_timeout_ms_ = timeout_ms;
   this->last_offer_time_ = 0;
 
-  ESP_LOGI(TAG, "Starting 1FC9 Pairing Mode for Ventilation Unit (Remote ID: %s, Timeout: %u ms)",
+  ESP_LOGI(TAG,
+           "Starting 1FC9 Pairing Mode for Ventilation Unit (Remote ID: %s, "
+           "Timeout: %u ms)",
            this->remote_address_.to_string().c_str(), (unsigned int)timeout_ms);
 }
 
-void RamsesFan::stop_pairing() {
-  this->pairing_active_ = false;
-}
+void RamsesFan::stop_pairing() { this->pairing_active_ = false; }
 
 ramses_esp::RamsesAddress RamsesFan::get_effective_sender_address() const {
   if (this->remote_address_.is_valid) {
@@ -179,13 +201,20 @@ fan::FanTraits RamsesFan::get_traits() {
   return traits;
 }
 
-static inline bool fan_address_matches(const ramses_esp::RamsesAddress &configured, const ramses_esp::RamsesMessage &msg) {
-  if (!configured.is_valid) return true;
-  ramses_esp::RamsesAddress src = ramses_esp::RamsesAddress::from_bytes(msg.addr[0]);
-  if (src == configured) return true;
+static inline bool
+fan_address_matches(const ramses_esp::RamsesAddress &configured,
+                    const ramses_esp::RamsesMessage &msg) {
+  if (!configured.is_valid)
+    return true;
+  ramses_esp::RamsesAddress src =
+      ramses_esp::RamsesAddress::from_bytes(msg.addr[0]);
+  if (src == configured)
+    return true;
   if (msg.fields & RAMSES_F_ADDR2) {
-    ramses_esp::RamsesAddress targ = ramses_esp::RamsesAddress::from_bytes(msg.addr[2]);
-    if (targ == configured) return true;
+    ramses_esp::RamsesAddress targ =
+        ramses_esp::RamsesAddress::from_bytes(msg.addr[2]);
+    if (targ == configured)
+      return true;
   }
   return false;
 }
@@ -196,12 +225,16 @@ void RamsesFan::on_message(const ramses_esp::RamsesMessage &msg) {
   // Handle 1FC9 Binding Handshake when pairing is active
   if (this->pairing_active_ && opcode == 0x1FC9) {
     if (msg.type == ramses_esp::RAMSES_MSG_W) {
-      ramses_esp::RamsesAddress target = ramses_esp::RamsesAddress::from_bytes(msg.addr[1]);
+      ramses_esp::RamsesAddress target =
+          ramses_esp::RamsesAddress::from_bytes(msg.addr[1]);
       ramses_esp::RamsesAddress sender = this->get_effective_sender_address();
 
       if (target == sender) {
-        ramses_esp::RamsesAddress fan_addr = ramses_esp::RamsesAddress::from_bytes(msg.addr[0]);
-        ESP_LOGI(TAG, "Received 1FC9 Accept from Fan Unit %s! Confirming pairing...", fan_addr.to_string().c_str());
+        ramses_esp::RamsesAddress fan_addr =
+            ramses_esp::RamsesAddress::from_bytes(msg.addr[0]);
+        ESP_LOGI(TAG,
+                 "Received 1FC9 Accept from Fan Unit %s! Confirming pairing...",
+                 fan_addr.to_string().c_str());
 
         // Discover device address if not pre-configured
         if (!this->device_address_from_yaml_.is_valid) {
@@ -213,24 +246,30 @@ void RamsesFan::on_message(const ramses_esp::RamsesMessage &msg) {
 
 #ifdef USE_ESP_IDF
         if (this->parent_ != nullptr) {
-          ramses_esp::RamsesMessage confirm = ramses_esp::BindingPayload::encode_confirm(sender, fan_addr);
+          ramses_esp::RamsesMessage confirm =
+              ramses_esp::BindingPayload::encode_confirm(sender, fan_addr);
           this->parent_->send_message(confirm);
         }
 #endif
         this->stop_pairing();
-        ESP_LOGI(TAG, "Pairing successfully completed with Fan Unit %s! Addresses persisted to NVS.",
+        ESP_LOGI(TAG,
+                 "Pairing successfully completed with Fan Unit %s! Addresses "
+                 "persisted to NVS.",
                  fan_addr.to_string().c_str());
         return;
       }
     }
   }
 
-  if (!fan_address_matches(this->device_address_, msg)) return;
+  if (!fan_address_matches(this->device_address_, msg))
+    return;
 
   if (opcode == 0x22F1) {
-    auto dec = ramses_esp::FanStatePayload::decode(msg.payload, msg.n_payload, this->scheme_);
+    auto dec = ramses_esp::FanStatePayload::decode(msg.payload, msg.n_payload,
+                                                   this->scheme_);
     if (dec.has_value()) {
-      this->set_preset_mode_(ramses_esp::fan_preset_to_string(dec->preset_mode));
+      this->set_preset_mode_(
+          ramses_esp::fan_preset_to_string(dec->preset_mode));
       this->state = (dec->preset_mode != ramses_esp::FanPresetMode::OFF);
       this->speed = dec->speed_percent;
       this->publish_state();
@@ -244,13 +283,20 @@ void RamsesFan::control(const fan::FanCall &call) {
   if (call.has_preset_mode()) {
     std::string pm = call.get_preset_mode();
     std::transform(pm.begin(), pm.end(), pm.begin(), ::tolower);
-    if (pm == "auto") target_mode = ramses_esp::FanPresetMode::AUTO;
-    else if (pm == "low") target_mode = ramses_esp::FanPresetMode::LOW;
-    else if (pm == "medium" || pm == "med") target_mode = ramses_esp::FanPresetMode::MEDIUM;
-    else if (pm == "high") target_mode = ramses_esp::FanPresetMode::HIGH;
-    else if (pm == "boost") target_mode = ramses_esp::FanPresetMode::BOOST;
-    else if (pm == "away") target_mode = ramses_esp::FanPresetMode::AWAY;
-    else if (pm == "off") target_mode = ramses_esp::FanPresetMode::OFF;
+    if (pm == "auto")
+      target_mode = ramses_esp::FanPresetMode::AUTO;
+    else if (pm == "low")
+      target_mode = ramses_esp::FanPresetMode::LOW;
+    else if (pm == "medium" || pm == "med")
+      target_mode = ramses_esp::FanPresetMode::MEDIUM;
+    else if (pm == "high")
+      target_mode = ramses_esp::FanPresetMode::HIGH;
+    else if (pm == "boost")
+      target_mode = ramses_esp::FanPresetMode::BOOST;
+    else if (pm == "away")
+      target_mode = ramses_esp::FanPresetMode::AWAY;
+    else if (pm == "off")
+      target_mode = ramses_esp::FanPresetMode::OFF;
   } else if (call.get_state().has_value()) {
     if (!*call.get_state()) {
       target_mode = ramses_esp::FanPresetMode::OFF;
@@ -259,19 +305,29 @@ void RamsesFan::control(const fan::FanCall &call) {
     }
   } else if (call.get_speed().has_value()) {
     int sp = *call.get_speed();
-    if (sp == 0) target_mode = ramses_esp::FanPresetMode::OFF;
-    else if (sp <= 33) target_mode = ramses_esp::FanPresetMode::LOW;
-    else if (sp <= 66) target_mode = ramses_esp::FanPresetMode::MEDIUM;
-    else if (sp <= 90) target_mode = ramses_esp::FanPresetMode::HIGH;
-    else target_mode = ramses_esp::FanPresetMode::BOOST;
+    if (sp == 0)
+      target_mode = ramses_esp::FanPresetMode::OFF;
+    else if (sp <= 33)
+      target_mode = ramses_esp::FanPresetMode::LOW;
+    else if (sp <= 66)
+      target_mode = ramses_esp::FanPresetMode::MEDIUM;
+    else if (sp <= 90)
+      target_mode = ramses_esp::FanPresetMode::HIGH;
+    else
+      target_mode = ramses_esp::FanPresetMode::BOOST;
   }
 
   this->set_preset_mode_(ramses_esp::fan_preset_to_string(target_mode));
   this->state = (target_mode != ramses_esp::FanPresetMode::OFF);
-  if (target_mode == ramses_esp::FanPresetMode::LOW) this->speed = 33;
-  else if (target_mode == ramses_esp::FanPresetMode::MEDIUM) this->speed = 66;
-  else if (target_mode == ramses_esp::FanPresetMode::HIGH || target_mode == ramses_esp::FanPresetMode::BOOST) this->speed = 100;
-  else if (target_mode == ramses_esp::FanPresetMode::OFF) this->speed = 0;
+  if (target_mode == ramses_esp::FanPresetMode::LOW)
+    this->speed = 33;
+  else if (target_mode == ramses_esp::FanPresetMode::MEDIUM)
+    this->speed = 66;
+  else if (target_mode == ramses_esp::FanPresetMode::HIGH ||
+           target_mode == ramses_esp::FanPresetMode::BOOST)
+    this->speed = 100;
+  else if (target_mode == ramses_esp::FanPresetMode::OFF)
+    this->speed = 0;
 
   ramses_esp::RamsesAddress sender = this->get_effective_sender_address();
   ramses_esp::RamsesMessage msg = ramses_esp::FanStatePayload::encode_write(

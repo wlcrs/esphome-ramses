@@ -86,9 +86,16 @@ def make_case(case: dict[str, object]) -> dict[str, object] | None:
     }
 
 
+def get_source_path(root: Path) -> Path:
+    fixtures_file = root / "tests/fixtures/regression_packets_sorted.txt"
+    if fixtures_file.exists():
+        return fixtures_file
+    return root / "ramses_rf/tests/fixtures/regression_packets_sorted.txt"
+
+
 def main() -> int:
     root = Path(__file__).resolve().parents[1]
-    source = root / "ramses_rf/tests/fixtures/regression_packets_sorted.txt"
+    source = get_source_path(root)
     cases = []
     for case in extract(source):
         native_case = make_case(case)

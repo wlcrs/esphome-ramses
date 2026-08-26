@@ -1,15 +1,15 @@
 #pragma once
 
-#include "esphome/core/component.h"
-#include "esphome/components/fan/fan.h"
-#include "components/ramses_esp/ramses_message.h"
 #include "components/ramses_esp/ramses_decoder.h"
-#include <string>
+#include "components/ramses_esp/ramses_message.h"
+#include "esphome/components/fan/fan.h"
+#include "esphome/core/component.h"
 #include <set>
+#include <string>
 
 #ifdef USE_ESP_IDF
-#include "esphome/core/preferences.h"
 #include "esphome/core/helpers.h"
+#include "esphome/core/preferences.h"
 #endif
 
 namespace esphome {
@@ -22,11 +22,13 @@ namespace ramses_devices {
 // Compact serialisation: upper 10 bits = dev_class, lower 22 bits = device id.
 // Zero = "not set / invalid" sentinel.
 static inline uint32_t addr_to_u32(const ramses_esp::RamsesAddress &a) {
-  if (!a.is_valid) return 0;
+  if (!a.is_valid)
+    return 0;
   return ((uint32_t)(a.dev_class & 0x3FF) << 22) | (a.id & 0x3FFFFF);
 }
 static inline ramses_esp::RamsesAddress u32_to_addr(uint32_t v) {
-  if (v == 0) return ramses_esp::RamsesAddress{};
+  if (v == 0)
+    return ramses_esp::RamsesAddress{};
   return ramses_esp::RamsesAddress{
       .dev_class = static_cast<uint8_t>((v >> 22) & 0x3FF),
       .id = v & 0x3FFFFF,
@@ -35,10 +37,12 @@ static inline ramses_esp::RamsesAddress u32_to_addr(uint32_t v) {
 }
 
 class RamsesFan : public fan::Fan, public Component {
- public:
+public:
   RamsesFan() = default;
 
-  void set_parent(ramses_esp::RamsesESPComponent *parent) { this->parent_ = parent; }
+  void set_parent(ramses_esp::RamsesESPComponent *parent) {
+    this->parent_ = parent;
+  }
   void set_device_address(const std::string &addr) {
     this->device_address_ = ramses_esp::RamsesAddress::from_string(addr);
     this->device_address_from_yaml_ = this->device_address_;
@@ -59,10 +63,14 @@ class RamsesFan : public fan::Fan, public Component {
   void stop_pairing();
   bool is_pairing() const { return this->pairing_active_; }
 
-  const ramses_esp::RamsesAddress &get_device_address() const { return this->device_address_; }
-  const ramses_esp::RamsesAddress &get_remote_address() const { return this->remote_address_; }
+  const ramses_esp::RamsesAddress &get_device_address() const {
+    return this->device_address_;
+  }
+  const ramses_esp::RamsesAddress &get_remote_address() const {
+    return this->remote_address_;
+  }
 
- protected:
+protected:
   ramses_esp::RamsesESPComponent *parent_{nullptr};
   ramses_esp::RamsesAddress device_address_;
   ramses_esp::RamsesAddress remote_address_;

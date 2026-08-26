@@ -1,7 +1,7 @@
 #include "ramses_decoder.h"
-#include <cstring>
-#include <cmath>
 #include <algorithm>
+#include <cmath>
+#include <cstring>
 
 namespace esphome {
 namespace ramses_esp {
@@ -11,7 +11,8 @@ namespace ramses_esp {
 // Equivalent to ramses_tx/helpers.py: hex_to_temp()
 // ----------------------------------------------------------------------
 static inline bool parse_temperature_raw(int16_t raw, float &out_temp) {
-  if (raw == RAMSES_TEMP_SENTINEL_INVALID || raw == RAMSES_TEMP_SENTINEL_DISABLED) {
+  if (raw == RAMSES_TEMP_SENTINEL_INVALID ||
+      raw == RAMSES_TEMP_SENTINEL_DISABLED) {
     return false;
   }
   out_temp = static_cast<float>(raw) / 100.0f;
@@ -20,13 +21,16 @@ static inline bool parse_temperature_raw(int16_t raw, float &out_temp) {
 
 // ----------------------------------------------------------------------
 // Opcode 0x30C9: Temperature Telemetry
-// ramses_rf reference: ramses_rf/payloads/heating.py:TemperaturePayload / parse_30c9()
+// ramses_rf reference: ramses_rf/payloads/heating.py:TemperaturePayload /
+// parse_30c9()
 // ----------------------------------------------------------------------
 using TemperatureSingleFmt = binary::Struct<"!h">;
 using TemperatureZoneFmt = binary::Struct<"!Bh">;
 
-std::optional<TemperaturePayload> TemperaturePayload::decode(const uint8_t *payload, size_t len) {
-  if (payload == nullptr || len < TemperatureSingleFmt::size) return std::nullopt;
+std::optional<TemperaturePayload>
+TemperaturePayload::decode(const uint8_t *payload, size_t len) {
+  if (payload == nullptr || len < TemperatureSingleFmt::size)
+    return std::nullopt;
 
   TemperaturePayload res;
   if (len == TemperatureSingleFmt::size) {
@@ -41,8 +45,10 @@ std::optional<TemperaturePayload> TemperaturePayload::decode(const uint8_t *payl
     return res;
   }
 
-  // Multi-zone arrays: each zone item is 3 bytes: [zone_index (1B), temp (2B signed BE int)]
-  for (auto [zone_idx, raw_temp] : TemperatureZoneFmt::unpack_all(payload, len)) {
+  // Multi-zone arrays: each zone item is 3 bytes: [zone_index (1B), temp (2B
+  // signed BE int)]
+  for (auto [zone_idx, raw_temp] :
+       TemperatureZoneFmt::unpack_all(payload, len)) {
     float temp = 0.0f;
     bool valid = parse_temperature_raw(raw_temp, temp);
     res.zones.push_back(ZoneTemperatureItem{
@@ -60,8 +66,10 @@ std::optional<TemperaturePayload> TemperaturePayload::decode(const uint8_t *payl
 // ----------------------------------------------------------------------
 using SetpointFmt = binary::Struct<"!Bh">;
 
-std::optional<SetpointPayload> SetpointPayload::decode(const uint8_t *payload, size_t len) {
-  if (payload == nullptr || len < SetpointFmt::size) return std::nullopt;
+std::optional<SetpointPayload> SetpointPayload::decode(const uint8_t *payload,
+                                                       size_t len) {
+  if (payload == nullptr || len < SetpointFmt::size)
+    return std::nullopt;
 
   SetpointPayload res;
   for (auto [zone_idx, raw_sp] : SetpointFmt::unpack_all(payload, len)) {
@@ -76,7 +84,10 @@ std::optional<SetpointPayload> SetpointPayload::decode(const uint8_t *payload, s
   return res;
 }
 
-RamsesMessage SetpointPayload::encode_write(const RamsesAddress &src, const RamsesAddress &dst, uint8_t zone_index, float setpoint) {
+RamsesMessage SetpointPayload::encode_write(const RamsesAddress &src,
+                                            const RamsesAddress &dst,
+                                            uint8_t zone_index,
+                                            float setpoint) {
   int16_t raw_sp = static_cast<int16_t>(std::round(setpoint * 100.0f));
   return RamsesMessageBuilder::write()
       .from(src)
@@ -91,79 +102,128 @@ RamsesMessage SetpointPayload::encode_write(const RamsesAddress &src, const Rams
 // ----------------------------------------------------------------------
 const char *system_mode_to_string(SystemMode mode) {
   switch (mode) {
-    case SystemMode::AUTO: return "auto";
-    case SystemMode::HEAT_OFF: return "heat_off";
-    case SystemMode::ECO_BOOST: return "eco_boost";
-    case SystemMode::AWAY: return "away";
-    case SystemMode::DAY_OFF: return "day_off";
-    case SystemMode::DAY_OFF_ECO: return "day_off_eco";
-    case SystemMode::AUTO_WITH_RESET: return "auto_with_reset";
-    case SystemMode::CUSTOM: return "custom";
-    default: return "unknown";
+  case SystemMode::AUTO:
+    return "auto";
+  case SystemMode::HEAT_OFF:
+    return "heat_off";
+  case SystemMode::ECO_BOOST:
+    return "eco_boost";
+  case SystemMode::AWAY:
+    return "away";
+  case SystemMode::DAY_OFF:
+    return "day_off";
+  case SystemMode::DAY_OFF_ECO:
+    return "day_off_eco";
+  case SystemMode::AUTO_WITH_RESET:
+    return "auto_with_reset";
+  case SystemMode::CUSTOM:
+    return "custom";
+  default:
+    return "unknown";
   }
 }
 
 SystemMode system_mode_from_string(const std::string &str) {
-  if (str == "auto") return SystemMode::AUTO;
-  if (str == "heat_off" || str == "off") return SystemMode::HEAT_OFF;
-  if (str == "eco_boost" || str == "eco") return SystemMode::ECO_BOOST;
-  if (str == "away") return SystemMode::AWAY;
-  if (str == "day_off") return SystemMode::DAY_OFF;
-  if (str == "day_off_eco") return SystemMode::DAY_OFF_ECO;
-  if (str == "auto_with_reset") return SystemMode::AUTO_WITH_RESET;
-  if (str == "custom") return SystemMode::CUSTOM;
+  if (str == "auto")
+    return SystemMode::AUTO;
+  if (str == "heat_off" || str == "off")
+    return SystemMode::HEAT_OFF;
+  if (str == "eco_boost" || str == "eco")
+    return SystemMode::ECO_BOOST;
+  if (str == "away")
+    return SystemMode::AWAY;
+  if (str == "day_off")
+    return SystemMode::DAY_OFF;
+  if (str == "day_off_eco")
+    return SystemMode::DAY_OFF_ECO;
+  if (str == "auto_with_reset")
+    return SystemMode::AUTO_WITH_RESET;
+  if (str == "custom")
+    return SystemMode::CUSTOM;
   return SystemMode::UNKNOWN;
 }
 
 using SystemModeFmt = binary::Struct<"!B">;
 
-std::optional<SystemModePayload> SystemModePayload::decode(const uint8_t *payload, size_t len) {
-  if (payload == nullptr || len < SystemModeFmt::size) return std::nullopt;
+std::optional<SystemModePayload>
+SystemModePayload::decode(const uint8_t *payload, size_t len) {
+  if (payload == nullptr || len < SystemModeFmt::size)
+    return std::nullopt;
 
   SystemModePayload res;
   auto [mode_raw] = *SystemModeFmt::unpack(payload, len);
   res.mode_raw = mode_raw;
   res.mode = SystemMode::UNKNOWN;
   switch (res.mode_raw) {
-    case 0: res.mode = SystemMode::AUTO; break;
-    case 1: res.mode = SystemMode::HEAT_OFF; break;
-    case 2: res.mode = SystemMode::ECO_BOOST; break;
-    case 3: res.mode = SystemMode::AWAY; break;
-    case 4: res.mode = SystemMode::DAY_OFF; break;
-    case 5: res.mode = SystemMode::DAY_OFF_ECO; break;
-    case 6: res.mode = SystemMode::AUTO_WITH_RESET; break;
-    default: break;
+  case 0:
+    res.mode = SystemMode::AUTO;
+    break;
+  case 1:
+    res.mode = SystemMode::HEAT_OFF;
+    break;
+  case 2:
+    res.mode = SystemMode::ECO_BOOST;
+    break;
+  case 3:
+    res.mode = SystemMode::AWAY;
+    break;
+  case 4:
+    res.mode = SystemMode::DAY_OFF;
+    break;
+  case 5:
+    res.mode = SystemMode::DAY_OFF_ECO;
+    break;
+  case 6:
+    res.mode = SystemMode::AUTO_WITH_RESET;
+    break;
+  default:
+    break;
   }
   return res;
 }
 
-RamsesMessage SystemModePayload::encode_write(const RamsesAddress &src, const RamsesAddress &dst, SystemMode mode) {
+RamsesMessage SystemModePayload::encode_write(const RamsesAddress &src,
+                                              const RamsesAddress &dst,
+                                              SystemMode mode) {
   uint8_t payload[8]{0};
   SystemModeFmt::pack(payload, static_cast<uint8_t>(mode));
-  return RamsesMessageBuilder::write()
-      .from(src)
-      .to(dst)
-      .opcode(0x2E04)
-      .payload(payload, 8);
+  return RamsesMessageBuilder::write().from(src).to(dst).opcode(0x2E04).payload(
+      payload, 8);
 }
 
 using SystemSync1Fmt = binary::Struct<"!B">;
 using SystemSync3Fmt = binary::Struct<"!BH">;
 
-std::optional<SystemSyncPayload> SystemSyncPayload::decode(const uint8_t *payload, size_t len) {
-  if (payload == nullptr || len < SystemSync1Fmt::size) return std::nullopt;
+std::optional<SystemSyncPayload>
+SystemSyncPayload::decode(const uint8_t *payload, size_t len) {
+  if (payload == nullptr || len < SystemSync1Fmt::size)
+    return std::nullopt;
 
   SystemSyncPayload res;
   auto [mode_raw] = *SystemSync1Fmt::unpack(payload, len);
   res.mode_raw = mode_raw;
   switch (res.mode_raw) {
-    case 0: res.mode = SystemMode::AUTO; break;
-    case 1: res.mode = SystemMode::AWAY; break;
-    case 2: res.mode = SystemMode::DAY_OFF; break;
-    case 3: res.mode = SystemMode::CUSTOM; break;
-    case 4: res.mode = SystemMode::ECO; break;
-    case 5: res.mode = SystemMode::OFF; break;
-    default: res.mode = SystemMode::UNKNOWN; break;
+  case 0:
+    res.mode = SystemMode::AUTO;
+    break;
+  case 1:
+    res.mode = SystemMode::AWAY;
+    break;
+  case 2:
+    res.mode = SystemMode::DAY_OFF;
+    break;
+  case 3:
+    res.mode = SystemMode::CUSTOM;
+    break;
+  case 4:
+    res.mode = SystemMode::ECO;
+    break;
+  case 5:
+    res.mode = SystemMode::OFF;
+    break;
+  default:
+    res.mode = SystemMode::UNKNOWN;
+    break;
   }
 
   if (len >= SystemSync3Fmt::size) {
@@ -173,7 +233,9 @@ std::optional<SystemSyncPayload> SystemSyncPayload::decode(const uint8_t *payloa
   return res;
 }
 
-RamsesMessage SystemSyncPayload::encode_write(const RamsesAddress &src, const RamsesAddress &dst, SystemMode mode) {
+RamsesMessage SystemSyncPayload::encode_write(const RamsesAddress &src,
+                                              const RamsesAddress &dst,
+                                              SystemMode mode) {
   return RamsesMessageBuilder::write()
       .from(src)
       .to(dst)
@@ -187,9 +249,11 @@ RamsesMessage SystemSyncPayload::encode_write(const RamsesAddress &src, const Ra
 // ----------------------------------------------------------------------
 using HeatDemandFmt = binary::Struct<"!BB">;
 
-std::optional<HeatDemandPayload> HeatDemandPayload::decode(const uint8_t *payload, size_t len) {
+std::optional<HeatDemandPayload>
+HeatDemandPayload::decode(const uint8_t *payload, size_t len) {
   auto fields = HeatDemandFmt::unpack(payload, len);
-  if (!fields) return std::nullopt;
+  if (!fields)
+    return std::nullopt;
 
   auto [zone, demand_raw] = *fields;
   HeatDemandPayload res;
@@ -201,13 +265,16 @@ std::optional<HeatDemandPayload> HeatDemandPayload::decode(const uint8_t *payloa
 
 // ----------------------------------------------------------------------
 // Opcode 0x0004: Zone Name
-// ramses_rf reference: ramses_rf/payloads/heating.py:ZoneNamePayload (ZoneName22BPayload)
+// ramses_rf reference: ramses_rf/payloads/heating.py:ZoneNamePayload
+// (ZoneName22BPayload)
 // ----------------------------------------------------------------------
 using ZoneNameHeaderFmt = binary::Struct<"!BB">;
 using ZoneNameQueryFmt = binary::Struct<"!B">;
 
-std::optional<ZoneNamePayload> ZoneNamePayload::decode(const uint8_t *payload, size_t len) {
-  if (payload == nullptr || len < ZoneNameHeaderFmt::size + 1) return std::nullopt;
+std::optional<ZoneNamePayload> ZoneNamePayload::decode(const uint8_t *payload,
+                                                       size_t len) {
+  if (payload == nullptr || len < ZoneNameHeaderFmt::size + 1)
+    return std::nullopt;
 
   auto [zone_idx, flag] = *ZoneNameHeaderFmt::unpack(payload, len);
   ZoneNamePayload res;
@@ -215,17 +282,20 @@ std::optional<ZoneNamePayload> ZoneNamePayload::decode(const uint8_t *payload, s
   // 22B layout: [index (1B), flag (1B), ASCII chars up to 20B]
   size_t name_len = (len >= 22) ? 20 : (len - 2);
   const char *raw_chars = reinterpret_cast<const char *>(&payload[2]);
-  
+
   // Find first null or non-printable character
   size_t actual_len = 0;
-  while (actual_len < name_len && raw_chars[actual_len] != '\0' && raw_chars[actual_len] >= 32 && raw_chars[actual_len] <= 126) {
+  while (actual_len < name_len && raw_chars[actual_len] != '\0' &&
+         raw_chars[actual_len] >= 32 && raw_chars[actual_len] <= 126) {
     actual_len++;
   }
   res.name = std::string(raw_chars, actual_len);
   return res;
 }
 
-RamsesMessage ZoneNamePayload::encode_query(const RamsesAddress &src, const RamsesAddress &dst, uint8_t zone_index) {
+RamsesMessage ZoneNamePayload::encode_query(const RamsesAddress &src,
+                                            const RamsesAddress &dst,
+                                            uint8_t zone_index) {
   return RamsesMessageBuilder::query()
       .from(src)
       .to(dst)
@@ -240,9 +310,11 @@ RamsesMessage ZoneNamePayload::encode_query(const RamsesAddress &src, const Rams
 using ZoneStructureFmt = binary::Struct<"!BH">;
 using ZoneStructureQueryFmt = binary::Struct<"!B">;
 
-std::optional<ZoneStructurePayload> ZoneStructurePayload::decode(const uint8_t *payload, size_t len) {
+std::optional<ZoneStructurePayload>
+ZoneStructurePayload::decode(const uint8_t *payload, size_t len) {
   auto fields = ZoneStructureFmt::unpack(payload, len);
-  if (!fields) return std::nullopt;
+  if (!fields)
+    return std::nullopt;
 
   auto [zone_type, active_mask] = *fields;
   ZoneStructurePayload res;
@@ -254,13 +326,15 @@ std::optional<ZoneStructurePayload> ZoneStructurePayload::decode(const uint8_t *
     // Count active bits in mask
     res.zone_count = 0;
     for (int b = 0; b < 16; b++) {
-      if (res.active_zone_mask & (1 << b)) res.zone_count++;
+      if (res.active_zone_mask & (1 << b))
+        res.zone_count++;
     }
   }
   return res;
 }
 
-RamsesMessage ZoneStructurePayload::encode_query(const RamsesAddress &src, const RamsesAddress &dst) {
+RamsesMessage ZoneStructurePayload::encode_query(const RamsesAddress &src,
+                                                 const RamsesAddress &dst) {
   return RamsesMessageBuilder::query()
       .from(src)
       .to(dst)
@@ -274,8 +348,10 @@ RamsesMessage ZoneStructurePayload::encode_query(const RamsesAddress &src, const
 // ----------------------------------------------------------------------
 using ZoneRoleItemHeaderFmt = binary::Struct<"!BB">;
 
-std::optional<ZoneRolePayload> ZoneRolePayload::decode(const uint8_t *payload, size_t len) {
-  if (payload == nullptr || len < 5) return std::nullopt;
+std::optional<ZoneRolePayload> ZoneRolePayload::decode(const uint8_t *payload,
+                                                       size_t len) {
+  if (payload == nullptr || len < 5)
+    return std::nullopt;
 
   ZoneRolePayload res;
   std::span<const uint8_t> buf(payload, len);
@@ -286,7 +362,8 @@ std::optional<ZoneRolePayload> ZoneRolePayload::decode(const uint8_t *payload, s
     res.bindings.push_back(ZoneRoleBindingItem{
         .zone_index = zone_idx,
         .role = role,
-        .device_address = RamsesAddress::from_bytes(item_slice.subspan(2).data()),
+        .device_address =
+            RamsesAddress::from_bytes(item_slice.subspan(2).data()),
     });
   }
   return res;
@@ -294,38 +371,53 @@ std::optional<ZoneRolePayload> ZoneRolePayload::decode(const uint8_t *payload, s
 
 // ----------------------------------------------------------------------
 // Opcode 0x22F1 / 0x22F3: HVAC Fan State & Control
-// ramses_rf reference: ramses_rf/payloads/hvac.py:FanStatePayload & ramses_rf/models/hvac_schemas.py
+// ramses_rf reference: ramses_rf/payloads/hvac.py:FanStatePayload &
+// ramses_rf/models/hvac_schemas.py
 // ----------------------------------------------------------------------
 uint8_t get_hvac_oem_code(HvacScheme scheme) {
   switch (scheme) {
-    case HvacScheme::VASCO: return 0x66;
-    case HvacScheme::ITHO: return 0x01;
-    case HvacScheme::ZEHNDER: return 0x02;
-    case HvacScheme::AUTO:
-    case HvacScheme::ORCON:
-    default: return 0x67;
+  case HvacScheme::VASCO:
+    return 0x66;
+  case HvacScheme::ITHO:
+    return 0x01;
+  case HvacScheme::ZEHNDER:
+    return 0x02;
+  case HvacScheme::AUTO:
+  case HvacScheme::ORCON:
+  default:
+    return 0x67;
   }
 }
 
 const char *fan_preset_to_string(FanPresetMode mode) {
   switch (mode) {
-    case FanPresetMode::AUTO: return "auto";
-    case FanPresetMode::LOW: return "low";
-    case FanPresetMode::MEDIUM: return "medium";
-    case FanPresetMode::HIGH: return "high";
-    case FanPresetMode::BOOST: return "boost";
-    case FanPresetMode::AWAY: return "away";
-    case FanPresetMode::OFF: return "off";
-    default: return "unknown";
+  case FanPresetMode::AUTO:
+    return "auto";
+  case FanPresetMode::LOW:
+    return "low";
+  case FanPresetMode::MEDIUM:
+    return "medium";
+  case FanPresetMode::HIGH:
+    return "high";
+  case FanPresetMode::BOOST:
+    return "boost";
+  case FanPresetMode::AWAY:
+    return "away";
+  case FanPresetMode::OFF:
+    return "off";
+  default:
+    return "unknown";
   }
 }
 
 using FanStateFmt = binary::Struct<"!BB">;
 using FanState3Fmt = binary::Struct<"!BBB">;
 
-std::optional<FanStatePayload> FanStatePayload::decode(const uint8_t *payload, size_t len, HvacScheme scheme) {
+std::optional<FanStatePayload>
+FanStatePayload::decode(const uint8_t *payload, size_t len, HvacScheme scheme) {
   auto fields = FanStateFmt::unpack(payload, len);
-  if (!fields) return std::nullopt;
+  if (!fields)
+    return std::nullopt;
 
   auto [hdr, raw_mode] = *fields;
 
@@ -333,90 +425,190 @@ std::optional<FanStatePayload> FanStatePayload::decode(const uint8_t *payload, s
   res.raw_mode = raw_mode;
 
   switch (scheme) {
-    case HvacScheme::ORCON:
+  case HvacScheme::ORCON:
+  default:
+    // Orcon: 00=away, 01=low, 02=medium, 03=high, 04/05=auto, 06=boost, 07=off.
+    switch (res.raw_mode) {
+    case 0x00:
+      res.preset_mode = FanPresetMode::AWAY;
+      res.speed_percent = 15;
+      break;
+    case 0x01:
+      res.preset_mode = FanPresetMode::LOW;
+      res.speed_percent = 33;
+      break;
+    case 0x02:
+      res.preset_mode = FanPresetMode::MEDIUM;
+      res.speed_percent = 66;
+      break;
+    case 0x03:
+      res.preset_mode = FanPresetMode::HIGH;
+      res.speed_percent = 100;
+      break;
+    case 0x04:
+    case 0x05:
+      res.preset_mode = FanPresetMode::AUTO;
+      res.speed_percent = 50;
+      break;
+    case 0x06:
+      res.preset_mode = FanPresetMode::BOOST;
+      res.speed_percent = 100;
+      break;
+    case 0x07:
+      res.preset_mode = FanPresetMode::OFF;
+      res.speed_percent = 0;
+      break;
     default:
-      // Orcon: 00=away, 01=low, 02=medium, 03=high, 04/05=auto, 06=boost, 07=off.
-      switch (res.raw_mode) {
-        case 0x00: res.preset_mode = FanPresetMode::AWAY; res.speed_percent = 15; break;
-        case 0x01: res.preset_mode = FanPresetMode::LOW; res.speed_percent = 33; break;
-        case 0x02: res.preset_mode = FanPresetMode::MEDIUM; res.speed_percent = 66; break;
-        case 0x03: res.preset_mode = FanPresetMode::HIGH; res.speed_percent = 100; break;
-        case 0x04:
-        case 0x05: res.preset_mode = FanPresetMode::AUTO; res.speed_percent = 50; break;
-        case 0x06: res.preset_mode = FanPresetMode::BOOST; res.speed_percent = 100; break;
-        case 0x07: res.preset_mode = FanPresetMode::OFF; res.speed_percent = 0; break;
-        default: res.preset_mode = FanPresetMode::UNKNOWN; break;
-      }
+      res.preset_mode = FanPresetMode::UNKNOWN;
       break;
+    }
+    break;
 
-    case HvacScheme::VASCO:
-    case HvacScheme::ZEHNDER:
-      switch (res.raw_mode) {
-        case 0x00: res.preset_mode = FanPresetMode::OFF; res.speed_percent = 0; break;
-        case 0x01: res.preset_mode = FanPresetMode::AWAY; res.speed_percent = 15; break;
-        case 0x02: res.preset_mode = FanPresetMode::LOW; res.speed_percent = 33; break;
-        case 0x03: res.preset_mode = FanPresetMode::MEDIUM; res.speed_percent = 66; break;
-        case 0x04: res.preset_mode = FanPresetMode::HIGH; res.speed_percent = 100; break;
-        case 0x05: res.preset_mode = FanPresetMode::AUTO; res.speed_percent = 50; break;
-        default: res.preset_mode = FanPresetMode::UNKNOWN; break;
-      }
+  case HvacScheme::VASCO:
+  case HvacScheme::ZEHNDER:
+    switch (res.raw_mode) {
+    case 0x00:
+      res.preset_mode = FanPresetMode::OFF;
+      res.speed_percent = 0;
       break;
+    case 0x01:
+      res.preset_mode = FanPresetMode::AWAY;
+      res.speed_percent = 15;
+      break;
+    case 0x02:
+      res.preset_mode = FanPresetMode::LOW;
+      res.speed_percent = 33;
+      break;
+    case 0x03:
+      res.preset_mode = FanPresetMode::MEDIUM;
+      res.speed_percent = 66;
+      break;
+    case 0x04:
+      res.preset_mode = FanPresetMode::HIGH;
+      res.speed_percent = 100;
+      break;
+    case 0x05:
+      res.preset_mode = FanPresetMode::AUTO;
+      res.speed_percent = 50;
+      break;
+    default:
+      res.preset_mode = FanPresetMode::UNKNOWN;
+      break;
+    }
+    break;
 
-    case HvacScheme::ITHO:
-      // Itho uses a mode index: 00=off, 01=trickle, 02=low, 03=medium, 04=high.
-      switch (res.raw_mode) {
-        case 0x00: res.preset_mode = FanPresetMode::OFF; res.speed_percent = 0; break;
-        case 0x01: res.preset_mode = FanPresetMode::LOW; res.speed_percent = 20; break;
-        case 0x02: res.preset_mode = FanPresetMode::LOW; res.speed_percent = 33; break;
-        case 0x03: res.preset_mode = FanPresetMode::MEDIUM; res.speed_percent = 66; break;
-        case 0x04: res.preset_mode = FanPresetMode::HIGH; res.speed_percent = 100; break;
-        default: res.preset_mode = FanPresetMode::UNKNOWN; break;
-      }
+  case HvacScheme::ITHO:
+    // Itho uses a mode index: 00=off, 01=trickle, 02=low, 03=medium, 04=high.
+    switch (res.raw_mode) {
+    case 0x00:
+      res.preset_mode = FanPresetMode::OFF;
+      res.speed_percent = 0;
       break;
+    case 0x01:
+      res.preset_mode = FanPresetMode::LOW;
+      res.speed_percent = 20;
+      break;
+    case 0x02:
+      res.preset_mode = FanPresetMode::LOW;
+      res.speed_percent = 33;
+      break;
+    case 0x03:
+      res.preset_mode = FanPresetMode::MEDIUM;
+      res.speed_percent = 66;
+      break;
+    case 0x04:
+      res.preset_mode = FanPresetMode::HIGH;
+      res.speed_percent = 100;
+      break;
+    default:
+      res.preset_mode = FanPresetMode::UNKNOWN;
+      break;
+    }
+    break;
   }
 
   return res;
 }
 
-RamsesMessage FanStatePayload::encode_write(const RamsesAddress &src, const RamsesAddress &dst, FanPresetMode mode, HvacScheme scheme) {
+RamsesMessage FanStatePayload::encode_write(const RamsesAddress &src,
+                                            const RamsesAddress &dst,
+                                            FanPresetMode mode,
+                                            HvacScheme scheme) {
   uint8_t mode_byte = 0x00;
   switch (scheme) {
-    case HvacScheme::AUTO:
-    case HvacScheme::ORCON:
-      switch (mode) {
-        case FanPresetMode::AWAY: mode_byte = 0x00; break;
-        case FanPresetMode::LOW: mode_byte = 0x01; break;
-        case FanPresetMode::MEDIUM: mode_byte = 0x02; break;
-        case FanPresetMode::HIGH: mode_byte = 0x03; break;
-        case FanPresetMode::AUTO: mode_byte = 0x04; break;
-        case FanPresetMode::BOOST: mode_byte = 0x06; break;
-        case FanPresetMode::OFF: mode_byte = 0x07; break;
-        default: break;
-      }
+  case HvacScheme::AUTO:
+  case HvacScheme::ORCON:
+    switch (mode) {
+    case FanPresetMode::AWAY:
+      mode_byte = 0x00;
       break;
-    case HvacScheme::ITHO:
-      switch (mode) {
-        case FanPresetMode::OFF: mode_byte = 0x00; break;
-        case FanPresetMode::LOW: mode_byte = 0x02; break;
-        case FanPresetMode::MEDIUM: mode_byte = 0x03; break;
-        case FanPresetMode::HIGH:
-        case FanPresetMode::BOOST: mode_byte = 0x04; break;
-        default: break;
-      }
+    case FanPresetMode::LOW:
+      mode_byte = 0x01;
       break;
-    case HvacScheme::VASCO:
-    case HvacScheme::ZEHNDER:
-      switch (mode) {
-        case FanPresetMode::OFF: mode_byte = 0x00; break;
-        case FanPresetMode::AWAY: mode_byte = 0x01; break;
-        case FanPresetMode::LOW: mode_byte = 0x02; break;
-        case FanPresetMode::MEDIUM: mode_byte = 0x03; break;
-        case FanPresetMode::HIGH:
-        case FanPresetMode::BOOST: mode_byte = 0x04; break;
-        case FanPresetMode::AUTO: mode_byte = 0x05; break;
-        default: break;
-      }
+    case FanPresetMode::MEDIUM:
+      mode_byte = 0x02;
       break;
+    case FanPresetMode::HIGH:
+      mode_byte = 0x03;
+      break;
+    case FanPresetMode::AUTO:
+      mode_byte = 0x04;
+      break;
+    case FanPresetMode::BOOST:
+      mode_byte = 0x06;
+      break;
+    case FanPresetMode::OFF:
+      mode_byte = 0x07;
+      break;
+    default:
+      break;
+    }
+    break;
+  case HvacScheme::ITHO:
+    switch (mode) {
+    case FanPresetMode::OFF:
+      mode_byte = 0x00;
+      break;
+    case FanPresetMode::LOW:
+      mode_byte = 0x02;
+      break;
+    case FanPresetMode::MEDIUM:
+      mode_byte = 0x03;
+      break;
+    case FanPresetMode::HIGH:
+    case FanPresetMode::BOOST:
+      mode_byte = 0x04;
+      break;
+    default:
+      break;
+    }
+    break;
+  case HvacScheme::VASCO:
+  case HvacScheme::ZEHNDER:
+    switch (mode) {
+    case FanPresetMode::OFF:
+      mode_byte = 0x00;
+      break;
+    case FanPresetMode::AWAY:
+      mode_byte = 0x01;
+      break;
+    case FanPresetMode::LOW:
+      mode_byte = 0x02;
+      break;
+    case FanPresetMode::MEDIUM:
+      mode_byte = 0x03;
+      break;
+    case FanPresetMode::HIGH:
+    case FanPresetMode::BOOST:
+      mode_byte = 0x04;
+      break;
+    case FanPresetMode::AUTO:
+      mode_byte = 0x05;
+      break;
+    default:
+      break;
+    }
+    break;
   }
 
   return RamsesMessageBuilder::write()
@@ -428,20 +620,25 @@ RamsesMessage FanStatePayload::encode_write(const RamsesAddress &src, const Rams
 
 using FanBoostFmt = binary::Struct<"!BBB">;
 
-std::optional<FanBoostPayload> FanBoostPayload::decode(const uint8_t *payload, size_t len) {
+std::optional<FanBoostPayload> FanBoostPayload::decode(const uint8_t *payload,
+                                                       size_t len) {
   auto fields = FanBoostFmt::unpack(payload, len);
-  if (!fields) return std::nullopt;
+  if (!fields)
+    return std::nullopt;
 
   auto [header, flags, minutes] = *fields;
   FanBoostPayload res;
   res.header = header;
   res.flags = flags;
   res.minutes = minutes;
-  if (res.flags & 0x40) res.minutes = static_cast<uint16_t>(res.minutes * 60);
+  if (res.flags & 0x40)
+    res.minutes = static_cast<uint16_t>(res.minutes * 60);
   return res;
 }
 
-RamsesMessage FanBoostPayload::encode_write(const RamsesAddress &src, const RamsesAddress &dst, uint16_t minutes) {
+RamsesMessage FanBoostPayload::encode_write(const RamsesAddress &src,
+                                            const RamsesAddress &dst,
+                                            uint16_t minutes) {
   uint8_t flags = 0x00;
   uint8_t min_byte = 0;
   if (minutes > 255 && minutes % 60 == 0 && minutes / 60 <= 255) {
@@ -449,7 +646,8 @@ RamsesMessage FanBoostPayload::encode_write(const RamsesAddress &src, const Rams
     min_byte = static_cast<uint8_t>(minutes / 60);
   } else {
     flags = 0x00;
-    min_byte = static_cast<uint8_t>(std::min<uint16_t>(minutes, static_cast<uint16_t>(255)));
+    min_byte = static_cast<uint8_t>(
+        std::min<uint16_t>(minutes, static_cast<uint16_t>(255)));
   }
 
   return RamsesMessageBuilder::write()
@@ -465,9 +663,11 @@ RamsesMessage FanBoostPayload::encode_write(const RamsesAddress &src, const Rams
 // ----------------------------------------------------------------------
 using VentilationInfoFmt = binary::Struct<"!BB">;
 
-std::optional<VentilationInfoPayload> VentilationInfoPayload::decode(const uint8_t *payload, size_t len) {
+std::optional<VentilationInfoPayload>
+VentilationInfoPayload::decode(const uint8_t *payload, size_t len) {
   auto fields = VentilationInfoFmt::unpack(payload, len);
-  if (!fields) return std::nullopt;
+  if (!fields)
+    return std::nullopt;
 
   auto [bypass_pos, status_flags] = *fields;
   VentilationInfoPayload res;
@@ -479,23 +679,28 @@ std::optional<VentilationInfoPayload> VentilationInfoPayload::decode(const uint8
 
 // ----------------------------------------------------------------------
 // Opcode 0x12A0: Multi-Sensor Array (Air Quality, Humidity, Temps)
-// ramses_rf reference: ramses_rf/payloads/hvac.py:AirQualityPayload & ramses_rf/quirks.py
+// ramses_rf reference: ramses_rf/payloads/hvac.py:AirQualityPayload &
+// ramses_rf/quirks.py
 // ----------------------------------------------------------------------
 using AirQuality2Fmt = binary::Struct<"!BB">;
 using AirQuality4Fmt = binary::Struct<"!BBh">;
 
-std::optional<AirQualityPayload> AirQualityPayload::decode(const uint8_t *payload, size_t len) {
-  if (payload == nullptr || len < AirQuality2Fmt::size) return std::nullopt;
+std::optional<AirQualityPayload>
+AirQualityPayload::decode(const uint8_t *payload, size_t len) {
+  if (payload == nullptr || len < AirQuality2Fmt::size)
+    return std::nullopt;
 
   AirQualityPayload res;
   if (len == AirQuality2Fmt::size) {
     auto [s_idx, hum] = *AirQuality2Fmt::unpack(payload, len);
     res.sensor_index = s_idx;
-    if (hum <= 100) res.humidity = static_cast<float>(hum);
+    if (hum <= 100)
+      res.humidity = static_cast<float>(hum);
     return res;
   }
 
-  if (len < AirQuality4Fmt::size) return std::nullopt;
+  if (len < AirQuality4Fmt::size)
+    return std::nullopt;
 
   auto [s_idx, hum, raw_t] = *AirQuality4Fmt::unpack(payload, len);
   res.sensor_index = s_idx;
@@ -517,9 +722,11 @@ std::optional<AirQualityPayload> AirQualityPayload::decode(const uint8_t *payloa
 // ----------------------------------------------------------------------
 using FilterFmt = binary::Struct<"!xBBB">;
 
-std::optional<FilterInfoPayload> FilterInfoPayload::decode(const uint8_t *payload, size_t len) {
+std::optional<FilterInfoPayload>
+FilterInfoPayload::decode(const uint8_t *payload, size_t len) {
   auto fields = FilterFmt::unpack(payload, len);
-  if (!fields) return std::nullopt;
+  if (!fields)
+    return std::nullopt;
 
   auto [remaining_days, total_days, raw_pct] = *fields;
 
@@ -536,9 +743,11 @@ std::optional<FilterInfoPayload> FilterInfoPayload::decode(const uint8_t *payloa
 // ----------------------------------------------------------------------
 using DeviceBatteryFmt = binary::Struct<"!BB">;
 
-std::optional<DeviceBatteryPayload> DeviceBatteryPayload::decode(const uint8_t *payload, size_t len) {
+std::optional<DeviceBatteryPayload>
+DeviceBatteryPayload::decode(const uint8_t *payload, size_t len) {
   auto fields = DeviceBatteryFmt::unpack(payload, len);
-  if (!fields) return std::nullopt;
+  if (!fields)
+    return std::nullopt;
 
   auto [domain_or_device, battery_pct] = *fields;
   DeviceBatteryPayload res;
@@ -556,20 +765,26 @@ std::optional<DeviceBatteryPayload> DeviceBatteryPayload::decode(const uint8_t *
 // ----------------------------------------------------------------------
 using DeviceInfoQueryFmt = binary::Struct<"!B">;
 
-std::optional<DeviceInfoPayload> DeviceInfoPayload::decode(const uint8_t *payload, size_t len) {
-  if (payload == nullptr || len < 1) return std::nullopt;
+std::optional<DeviceInfoPayload>
+DeviceInfoPayload::decode(const uint8_t *payload, size_t len) {
+  if (payload == nullptr || len < 1)
+    return std::nullopt;
 
   DeviceInfoPayload res;
   res.info_type = payload[0];
-  if (len < 7) return res;
+  if (len < 7)
+    return res;
   res.oem_code = payload[6]; // Standard offset for short OEM vendor byte
-  if (len >= 8 && (res.oem_code == 0 || res.oem_code == 0x0A || res.oem_code == 0xFF || payload[7] == 0x6A)) {
-    res.oem_code = payload[7]; // Extended OEM vendor byte (e.g. Brofer / Hopper D375: 0x6A)
+  if (len >= 8 && (res.oem_code == 0 || res.oem_code == 0x0A ||
+                   res.oem_code == 0xFF || payload[7] == 0x6A)) {
+    res.oem_code = payload[7]; // Extended OEM vendor byte (e.g. Brofer / Hopper
+                               // D375: 0x6A)
   }
   return res;
 }
 
-RamsesMessage DeviceInfoPayload::encode_query(const RamsesAddress &src, const RamsesAddress &dst) {
+RamsesMessage DeviceInfoPayload::encode_query(const RamsesAddress &src,
+                                              const RamsesAddress &dst) {
   return RamsesMessageBuilder::query()
       .from(src)
       .to(dst)
@@ -583,11 +798,14 @@ RamsesMessage DeviceInfoPayload::encode_query(const RamsesAddress &src, const Ra
 // ----------------------------------------------------------------------
 using OpenThermFmt = binary::Struct<"!BB">;
 
-std::optional<OpenThermPayload> OpenThermPayload::decode(const uint8_t *payload, size_t len) {
-  if (payload == nullptr || len < 3) return std::nullopt;
+std::optional<OpenThermPayload> OpenThermPayload::decode(const uint8_t *payload,
+                                                         size_t len) {
+  if (payload == nullptr || len < 3)
+    return std::nullopt;
 
   auto fields = OpenThermFmt::unpack(payload, len);
-  if (!fields) return std::nullopt;
+  if (!fields)
+    return std::nullopt;
 
   auto [msg_id, status] = *fields;
   OpenThermPayload res;
@@ -606,11 +824,13 @@ std::optional<OpenThermPayload> OpenThermPayload::decode(const uint8_t *payload,
     }
     // Data ID 0x19: Boiler Flow Temperature (f8.8 float)
     else if (data_id == 0x19) {
-      res.flow_temp = static_cast<float>(u8_hi) + (static_cast<float>(u8_lo) / 256.0f);
+      res.flow_temp =
+          static_cast<float>(u8_hi) + (static_cast<float>(u8_lo) / 256.0f);
     }
     // Data ID 0x1C: Return Water Temperature (f8.8 float)
     else if (data_id == 0x1C) {
-      res.return_temp = static_cast<float>(u8_hi) + (static_cast<float>(u8_lo) / 256.0f);
+      res.return_temp =
+          static_cast<float>(u8_hi) + (static_cast<float>(u8_lo) / 256.0f);
     }
     // Fallback: modulation in standard Honeywell OTB status frame
     else if (data_id == 0x00 && u8_hi > 0) {
@@ -624,14 +844,17 @@ std::optional<OpenThermPayload> OpenThermPayload::decode(const uint8_t *payload,
 
 // ----------------------------------------------------------------------
 // Opcode 0x1260 / 0x1F41: DHW State & Setpoints
-// ramses_rf reference: ramses_rf/payloads/dhw.py:DhwStatePayload & DhwTempPayload
+// ramses_rf reference: ramses_rf/payloads/dhw.py:DhwStatePayload &
+// DhwTempPayload
 // ----------------------------------------------------------------------
 using DhwSetpointFmt = binary::Struct<"!Bh">;
 using DhwModeFmt = binary::Struct<"!BBBBBB">;
 
-std::optional<DhwStatePayload> DhwStatePayload::decode_temp(const uint8_t *payload, size_t len) {
+std::optional<DhwStatePayload>
+DhwStatePayload::decode_temp(const uint8_t *payload, size_t len) {
   auto fields = DhwSetpointFmt::unpack(payload, len);
-  if (!fields) return std::nullopt;
+  if (!fields)
+    return std::nullopt;
 
   auto [zone_idx, raw_t] = *fields;
   DhwStatePayload res;
@@ -640,9 +863,12 @@ std::optional<DhwStatePayload> DhwStatePayload::decode_temp(const uint8_t *paylo
 }
 
 // Opcode 0x1F41: DHW State
-// Equivalent to: ramses_rf/payloads/dhw.py:DhwState2BPayload / DhwState3BPayload
-std::optional<DhwStatePayload> DhwStatePayload::decode_state(const uint8_t *payload, size_t len) {
-  if (payload == nullptr || len < 2) return std::nullopt;
+// Equivalent to: ramses_rf/payloads/dhw.py:DhwState2BPayload /
+// DhwState3BPayload
+std::optional<DhwStatePayload>
+DhwStatePayload::decode_state(const uint8_t *payload, size_t len) {
+  if (payload == nullptr || len < 2)
+    return std::nullopt;
 
   DhwStatePayload res;
   uint8_t active_flag = payload[1];
@@ -651,7 +877,9 @@ std::optional<DhwStatePayload> DhwStatePayload::decode_state(const uint8_t *payl
   return res;
 }
 
-RamsesMessage DhwStatePayload::encode_write_setpoint(const RamsesAddress &src, const RamsesAddress &dst, float setpoint) {
+RamsesMessage DhwStatePayload::encode_write_setpoint(const RamsesAddress &src,
+                                                     const RamsesAddress &dst,
+                                                     float setpoint) {
   int16_t raw_sp = static_cast<int16_t>(std::round(setpoint * 100.0f));
   return RamsesMessageBuilder::write()
       .from(src)
@@ -660,9 +888,15 @@ RamsesMessage DhwStatePayload::encode_write_setpoint(const RamsesAddress &src, c
       .payload_packed<DhwSetpointFmt>(0x00, raw_sp);
 }
 
-RamsesMessage DhwStatePayload::encode_write_mode(const RamsesAddress &src, const RamsesAddress &dst, OperationMode mode) {
-  uint8_t p1 = mode == OperationMode::FOLLOW_SCHEDULE ? 0xFF : mode == OperationMode::PERMANENT_ON ? 0x01 : 0x00;
-  uint8_t p2 = mode == OperationMode::FOLLOW_SCHEDULE ? 0x00 : mode == OperationMode::TEMPORARY_ON ? 0x04 : 0x02;
+RamsesMessage DhwStatePayload::encode_write_mode(const RamsesAddress &src,
+                                                 const RamsesAddress &dst,
+                                                 OperationMode mode) {
+  uint8_t p1 = mode == OperationMode::FOLLOW_SCHEDULE ? 0xFF
+               : mode == OperationMode::PERMANENT_ON  ? 0x01
+                                                      : 0x00;
+  uint8_t p2 = mode == OperationMode::FOLLOW_SCHEDULE ? 0x00
+               : mode == OperationMode::TEMPORARY_ON  ? 0x04
+                                                      : 0x02;
   return RamsesMessageBuilder::write()
       .from(src)
       .to(dst)
@@ -677,17 +911,22 @@ RamsesMessage DhwStatePayload::encode_write_mode(const RamsesAddress &src, const
 using OutdoorTemp3Fmt = binary::Struct<"!BBB">;
 using OutdoorTemp2Fmt = binary::Struct<"!h">;
 
-std::optional<OutdoorTemperaturePayload> OutdoorTemperaturePayload::decode(const uint8_t *payload, size_t len) {
-  if (payload == nullptr || len < OutdoorTemp2Fmt::size) return std::nullopt;
+std::optional<OutdoorTemperaturePayload>
+OutdoorTemperaturePayload::decode(const uint8_t *payload, size_t len) {
+  if (payload == nullptr || len < OutdoorTemp2Fmt::size)
+    return std::nullopt;
 
   OutdoorTemperaturePayload res;
   if (len >= OutdoorTemp3Fmt::size && payload[0] == 0x00) {
     auto [hdr, val, scale] = *OutdoorTemp3Fmt::unpack(payload, len);
-    if (val == 0x80) return res;
+    if (val == 0x80)
+      return res;
     if (scale == 0x01) {
       res.temperature = static_cast<float>(val) / 2.0f;
     } else {
-      res.temperature = std::round((static_cast<float>(val) - 32.0f) * 5.0f / 9.0f * 100.0f) / 100.0f;
+      res.temperature =
+          std::round((static_cast<float>(val) - 32.0f) * 5.0f / 9.0f * 100.0f) /
+          100.0f;
     }
     res.is_valid = true;
     return res;
@@ -704,8 +943,10 @@ std::optional<OutdoorTemperaturePayload> OutdoorTemperaturePayload::decode(const
 using Co2Sensor2Fmt = binary::Struct<"!H">;
 using Co2Sensor3Fmt = binary::Struct<"!xH">;
 
-std::optional<Co2SensorPayload> Co2SensorPayload::decode(const uint8_t *payload, size_t len) {
-  if (payload == nullptr || len < Co2Sensor2Fmt::size) return std::nullopt;
+std::optional<Co2SensorPayload> Co2SensorPayload::decode(const uint8_t *payload,
+                                                         size_t len) {
+  if (payload == nullptr || len < Co2Sensor2Fmt::size)
+    return std::nullopt;
 
   Co2SensorPayload res;
   if (len == Co2Sensor2Fmt::size) {
@@ -725,9 +966,11 @@ std::optional<Co2SensorPayload> Co2SensorPayload::decode(const uint8_t *payload,
 // ----------------------------------------------------------------------
 using RelayDemandFmt = binary::Struct<"!BB">;
 
-std::optional<RelayDemandPayload> RelayDemandPayload::decode(const uint8_t *payload, size_t len) {
+std::optional<RelayDemandPayload>
+RelayDemandPayload::decode(const uint8_t *payload, size_t len) {
   auto fields = RelayDemandFmt::unpack(payload, len);
-  if (!fields) return std::nullopt;
+  if (!fields)
+    return std::nullopt;
 
   auto [relay_idx, demand_raw] = *fields;
   RelayDemandPayload res;
@@ -743,9 +986,11 @@ std::optional<RelayDemandPayload> RelayDemandPayload::decode(const uint8_t *payl
 // ----------------------------------------------------------------------
 using ContactSensorFmt = binary::Struct<"!BB">;
 
-std::optional<ContactSensorPayload> ContactSensorPayload::decode(const uint8_t *payload, size_t len) {
+std::optional<ContactSensorPayload>
+ContactSensorPayload::decode(const uint8_t *payload, size_t len) {
   auto fields = ContactSensorFmt::unpack(payload, len);
-  if (!fields) return std::nullopt;
+  if (!fields)
+    return std::nullopt;
 
   auto [zone_idx, state] = *fields;
   ContactSensorPayload res;
@@ -760,9 +1005,11 @@ std::optional<ContactSensorPayload> ContactSensorPayload::decode(const uint8_t *
 // ----------------------------------------------------------------------
 using DhwConfigFmt = binary::Struct<"!Bh">;
 
-std::optional<DhwConfigPayload> DhwConfigPayload::decode(const uint8_t *payload, size_t len) {
+std::optional<DhwConfigPayload> DhwConfigPayload::decode(const uint8_t *payload,
+                                                         size_t len) {
   auto fields = DhwConfigFmt::unpack(payload, len);
-  if (!fields) return std::nullopt;
+  if (!fields)
+    return std::nullopt;
 
   auto [dhw_idx, raw_flow_rate] = *fields;
   DhwConfigPayload res;
@@ -779,7 +1026,8 @@ using BindingTuple = binary::Struct<"!BH">;
 
 std::optional<BindingPayload> BindingPayload::decode(const RamsesMessage &msg) {
   uint16_t opcode = ((uint16_t)msg.opcode[0] << 8) | msg.opcode[1];
-  if (opcode != 0x1FC9) return std::nullopt;
+  if (opcode != 0x1FC9)
+    return std::nullopt;
 
   BindingPayload res;
   if (msg.type == RAMSES_MSG_I) {
@@ -807,7 +1055,8 @@ std::optional<BindingPayload> BindingPayload::decode(const RamsesMessage &msg) {
   return res;
 }
 
-RamsesMessage BindingPayload::encode_offer(const RamsesAddress &remote_addr, HvacScheme scheme) {
+RamsesMessage BindingPayload::encode_offer(const RamsesAddress &remote_addr,
+                                           HvacScheme scheme) {
   RamsesAddress bcast_addr{.dev_class = 63, .id = 262142, .is_valid = true};
   uint8_t oem = get_hvac_oem_code(scheme);
 
@@ -817,12 +1066,13 @@ RamsesMessage BindingPayload::encode_offer(const RamsesAddress &remote_addr, Hva
       .opcode(0x1FC9)
       .append_binding(0x00, 0x22F1, remote_addr)
       .append_binding(0x00, 0x22F3, remote_addr)
-      .append_binding(oem,  0x10E0, remote_addr)
+      .append_binding(oem, 0x10E0, remote_addr)
       .append_binding(0x00, 0x1FC9, remote_addr)
       .build();
 }
 
-RamsesMessage BindingPayload::encode_confirm(const RamsesAddress &remote_addr, const RamsesAddress &fan_addr) {
+RamsesMessage BindingPayload::encode_confirm(const RamsesAddress &remote_addr,
+                                             const RamsesAddress &fan_addr) {
   return RamsesMessageBuilder::info()
       .from(remote_addr)
       .to(fan_addr)

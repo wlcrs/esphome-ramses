@@ -1,12 +1,12 @@
 #pragma once
 
-#include <cstdint>
-#include <cstddef>
-#include <string>
-#include <vector>
-#include <optional>
 #include "ramses_message.h"
 #include "struct.h"
+#include <cstddef>
+#include <cstdint>
+#include <optional>
+#include <string>
+#include <vector>
 
 namespace esphome {
 namespace ramses_esp {
@@ -18,7 +18,8 @@ static constexpr int16_t RAMSES_TEMP_SENTINEL_DISABLED = 0x7EFF;
 
 // ----------------------------------------------------------------------
 // Opcode 0x30C9: Temperature Telemetry
-// Equivalent to: ramses_rf/payloads/heating.py:TemperaturePayload / parse_30c9()
+// Equivalent to: ramses_rf/payloads/heating.py:TemperaturePayload /
+// parse_30c9()
 // ----------------------------------------------------------------------
 struct ZoneTemperatureItem {
   uint8_t zone_index{0};
@@ -29,7 +30,8 @@ struct ZoneTemperatureItem {
 struct TemperaturePayload {
   std::vector<ZoneTemperatureItem> zones;
 
-  static std::optional<TemperaturePayload> decode(const uint8_t *payload, size_t len);
+  static std::optional<TemperaturePayload> decode(const uint8_t *payload,
+                                                  size_t len);
 };
 
 // ----------------------------------------------------------------------
@@ -45,8 +47,11 @@ struct ZoneSetpointItem {
 struct SetpointPayload {
   std::vector<ZoneSetpointItem> zones;
 
-  static std::optional<SetpointPayload> decode(const uint8_t *payload, size_t len);
-  static RamsesMessage encode_write(const RamsesAddress &src, const RamsesAddress &dst, uint8_t zone_index, float setpoint);
+  static std::optional<SetpointPayload> decode(const uint8_t *payload,
+                                               size_t len);
+  static RamsesMessage encode_write(const RamsesAddress &src,
+                                    const RamsesAddress &dst,
+                                    uint8_t zone_index, float setpoint);
 };
 
 // ----------------------------------------------------------------------
@@ -76,8 +81,10 @@ struct SystemModePayload {
   SystemMode mode{SystemMode::AUTO};
   uint8_t mode_raw{0};
 
-  static std::optional<SystemModePayload> decode(const uint8_t *payload, size_t len);
-  static RamsesMessage encode_write(const RamsesAddress &src, const RamsesAddress &dst, SystemMode mode);
+  static std::optional<SystemModePayload> decode(const uint8_t *payload,
+                                                 size_t len);
+  static RamsesMessage encode_write(const RamsesAddress &src,
+                                    const RamsesAddress &dst, SystemMode mode);
 };
 
 struct SystemSyncPayload {
@@ -85,8 +92,10 @@ struct SystemSyncPayload {
   uint8_t mode_raw{0};
   uint16_t remaining_raw{0}; // Remaining override minutes/seconds or timestamp
 
-  static std::optional<SystemSyncPayload> decode(const uint8_t *payload, size_t len);
-  static RamsesMessage encode_write(const RamsesAddress &src, const RamsesAddress &dst, SystemMode mode);
+  static std::optional<SystemSyncPayload> decode(const uint8_t *payload,
+                                                 size_t len);
+  static RamsesMessage encode_write(const RamsesAddress &src,
+                                    const RamsesAddress &dst, SystemMode mode);
 };
 
 // ----------------------------------------------------------------------
@@ -97,19 +106,24 @@ struct HeatDemandPayload {
   uint8_t domain_or_zone_index{0};
   float demand_percent{0.0f}; // 0.0% to 100.0%
 
-  static std::optional<HeatDemandPayload> decode(const uint8_t *payload, size_t len);
+  static std::optional<HeatDemandPayload> decode(const uint8_t *payload,
+                                                 size_t len);
 };
 
 // ----------------------------------------------------------------------
 // Opcode 0x0004: Zone Name
-// Equivalent to: ramses_rf/payloads/heating.py:ZoneNamePayload (ZoneName22BPayload)
+// Equivalent to: ramses_rf/payloads/heating.py:ZoneNamePayload
+// (ZoneName22BPayload)
 // ----------------------------------------------------------------------
 struct ZoneNamePayload {
   uint8_t zone_index{0};
   std::string name;
 
-  static std::optional<ZoneNamePayload> decode(const uint8_t *payload, size_t len);
-  static RamsesMessage encode_query(const RamsesAddress &src, const RamsesAddress &dst, uint8_t zone_index);
+  static std::optional<ZoneNamePayload> decode(const uint8_t *payload,
+                                               size_t len);
+  static RamsesMessage encode_query(const RamsesAddress &src,
+                                    const RamsesAddress &dst,
+                                    uint8_t zone_index);
 };
 
 // ----------------------------------------------------------------------
@@ -121,8 +135,10 @@ struct ZoneStructurePayload {
   uint16_t active_zone_mask{0};
   uint8_t zone_count{0};
 
-  static std::optional<ZoneStructurePayload> decode(const uint8_t *payload, size_t len);
-  static RamsesMessage encode_query(const RamsesAddress &src, const RamsesAddress &dst);
+  static std::optional<ZoneStructurePayload> decode(const uint8_t *payload,
+                                                    size_t len);
+  static RamsesMessage encode_query(const RamsesAddress &src,
+                                    const RamsesAddress &dst);
 };
 
 // ----------------------------------------------------------------------
@@ -138,33 +154,20 @@ struct ZoneRoleBindingItem {
 struct ZoneRolePayload {
   std::vector<ZoneRoleBindingItem> bindings;
 
-  static std::optional<ZoneRolePayload> decode(const uint8_t *payload, size_t len);
+  static std::optional<ZoneRolePayload> decode(const uint8_t *payload,
+                                               size_t len);
 };
 
 // ----------------------------------------------------------------------
 // Opcode 0x22F1 / 0x22F3: HVAC Fan State & Control
-// Equivalent to: ramses_rf/payloads/hvac.py:FanStatePayload & ramses_rf/models/hvac_schemas.py
+// Equivalent to: ramses_rf/payloads/hvac.py:FanStatePayload &
+// ramses_rf/models/hvac_schemas.py
 // ----------------------------------------------------------------------
-enum class HvacScheme {
-  AUTO = 0,
-  ORCON = 1,
-  VASCO = 2,
-  ITHO = 3,
-  ZEHNDER = 4
-};
+enum class HvacScheme { AUTO = 0, ORCON = 1, VASCO = 2, ITHO = 3, ZEHNDER = 4 };
 
 uint8_t get_hvac_oem_code(HvacScheme scheme);
 
-enum class FanPresetMode {
-  AUTO,
-  LOW,
-  MEDIUM,
-  HIGH,
-  BOOST,
-  AWAY,
-  OFF,
-  UNKNOWN
-};
+enum class FanPresetMode { AUTO, LOW, MEDIUM, HIGH, BOOST, AWAY, OFF, UNKNOWN };
 
 const char *fan_preset_to_string(FanPresetMode mode);
 
@@ -173,8 +176,13 @@ struct FanStatePayload {
   FanPresetMode preset_mode{FanPresetMode::UNKNOWN};
   uint8_t speed_percent{0}; // 0 - 100%
 
-  static std::optional<FanStatePayload> decode(const uint8_t *payload, size_t len, HvacScheme scheme = HvacScheme::ORCON);
-  static RamsesMessage encode_write(const RamsesAddress &src, const RamsesAddress &dst, FanPresetMode mode, HvacScheme scheme = HvacScheme::ORCON);
+  static std::optional<FanStatePayload>
+  decode(const uint8_t *payload, size_t len,
+         HvacScheme scheme = HvacScheme::ORCON);
+  static RamsesMessage encode_write(const RamsesAddress &src,
+                                    const RamsesAddress &dst,
+                                    FanPresetMode mode,
+                                    HvacScheme scheme = HvacScheme::ORCON);
 };
 
 // Opcode 0x22F3: HVAC boost/timer control
@@ -184,8 +192,10 @@ struct FanBoostPayload {
   uint8_t flags{0};
   uint16_t minutes{0};
 
-  static std::optional<FanBoostPayload> decode(const uint8_t *payload, size_t len);
-  static RamsesMessage encode_write(const RamsesAddress &src, const RamsesAddress &dst, uint16_t minutes);
+  static std::optional<FanBoostPayload> decode(const uint8_t *payload,
+                                               size_t len);
+  static RamsesMessage encode_write(const RamsesAddress &src,
+                                    const RamsesAddress &dst, uint16_t minutes);
 };
 
 // ----------------------------------------------------------------------
@@ -197,19 +207,22 @@ struct VentilationInfoPayload {
   bool bypass_active{false};
   bool filter_dirty{false};
 
-  static std::optional<VentilationInfoPayload> decode(const uint8_t *payload, size_t len);
+  static std::optional<VentilationInfoPayload> decode(const uint8_t *payload,
+                                                      size_t len);
 };
 
 // ----------------------------------------------------------------------
 // Opcode 0x12A0: Multi-Sensor Array (Air Quality, Humidity, Temps)
-// Equivalent to: ramses_rf/payloads/hvac.py:AirQualityPayload & ramses_rf/quirks.py
+// Equivalent to: ramses_rf/payloads/hvac.py:AirQualityPayload &
+// ramses_rf/quirks.py
 // ----------------------------------------------------------------------
 struct AirQualityPayload {
   uint8_t sensor_index{0}; // 00=indoor, 01=supply, 02=outdoor
   std::optional<float> temperature;
   std::optional<float> humidity;
 
-  static std::optional<AirQualityPayload> decode(const uint8_t *payload, size_t len);
+  static std::optional<AirQualityPayload> decode(const uint8_t *payload,
+                                                 size_t len);
 };
 
 // ----------------------------------------------------------------------
@@ -221,7 +234,8 @@ struct FilterInfoPayload {
   uint16_t lifetime_days{0};
   float remaining_percent{0.0f};
 
-  static std::optional<FilterInfoPayload> decode(const uint8_t *payload, size_t len);
+  static std::optional<FilterInfoPayload> decode(const uint8_t *payload,
+                                                 size_t len);
 };
 
 // ----------------------------------------------------------------------
@@ -233,7 +247,8 @@ struct DeviceBatteryPayload {
   uint8_t battery_percent{0}; // 0 - 100
   bool battery_low{false};
 
-  static std::optional<DeviceBatteryPayload> decode(const uint8_t *payload, size_t len);
+  static std::optional<DeviceBatteryPayload> decode(const uint8_t *payload,
+                                                    size_t len);
 };
 
 // ----------------------------------------------------------------------
@@ -244,8 +259,10 @@ struct DeviceInfoPayload {
   uint8_t info_type{0};
   uint8_t oem_code{0}; // 0x67=Orcon, 0x08=Itho, 0x13=Vasco, 0x02=Zehnder
 
-  static std::optional<DeviceInfoPayload> decode(const uint8_t *payload, size_t len);
-  static RamsesMessage encode_query(const RamsesAddress &src, const RamsesAddress &dst);
+  static std::optional<DeviceInfoPayload> decode(const uint8_t *payload,
+                                                 size_t len);
+  static RamsesMessage encode_query(const RamsesAddress &src,
+                                    const RamsesAddress &dst);
 };
 
 // ----------------------------------------------------------------------
@@ -260,7 +277,8 @@ struct OpenThermPayload {
   std::optional<float> flow_temp;
   std::optional<float> return_temp;
 
-  static std::optional<OpenThermPayload> decode(const uint8_t *payload, size_t len);
+  static std::optional<OpenThermPayload> decode(const uint8_t *payload,
+                                                size_t len);
 };
 
 // ----------------------------------------------------------------------
@@ -274,9 +292,13 @@ struct DhwStatePayload {
   bool relay_active{false};
   bool dhw_enabled{true};
 
-  static std::optional<DhwStatePayload> decode_temp(const uint8_t *payload, size_t len);
-  static std::optional<DhwStatePayload> decode_state(const uint8_t *payload, size_t len);
-  static RamsesMessage encode_write_setpoint(const RamsesAddress &src, const RamsesAddress &dst, float setpoint);
+  static std::optional<DhwStatePayload> decode_temp(const uint8_t *payload,
+                                                    size_t len);
+  static std::optional<DhwStatePayload> decode_state(const uint8_t *payload,
+                                                     size_t len);
+  static RamsesMessage encode_write_setpoint(const RamsesAddress &src,
+                                             const RamsesAddress &dst,
+                                             float setpoint);
   enum class OperationMode : uint8_t {
     FOLLOW_SCHEDULE = 0,
     PERMANENT_OFF = 1,
@@ -284,7 +306,9 @@ struct DhwStatePayload {
     TEMPORARY_ON = 3,
   };
 
-  static RamsesMessage encode_write_mode(const RamsesAddress &src, const RamsesAddress &dst, OperationMode mode);
+  static RamsesMessage encode_write_mode(const RamsesAddress &src,
+                                         const RamsesAddress &dst,
+                                         OperationMode mode);
 };
 
 // ----------------------------------------------------------------------
@@ -295,7 +319,8 @@ struct OutdoorTemperaturePayload {
   float temperature{0.0f};
   bool is_valid{false};
 
-  static std::optional<OutdoorTemperaturePayload> decode(const uint8_t *payload, size_t len);
+  static std::optional<OutdoorTemperaturePayload> decode(const uint8_t *payload,
+                                                         size_t len);
 };
 
 // ----------------------------------------------------------------------
@@ -306,7 +331,8 @@ struct Co2SensorPayload {
   uint16_t co2_ppm{0};
   bool is_valid{false};
 
-  static std::optional<Co2SensorPayload> decode(const uint8_t *payload, size_t len);
+  static std::optional<Co2SensorPayload> decode(const uint8_t *payload,
+                                                size_t len);
 };
 
 // ----------------------------------------------------------------------
@@ -318,7 +344,8 @@ struct RelayDemandPayload {
   float demand_percent{0.0f}; // 0.0 - 100.0%
   bool is_active{false};
 
-  static std::optional<RelayDemandPayload> decode(const uint8_t *payload, size_t len);
+  static std::optional<RelayDemandPayload> decode(const uint8_t *payload,
+                                                  size_t len);
 };
 
 // ----------------------------------------------------------------------
@@ -329,7 +356,8 @@ struct ContactSensorPayload {
   uint8_t zone_index{0};
   bool is_open{false};
 
-  static std::optional<ContactSensorPayload> decode(const uint8_t *payload, size_t len);
+  static std::optional<ContactSensorPayload> decode(const uint8_t *payload,
+                                                    size_t len);
 };
 
 // ----------------------------------------------------------------------
@@ -340,7 +368,8 @@ struct DhwConfigPayload {
   uint8_t dhw_index{0};
   float flow_rate{0.0f}; // Litres per minute
 
-  static std::optional<DhwConfigPayload> decode(const uint8_t *payload, size_t len);
+  static std::optional<DhwConfigPayload> decode(const uint8_t *payload,
+                                                size_t len);
 };
 
 // ----------------------------------------------------------------------
@@ -360,8 +389,10 @@ struct BindingPayload {
   bool is_confirm{false};
 
   static std::optional<BindingPayload> decode(const RamsesMessage &msg);
-  static RamsesMessage encode_offer(const RamsesAddress &remote_addr, HvacScheme scheme);
-  static RamsesMessage encode_confirm(const RamsesAddress &remote_addr, const RamsesAddress &fan_addr);
+  static RamsesMessage encode_offer(const RamsesAddress &remote_addr,
+                                    HvacScheme scheme);
+  static RamsesMessage encode_confirm(const RamsesAddress &remote_addr,
+                                      const RamsesAddress &fan_addr);
 };
 
 } // namespace ramses_esp

@@ -1,12 +1,12 @@
 #pragma once
 
-#include <cstdint>
-#include <cstddef>
-#include <functional>
-#include "driver/uart.h"
-#include "driver/gpio.h"
-#include "ramses_message.h"
 #include "cc1101_driver.h"
+#include "driver/gpio.h"
+#include "driver/uart.h"
+#include "ramses_message.h"
+#include <cstddef>
+#include <cstdint>
+#include <functional>
 
 namespace esphome {
 namespace ramses_esp {
@@ -21,10 +21,11 @@ enum FrameRxState {
 };
 
 class RamsesFrameHandler {
- public:
+public:
   RamsesFrameHandler() = default;
 
-  bool init(uart_port_t uart_num, gpio_num_t gdo0_pin, gpio_num_t gdo2_pin, CC1101Driver *cc1101);
+  bool init(uart_port_t uart_num, gpio_num_t gdo0_pin, gpio_num_t gdo2_pin,
+            CC1101Driver *cc1101);
   void set_on_message_callback(std::function<void(const RamsesMessage &)> cb) {
     this->on_message_cb_ = cb;
   }
@@ -35,7 +36,7 @@ class RamsesFrameHandler {
 
   void work();
 
- protected:
+protected:
   void process_rx_byte(uint8_t b);
   void handle_rx_done();
   void reset_rx();

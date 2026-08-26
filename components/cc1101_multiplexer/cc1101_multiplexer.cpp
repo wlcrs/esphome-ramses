@@ -11,7 +11,10 @@ bool CC1101MultiplexerComponent::send_packet(const std::vector<uint8_t> &data) {
     return false;
   }
 
-  ESP_LOGD(TAG, "Arbitrating radio: pausing RAMSES, transmitting packet (%d bytes)...", (int)data.size());
+  ESP_LOGD(
+      TAG,
+      "Arbitrating radio: pausing RAMSES, transmitting packet (%d bytes)...",
+      (int)data.size());
 
   // 1. Pause RAMSES background listener
   if (this->ramses_ != nullptr) {
@@ -29,12 +32,14 @@ bool CC1101MultiplexerComponent::send_packet(const std::vector<uint8_t> &data) {
   this->waiting_reply_ = true;
   this->rx_window_end_time_ = millis() + this->rx_window_ms_;
 
-  ESP_LOGV(TAG, "Packet sent. Listening for reply (window: %u ms)...", (unsigned)this->rx_window_ms_);
+  ESP_LOGV(TAG, "Packet sent. Listening for reply (window: %u ms)...",
+           (unsigned)this->rx_window_ms_);
   return true;
 }
 
 void CC1101MultiplexerComponent::loop() {
-  if (!this->waiting_reply_) return;
+  if (!this->waiting_reply_)
+    return;
 
   // Let CC1101 component process any received packets (triggers on_packet:)
   if (this->cc1101_ != nullptr) {
@@ -58,7 +63,8 @@ void CC1101MultiplexerComponent::loop() {
 
 void CC1101MultiplexerComponent::dump_config() {
   ESP_LOGCONFIG(TAG, "CC1101 Radio Multiplexer:");
-  ESP_LOGCONFIG(TAG, "  RX Listening Window: %u ms", (unsigned)this->rx_window_ms_);
+  ESP_LOGCONFIG(TAG, "  RX Listening Window: %u ms",
+                (unsigned)this->rx_window_ms_);
 }
 
 } // namespace cc1101_multiplexer

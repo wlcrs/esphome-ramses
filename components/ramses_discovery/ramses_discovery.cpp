@@ -1,11 +1,11 @@
 #include "ramses_discovery.h"
 #include "esphome/core/log.h"
-#include <sstream>
 #include <iomanip>
+#include <sstream>
 
 #ifdef USE_ESP_IDF
-#include "esphome/core/hal.h"
 #include "components/ramses_esp/ramses_esp.h"
+#include "esphome/core/hal.h"
 #endif
 
 namespace esphome {
@@ -17,16 +17,18 @@ void RamsesDiscoveryComponent::setup() {
   ESP_LOGI(TAG, "Initializing RAMSES Auto-Discovery engine...");
 #ifdef USE_ESP_IDF
   if (this->parent_ != nullptr) {
-    this->parent_->add_raw_message_callback([this](const ramses_esp::RamsesMessage &msg) {
-      this->on_message(msg);
-    });
+    this->parent_->add_raw_message_callback(
+        [this](const ramses_esp::RamsesMessage &msg) {
+          this->on_message(msg);
+        });
   }
 #endif
 }
 
 void RamsesDiscoveryComponent::loop() {
   uint32_t now = millis();
-  if (this->active_probing_ && (now - this->last_probe_time_ > this->probing_interval_ms_)) {
+  if (this->active_probing_ &&
+      (now - this->last_probe_time_ > this->probing_interval_ms_)) {
     this->last_probe_time_ = now;
     this->probe_pending();
   }
@@ -42,12 +44,15 @@ void RamsesDiscoveryComponent::loop() {
 
 void RamsesDiscoveryComponent::dump_config() {
   ESP_LOGCONFIG(TAG, "RAMSES Discovery Component:");
-  ESP_LOGCONFIG(TAG, "  Active Probing: %s", this->active_probing_ ? "YES" : "NO");
-  ESP_LOGCONFIG(TAG, "  Probing Interval: %u ms", (unsigned int)this->probing_interval_ms_);
+  ESP_LOGCONFIG(TAG, "  Active Probing: %s",
+                this->active_probing_ ? "YES" : "NO");
+  ESP_LOGCONFIG(TAG, "  Probing Interval: %u ms",
+                (unsigned int)this->probing_interval_ms_);
   ESP_LOGCONFIG(TAG, "  Discovered Devices: %d", (int)this->devices_.size());
 }
 
-DiscoveredDevice &RamsesDiscoveryComponent::get_or_create_device(const ramses_esp::RamsesAddress &addr) {
+DiscoveredDevice &RamsesDiscoveryComponent::get_or_create_device(
+    const ramses_esp::RamsesAddress &addr) {
   std::string key = addr.to_string();
   auto it = this->devices_.find(key);
   if (it != this->devices_.end()) {
@@ -59,43 +64,46 @@ DiscoveredDevice &RamsesDiscoveryComponent::get_or_create_device(const ramses_es
 
   // Infer device type from prefix
   switch (addr.dev_class) {
-    case 1:
-      dev.device_type = "controller";
-      break;
-    case 4:
-      dev.device_type = "trv";
-      break;
-    case 10:
-      dev.device_type = "opentherm";
-      break;
-    case 13:
-      dev.device_type = "relay";
-      break;
-    case 18:
-      dev.device_type = "gateway";
-      break;
-    case 22:
-    case 34:
-      dev.device_type = "sensor";
-      break;
-    case 32:
-    case 37:
-    case 29:
-      dev.device_type = "hvac";
-      dev.is_hvac = true;
-      break;
-    default:
-      dev.device_type = "other";
-      break;
+  case 1:
+    dev.device_type = "controller";
+    break;
+  case 4:
+    dev.device_type = "trv";
+    break;
+  case 10:
+    dev.device_type = "opentherm";
+    break;
+  case 13:
+    dev.device_type = "relay";
+    break;
+  case 18:
+    dev.device_type = "gateway";
+    break;
+  case 22:
+  case 34:
+    dev.device_type = "sensor";
+    break;
+  case 32:
+  case 37:
+  case 29:
+    dev.device_type = "hvac";
+    dev.is_hvac = true;
+    break;
+  default:
+    dev.device_type = "other";
+    break;
   }
 
   this->devices_[key] = dev;
   return this->devices_[key];
 }
 
-void RamsesDiscoveryComponent::on_message(const ramses_esp::RamsesMessage &msg) {
-  ramses_esp::RamsesAddress src = ramses_esp::RamsesAddress::from_bytes(msg.addr[0]);
-  if (!src.is_valid) return;
+void RamsesDiscoveryComponent::on_message(
+    const ramses_esp::RamsesMessage &msg) {
+  ramses_esp::RamsesAddress src =
+      ramses_esp::RamsesAddress::from_bytes(msg.addr[0]);
+  if (!src.is_valid)
+    return;
 
   DiscoveredDevice &dev = this->get_or_create_device(src);
   uint16_t opcode = ((uint16_t)msg.opcode[0] << 8) | msg.opcode[1];
@@ -114,9 +122,12 @@ void RamsesDiscoveryComponent::on_message(const ramses_esp::RamsesMessage &msg) 
   }
 }
 
-void RamsesDiscoveryComponent::process_controller_packet(DiscoveredDevice &dev, const ramses_esp::RamsesMessage &msg, uint16_t opcode) {
+void RamsesDiscoveryComponent::process_controller_packet(
+    DiscoveredDevice &dev, const ramses_esp::RamsesMessage &msg,
+    uint16_t opcode) {
   if (opcode == 0x30C9) {
-    auto dec = ramses_esp::TemperaturePayload::decode(msg.payload, msg.n_payload);
+    auto dec =
+        ramses_esp::TemperaturePayload::decode(msg.payload, msg.n_payload);
     if (dec.has_value()) {
       for (const auto &item : dec->zones) {
         DiscoveredZone &zone = dev.zones[item.zone_index];
@@ -143,16 +154,20 @@ void RamsesDiscoveryComponent::process_controller_packet(DiscoveredDevice &dev, 
       zone.name = dec->name;
       zone.name_probed = true;
       ESP_LOGI(TAG, "Discovered Zone %u Name: '%s' for Controller %s",
-               dec->zone_index, dec->name.c_str(), dev.address.to_string().c_str());
+               dec->zone_index, dec->name.c_str(),
+               dev.address.to_string().c_str());
     }
   } else if (opcode == 0x1260 || opcode == 0x12F0 || opcode == 0x1F41) {
     dev.has_dhw = true;
   }
 }
 
-void RamsesDiscoveryComponent::process_hvac_packet(DiscoveredDevice &dev, const ramses_esp::RamsesMessage &msg, uint16_t opcode) {
+void RamsesDiscoveryComponent::process_hvac_packet(
+    DiscoveredDevice &dev, const ramses_esp::RamsesMessage &msg,
+    uint16_t opcode) {
   if (opcode == 0x10E0) {
-    auto dec = ramses_esp::DeviceInfoPayload::decode(msg.payload, msg.n_payload);
+    auto dec =
+        ramses_esp::DeviceInfoPayload::decode(msg.payload, msg.n_payload);
     if (dec.has_value()) {
       dev.oem_probed = true;
       if (dec->oem_code == 0x67) {
@@ -175,9 +190,11 @@ void RamsesDiscoveryComponent::process_hvac_packet(DiscoveredDevice &dev, const 
                dev.address.to_string().c_str(), dev.oem_name.c_str());
     }
   } else if (opcode == 0x10D0) {
-    auto dec = ramses_esp::FilterInfoPayload::decode(msg.payload, msg.n_payload);
+    auto dec =
+        ramses_esp::FilterInfoPayload::decode(msg.payload, msg.n_payload);
     if (dec.has_value()) {
-      dev.last_telemetry["filter_remaining_days"] = static_cast<float>(dec->remaining_days);
+      dev.last_telemetry["filter_remaining_days"] =
+          static_cast<float>(dec->remaining_days);
     }
   } else if (opcode == 0x1298) {
     auto dec = ramses_esp::Co2SensorPayload::decode(msg.payload, msg.n_payload);
@@ -185,42 +202,56 @@ void RamsesDiscoveryComponent::process_hvac_packet(DiscoveredDevice &dev, const 
       dev.last_telemetry["co2"] = static_cast<float>(dec->co2_ppm);
     }
   } else if (opcode == 0x12A0) {
-    auto dec = ramses_esp::AirQualityPayload::decode(msg.payload, msg.n_payload);
+    auto dec =
+        ramses_esp::AirQualityPayload::decode(msg.payload, msg.n_payload);
     if (dec.has_value()) {
-      if (dec->temperature.has_value()) dev.last_telemetry["indoor_temperature"] = *dec->temperature;
-      if (dec->humidity.has_value()) dev.last_telemetry["indoor_humidity"] = *dec->humidity;
+      if (dec->temperature.has_value())
+        dev.last_telemetry["indoor_temperature"] = *dec->temperature;
+      if (dec->humidity.has_value())
+        dev.last_telemetry["indoor_humidity"] = *dec->humidity;
     }
   }
 }
 
-void RamsesDiscoveryComponent::process_trv_packet(DiscoveredDevice &dev, const ramses_esp::RamsesMessage &msg, uint16_t opcode) {
+void RamsesDiscoveryComponent::process_trv_packet(
+    DiscoveredDevice &dev, const ramses_esp::RamsesMessage &msg,
+    uint16_t opcode) {
   if (opcode == 0x3150) {
-    auto dec = ramses_esp::HeatDemandPayload::decode(msg.payload, msg.n_payload);
+    auto dec =
+        ramses_esp::HeatDemandPayload::decode(msg.payload, msg.n_payload);
     if (dec.has_value()) {
       dev.last_telemetry["heat_demand"] = dec->demand_percent;
     }
   } else if (opcode == 0x1060) {
-    auto dec = ramses_esp::DeviceBatteryPayload::decode(msg.payload, msg.n_payload);
+    auto dec =
+        ramses_esp::DeviceBatteryPayload::decode(msg.payload, msg.n_payload);
     if (dec.has_value()) {
       dev.last_telemetry["battery_level"] = dec->battery_percent;
     }
   }
 }
 
-void RamsesDiscoveryComponent::process_opentherm_packet(DiscoveredDevice &dev, const ramses_esp::RamsesMessage &msg, uint16_t opcode) {
+void RamsesDiscoveryComponent::process_opentherm_packet(
+    DiscoveredDevice &dev, const ramses_esp::RamsesMessage &msg,
+    uint16_t opcode) {
   if (opcode == 0x3220) {
     auto dec = ramses_esp::OpenThermPayload::decode(msg.payload, msg.n_payload);
     if (dec.has_value()) {
       dev.last_telemetry["modulation"] = dec->modulation_percent;
-      if (dec->flow_temp.has_value()) dev.last_telemetry["flow_temperature"] = *dec->flow_temp;
-      if (dec->return_temp.has_value()) dev.last_telemetry["return_temperature"] = *dec->return_temp;
+      if (dec->flow_temp.has_value())
+        dev.last_telemetry["flow_temperature"] = *dec->flow_temp;
+      if (dec->return_temp.has_value())
+        dev.last_telemetry["return_temperature"] = *dec->return_temp;
     }
   }
 }
 
-void RamsesDiscoveryComponent::process_sensor_packet(DiscoveredDevice &dev, const ramses_esp::RamsesMessage &msg, uint16_t opcode) {
+void RamsesDiscoveryComponent::process_sensor_packet(
+    DiscoveredDevice &dev, const ramses_esp::RamsesMessage &msg,
+    uint16_t opcode) {
   if (opcode == 0x12C0) {
-    auto dec = ramses_esp::OutdoorTemperaturePayload::decode(msg.payload, msg.n_payload);
+    auto dec = ramses_esp::OutdoorTemperaturePayload::decode(msg.payload,
+                                                             msg.n_payload);
     if (dec.has_value() && dec->is_valid) {
       dev.last_telemetry["outdoor_temperature"] = dec->temperature;
     }
@@ -229,9 +260,11 @@ void RamsesDiscoveryComponent::process_sensor_packet(DiscoveredDevice &dev, cons
 
 void RamsesDiscoveryComponent::probe_pending() {
 #ifdef USE_ESP_IDF
-  if (this->parent_ == nullptr) return;
+  if (this->parent_ == nullptr)
+    return;
 
-  ramses_esp::RamsesAddress hgi_src{.dev_class = 18, .id = 0x005612, .is_valid = true};
+  ramses_esp::RamsesAddress hgi_src{
+      .dev_class = 18, .id = 0x005612, .is_valid = true};
 
   for (auto &kv : this->devices_) {
     DiscoveredDevice &dev = kv.second;
@@ -242,7 +275,9 @@ void RamsesDiscoveryComponent::probe_pending() {
         DiscoveredZone &zone = zkv.second;
         if (zone.name.empty() && !zone.name_probed) {
           zone.name_probed = true;
-          ramses_esp::RamsesMessage query = ramses_esp::ZoneNamePayload::encode_query(hgi_src, dev.address, zone.index);
+          ramses_esp::RamsesMessage query =
+              ramses_esp::ZoneNamePayload::encode_query(hgi_src, dev.address,
+                                                        zone.index);
           this->parent_->send_message(query);
           return; // Send one probe per loop to avoid RF collisions
         }
@@ -252,7 +287,8 @@ void RamsesDiscoveryComponent::probe_pending() {
     // Probe OEM signature on HVAC units
     if (dev.is_hvac && !dev.oem_probed) {
       dev.oem_probed = true;
-      ramses_esp::RamsesMessage query = ramses_esp::DeviceInfoPayload::encode_query(hgi_src, dev.address);
+      ramses_esp::RamsesMessage query =
+          ramses_esp::DeviceInfoPayload::encode_query(hgi_src, dev.address);
       this->parent_->send_message(query);
       return;
     }
@@ -279,7 +315,8 @@ std::string RamsesDiscoveryComponent::generate_yaml() const {
       }
       for (const auto &zkv : dev.zones) {
         const DiscoveredZone &z = zkv.second;
-        std::string zone_name = z.name.empty() ? ("Zone " + std::to_string(z.index)) : z.name;
+        std::string zone_name =
+            z.name.empty() ? ("Zone " + std::to_string(z.index)) : z.name;
         ss << "  - platform: ramses_devices\n";
         ss << "    ramses_esp_id: ramses_hub\n";
         ss << "    name: \"" << zone_name << " Heating\"\n";
@@ -330,7 +367,10 @@ std::string RamsesDiscoveryComponent::generate_yaml() const {
     std::string addr_str = dev.address.to_string();
 
     if (dev.device_type == "trv") {
-      if (!has_sensor) { ss << "sensor:\n"; has_sensor = true; }
+      if (!has_sensor) {
+        ss << "sensor:\n";
+        has_sensor = true;
+      }
       ss << "  - platform: ramses_devices\n";
       ss << "    ramses_esp_id: ramses_hub\n";
       ss << "    type: heat_demand\n";
@@ -343,7 +383,10 @@ std::string RamsesDiscoveryComponent::generate_yaml() const {
       ss << "    name: \"TRV " << addr_str << " Battery Level\"\n";
       ss << "    ramses_address: \"" << addr_str << "\"\n\n";
     } else if (dev.device_type == "opentherm") {
-      if (!has_sensor) { ss << "sensor:\n"; has_sensor = true; }
+      if (!has_sensor) {
+        ss << "sensor:\n";
+        has_sensor = true;
+      }
       ss << "  - platform: ramses_devices\n";
       ss << "    ramses_esp_id: ramses_hub\n";
       ss << "    type: opentherm_modulation\n";
@@ -362,7 +405,10 @@ std::string RamsesDiscoveryComponent::generate_yaml() const {
       ss << "    name: \"Boiler Return Temperature\"\n";
       ss << "    ramses_address: \"" << addr_str << "\"\n\n";
     } else if (dev.is_hvac) {
-      if (!has_sensor) { ss << "sensor:\n"; has_sensor = true; }
+      if (!has_sensor) {
+        ss << "sensor:\n";
+        has_sensor = true;
+      }
       ss << "  - platform: ramses_devices\n";
       ss << "    ramses_esp_id: ramses_hub\n";
       ss << "    type: filter_remaining_days\n";
@@ -378,14 +424,20 @@ std::string RamsesDiscoveryComponent::generate_yaml() const {
     std::string addr_str = dev.address.to_string();
 
     if (dev.device_type == "trv") {
-      if (!has_bin) { ss << "binary_sensor:\n"; has_bin = true; }
+      if (!has_bin) {
+        ss << "binary_sensor:\n";
+        has_bin = true;
+      }
       ss << "  - platform: ramses_devices\n";
       ss << "    ramses_esp_id: ramses_hub\n";
       ss << "    type: battery_low\n";
       ss << "    name: \"TRV " << addr_str << " Battery Low Warning\"\n";
       ss << "    ramses_address: \"" << addr_str << "\"\n\n";
     } else if (dev.device_type == "opentherm") {
-      if (!has_bin) { ss << "binary_sensor:\n"; has_bin = true; }
+      if (!has_bin) {
+        ss << "binary_sensor:\n";
+        has_bin = true;
+      }
       ss << "  - platform: ramses_devices\n";
       ss << "    ramses_esp_id: ramses_hub\n";
       ss << "    type: flame_active\n";
@@ -398,7 +450,10 @@ std::string RamsesDiscoveryComponent::generate_yaml() const {
       ss << "    name: \"Boiler Fault Warning\"\n";
       ss << "    ramses_address: \"" << addr_str << "\"\n\n";
     } else if (dev.is_hvac) {
-      if (!has_bin) { ss << "binary_sensor:\n"; has_bin = true; }
+      if (!has_bin) {
+        ss << "binary_sensor:\n";
+        has_bin = true;
+      }
       ss << "  - platform: ramses_devices\n";
       ss << "    ramses_esp_id: ramses_hub\n";
       ss << "    type: filter_alarm\n";
