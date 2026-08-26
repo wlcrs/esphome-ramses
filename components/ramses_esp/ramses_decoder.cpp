@@ -406,6 +406,47 @@ const char *fan_preset_to_string(FanPresetMode mode) {
   }
 }
 
+struct FanPresetEntry {
+  FanPresetMode mode;
+  uint8_t speed_percent;
+  uint8_t wire_byte;
+};
+
+// Table per scheme mapping wire byte <-> Preset
+static constexpr FanPresetEntry ORCON_PRESETS[] = {
+    {FanPresetMode::AWAY, 15, 0x00},   {FanPresetMode::LOW, 33, 0x01},
+    {FanPresetMode::MEDIUM, 66, 0x02}, {FanPresetMode::HIGH, 100, 0x03},
+    {FanPresetMode::AUTO, 50, 0x05},   {FanPresetMode::AUTO, 50, 0x04},
+    {FanPresetMode::BOOST, 100, 0x06}, {FanPresetMode::OFF, 0, 0x07},
+};
+
+static constexpr FanPresetEntry VASCO_ZEHNDER_PRESETS[] = {
+    {FanPresetMode::OFF, 0, 0x00},    {FanPresetMode::AWAY, 15, 0x01},
+    {FanPresetMode::LOW, 33, 0x02},   {FanPresetMode::MEDIUM, 66, 0x03},
+    {FanPresetMode::HIGH, 100, 0x04}, {FanPresetMode::AUTO, 50, 0x05},
+};
+
+static constexpr FanPresetEntry ITHO_PRESETS[] = {
+    {FanPresetMode::OFF, 0, 0x00},    {FanPresetMode::LOW, 20, 0x01},
+    {FanPresetMode::LOW, 33, 0x02},   {FanPresetMode::MEDIUM, 66, 0x03},
+    {FanPresetMode::HIGH, 100, 0x04},
+};
+
+static inline std::span<const FanPresetEntry>
+get_fan_preset_table(HvacScheme scheme) {
+  switch (scheme) {
+  case HvacScheme::VASCO:
+  case HvacScheme::ZEHNDER:
+    return VASCO_ZEHNDER_PRESETS;
+  case HvacScheme::ITHO:
+    return ITHO_PRESETS;
+  case HvacScheme::AUTO:
+  case HvacScheme::ORCON:
+  default:
+    return ORCON_PRESETS;
+  }
+}
+
 using FanStateFmt = binary::Struct<"!BB">;
 using FanState3Fmt = binary::Struct<"!BBB">;
 
@@ -419,108 +460,15 @@ FanStatePayload::decode(const uint8_t *payload, size_t len, HvacScheme scheme) {
 
   FanStatePayload res;
   res.raw_mode = raw_mode;
+  res.preset_mode = FanPresetMode::UNKNOWN;
+  res.speed_percent = 0;
 
-  switch (scheme) {
-  case HvacScheme::ORCON:
-  default:
-    // Orcon: 00=away, 01=low, 02=medium, 03=high, 04/05=auto, 06=boost, 07=off.
-    switch (res.raw_mode) {
-    case 0x00:
-      res.preset_mode = FanPresetMode::AWAY;
-      res.speed_percent = 15;
-      break;
-    case 0x01:
-      res.preset_mode = FanPresetMode::LOW;
-      res.speed_percent = 33;
-      break;
-    case 0x02:
-      res.preset_mode = FanPresetMode::MEDIUM;
-      res.speed_percent = 66;
-      break;
-    case 0x03:
-      res.preset_mode = FanPresetMode::HIGH;
-      res.speed_percent = 100;
-      break;
-    case 0x04:
-    case 0x05:
-      res.preset_mode = FanPresetMode::AUTO;
-      res.speed_percent = 50;
-      break;
-    case 0x06:
-      res.preset_mode = FanPresetMode::BOOST;
-      res.speed_percent = 100;
-      break;
-    case 0x07:
-      res.preset_mode = FanPresetMode::OFF;
-      res.speed_percent = 0;
-      break;
-    default:
-      res.preset_mode = FanPresetMode::UNKNOWN;
+  for (const auto &entry : get_fan_preset_table(scheme)) {
+    if (entry.wire_byte == raw_mode) {
+      res.preset_mode = entry.mode;
+      res.speed_percent = entry.speed_percent;
       break;
     }
-    break;
-
-  case HvacScheme::VASCO:
-  case HvacScheme::ZEHNDER:
-    switch (res.raw_mode) {
-    case 0x00:
-      res.preset_mode = FanPresetMode::OFF;
-      res.speed_percent = 0;
-      break;
-    case 0x01:
-      res.preset_mode = FanPresetMode::AWAY;
-      res.speed_percent = 15;
-      break;
-    case 0x02:
-      res.preset_mode = FanPresetMode::LOW;
-      res.speed_percent = 33;
-      break;
-    case 0x03:
-      res.preset_mode = FanPresetMode::MEDIUM;
-      res.speed_percent = 66;
-      break;
-    case 0x04:
-      res.preset_mode = FanPresetMode::HIGH;
-      res.speed_percent = 100;
-      break;
-    case 0x05:
-      res.preset_mode = FanPresetMode::AUTO;
-      res.speed_percent = 50;
-      break;
-    default:
-      res.preset_mode = FanPresetMode::UNKNOWN;
-      break;
-    }
-    break;
-
-  case HvacScheme::ITHO:
-    // Itho uses a mode index: 00=off, 01=trickle, 02=low, 03=medium, 04=high.
-    switch (res.raw_mode) {
-    case 0x00:
-      res.preset_mode = FanPresetMode::OFF;
-      res.speed_percent = 0;
-      break;
-    case 0x01:
-      res.preset_mode = FanPresetMode::LOW;
-      res.speed_percent = 20;
-      break;
-    case 0x02:
-      res.preset_mode = FanPresetMode::LOW;
-      res.speed_percent = 33;
-      break;
-    case 0x03:
-      res.preset_mode = FanPresetMode::MEDIUM;
-      res.speed_percent = 66;
-      break;
-    case 0x04:
-      res.preset_mode = FanPresetMode::HIGH;
-      res.speed_percent = 100;
-      break;
-    default:
-      res.preset_mode = FanPresetMode::UNKNOWN;
-      break;
-    }
-    break;
   }
 
   return res;
@@ -531,80 +479,22 @@ RamsesMessage FanStatePayload::encode_write(const RamsesAddress &src,
                                             FanPresetMode mode,
                                             HvacScheme scheme) {
   uint8_t mode_byte = 0x00;
-  switch (scheme) {
-  case HvacScheme::AUTO:
-  case HvacScheme::ORCON:
-    switch (mode) {
-    case FanPresetMode::AWAY:
-      mode_byte = 0x00;
-      break;
-    case FanPresetMode::LOW:
-      mode_byte = 0x01;
-      break;
-    case FanPresetMode::MEDIUM:
-      mode_byte = 0x02;
-      break;
-    case FanPresetMode::HIGH:
-      mode_byte = 0x03;
-      break;
-    case FanPresetMode::AUTO:
-      mode_byte = 0x04;
-      break;
-    case FanPresetMode::BOOST:
-      mode_byte = 0x06;
-      break;
-    case FanPresetMode::OFF:
-      mode_byte = 0x07;
-      break;
-    default:
+
+  // Fallback for schemes without discrete boost code -> map BOOST to HIGH
+  FanPresetMode target_mode = mode;
+  if (target_mode == FanPresetMode::BOOST && scheme != HvacScheme::ORCON &&
+      scheme != HvacScheme::AUTO) {
+    target_mode = FanPresetMode::HIGH;
+  }
+
+  // Find matching preset entry (iterating in reverse so standard speeds take
+  // precedence, e.g. Itho LOW 0x02 over 0x01)
+  auto table = get_fan_preset_table(scheme);
+  for (auto it = table.rbegin(); it != table.rend(); ++it) {
+    if (it->mode == target_mode) {
+      mode_byte = it->wire_byte;
       break;
     }
-    break;
-  case HvacScheme::ITHO:
-    switch (mode) {
-    case FanPresetMode::OFF:
-      mode_byte = 0x00;
-      break;
-    case FanPresetMode::LOW:
-      mode_byte = 0x02;
-      break;
-    case FanPresetMode::MEDIUM:
-      mode_byte = 0x03;
-      break;
-    case FanPresetMode::HIGH:
-    case FanPresetMode::BOOST:
-      mode_byte = 0x04;
-      break;
-    default:
-      break;
-    }
-    break;
-  case HvacScheme::VASCO:
-  case HvacScheme::ZEHNDER:
-    switch (mode) {
-    case FanPresetMode::OFF:
-      mode_byte = 0x00;
-      break;
-    case FanPresetMode::AWAY:
-      mode_byte = 0x01;
-      break;
-    case FanPresetMode::LOW:
-      mode_byte = 0x02;
-      break;
-    case FanPresetMode::MEDIUM:
-      mode_byte = 0x03;
-      break;
-    case FanPresetMode::HIGH:
-    case FanPresetMode::BOOST:
-      mode_byte = 0x04;
-      break;
-    case FanPresetMode::AUTO:
-      mode_byte = 0x05;
-      break;
-    default:
-      break;
-    }
-    break;
   }
 
   return RamsesMessageBuilder::write()
