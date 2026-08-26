@@ -58,6 +58,7 @@ CC1101_MULTIPLEXER_SEND_PACKET_SCHEMA = cv.Schema(
     "cc1101_multiplexer.send_packet",
     SendPacketAction,
     CC1101_MULTIPLEXER_SEND_PACKET_SCHEMA,
+    synchronous=True,
 )
 async def cc1101_multiplexer_send_packet_to_code(
     config, action_id, template_arg, args

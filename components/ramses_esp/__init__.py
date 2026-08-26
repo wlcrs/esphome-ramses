@@ -92,7 +92,10 @@ RAMSES_SEND_HGI80_SCHEMA = cv.Schema(
 
 
 @automation.register_action(
-    "ramses_esp.send_hgi80", SendHgi80Action, RAMSES_SEND_HGI80_SCHEMA
+    "ramses_esp.send_hgi80",
+    SendHgi80Action,
+    RAMSES_SEND_HGI80_SCHEMA,
+    synchronous=True,
 )
 async def ramses_send_hgi80_to_code(config, action_id, template_arg, args):
     paren = await cg.get_variable(config[CONF_ID])

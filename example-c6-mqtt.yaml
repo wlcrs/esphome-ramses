@@ -10,8 +10,6 @@ substitutions:
 esphome:
   name: ${name}
   friendly_name: ${friendly_name}
-  includes:
-    - cJSON.h
 
 esp32:
   board: esp32-c6-devkitc-1
@@ -79,23 +77,18 @@ mqtt:
     - topic: ${mqtt_root}/${ramses_device_id}/tx
       then:
         - lambda: |-
-            cJSON *root = cJSON_Parse(payload.c_str());
-            if (root != nullptr) {
-              cJSON *msg_item = cJSON_GetObjectItem(root, "msg");
-              if (msg_item != nullptr && msg_item->valuestring != nullptr) {
-                std::string msg(msg_item->valuestring);
-                ESP_LOGI("ramses_mqtt", "MQTT TX Request: %s", msg.c_str());
-                id(ramses_hub).send_hgi80_command(msg);
-              }
-              cJSON_Delete(root);
+            auto doc = json::parse_json(x);
+            if (doc["msg"].is<const char *>()) {
+              std::string msg = doc["msg"].as<std::string>();
+              ESP_LOGI("ramses_mqtt", "MQTT TX Request: %s", msg.c_str());
+              id(ramses_hub).send_hgi80_command(msg);
             }
 
     # Handle evofw3 / ramses_rf handshake commands (e.g. "!V")
     - topic: ${mqtt_root}/${ramses_device_id}/cmd/cmd
       then:
         - lambda: |-
-            std::string cmd = payload;
-            if (cmd == "!V") {
+            if (x == "!V") {
               // Return evofw3 version response expected by ramses_rf
               id(mqtt_client).publish(
                 "${mqtt_root}/${ramses_device_id}/cmd/result",
@@ -104,7 +97,7 @@ mqtt:
             } else {
               id(mqtt_client).publish(
                 "${mqtt_root}/${ramses_device_id}/cmd/result",
-                "{\"cmd\":\"" + cmd + "\",\"err\":\"ESP_OK\",\"return\":0}"
+                "{\"cmd\":\"" + x + "\",\"err\":\"ESP_OK\",\"return\":0}"
               );
             }
 
@@ -131,13 +124,9 @@ ramses_esp:
           snprintf(ts_buf, sizeof(ts_buf), "1970-01-01T00:00:00Z");
         }
 
-        cJSON *json = cJSON_CreateObject();
-        cJSON_AddStringToObject(json, "msg", x.c_str());
-        cJSON_AddStringToObject(json, "ts", ts_buf);
-        char *rendered = cJSON_PrintUnformatted(json);
+        std::string rendered = json::build_json([&](JsonObject root) {
+          root["msg"] = x;
+          root["ts"] = ts_buf;
+        });
 
-        if (rendered != nullptr) {
-          id(mqtt_client).publish("${mqtt_root}/${ramses_device_id}/rx", rendered);
-          free(rendered);
-        }
-        cJSON_Delete(json);
+        id(mqtt_client).publish("${mqtt_root}/${ramses_device_id}/rx", rendered);

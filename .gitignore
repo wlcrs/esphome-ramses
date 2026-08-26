@@ -17,4 +17,5 @@ dist/
 # Cloned reference repos (anchored to root)
 /ramses_esp/
 /ramses_rf/
+/ramses_cc/
 /esphome/

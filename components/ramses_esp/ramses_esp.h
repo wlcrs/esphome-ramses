@@ -2,6 +2,7 @@
 
 #include "esphome/core/component.h"
 #include "esphome/core/automation.h"
+#include "esphome/core/gpio.h"
 #include "cc1101_driver.h"
 #include "ramses_frame.h"
 #include "ramses_message.h"
@@ -19,13 +20,13 @@ class RamsesESPComponent : public Component {
  public:
   RamsesESPComponent() = default;
 
-  void set_sck_pin(gpio_num_t pin) { this->sck_pin_ = pin; }
-  void set_mosi_pin(gpio_num_t pin) { this->mosi_pin_ = pin; }
-  void set_miso_pin(gpio_num_t pin) { this->miso_pin_ = pin; }
-  void set_cs_pin(gpio_num_t pin) { this->cs_pin_ = pin; }
-  void set_gdo0_pin(gpio_num_t pin) { this->gdo0_pin_ = pin; }
-  void set_gdo2_pin(gpio_num_t pin) { this->gdo2_pin_ = pin; }
-  void set_uart_num(uart_port_t uart_num) { this->uart_num_ = uart_num; }
+  void set_sck_pin(InternalGPIOPin *pin) { this->sck_pin_ = static_cast<gpio_num_t>(pin->get_pin()); }
+  void set_mosi_pin(InternalGPIOPin *pin) { this->mosi_pin_ = static_cast<gpio_num_t>(pin->get_pin()); }
+  void set_miso_pin(InternalGPIOPin *pin) { this->miso_pin_ = static_cast<gpio_num_t>(pin->get_pin()); }
+  void set_cs_pin(InternalGPIOPin *pin) { this->cs_pin_ = static_cast<gpio_num_t>(pin->get_pin()); }
+  void set_gdo0_pin(InternalGPIOPin *pin) { this->gdo0_pin_ = static_cast<gpio_num_t>(pin->get_pin()); }
+  void set_gdo2_pin(InternalGPIOPin *pin) { this->gdo2_pin_ = static_cast<gpio_num_t>(pin->get_pin()); }
+  void set_uart_num(uint8_t uart_num) { this->uart_num_ = static_cast<uart_port_t>(uart_num); }
   void set_port(uint16_t port) { this->port_ = port; }
 
   void add_on_message_callback(std::function<void(const std::string &)> callback) {

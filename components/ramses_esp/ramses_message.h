@@ -30,6 +30,13 @@ enum RamsesMsgType {
 #define RAMSES_F_OPCODE 0x01
 #define RAMSES_F_LEN    0x02
 
+#define HDR_T_MASK 0x30
+#define HDR_T_SHIFT 4
+#define HDR_A_MASK 0x0C
+#define HDR_A_SHIFT 2
+#define HDR_PARAM0 0x02
+#define HDR_PARAM1 0x01
+
 struct RamsesAddress {
   uint8_t dev_class{0};
   uint32_t id{0};

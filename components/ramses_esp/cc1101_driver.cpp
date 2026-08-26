@@ -74,6 +74,13 @@ bool CC1101Driver::init(spi_host_device_t host, gpio_num_t sck, gpio_num_t mosi,
 
   this->spi_reset();
 
+  // spi_bus_config_t buscfg = {};
+  // buscfg.mosi_io_num = this->mosi_pin_;
+  // buscfg.miso_io_num = this->miso_pin_;
+  // buscfg.sclk_io_num = this->sck_pin_;
+  // buscfg.quadwp_io_num = -1;
+  // buscfg.quadhd_io_num = -1;
+  // buscfg.max_transfer_sz = 64;
   spi_bus_config_t buscfg = {
       .mosi_io_num = this->mosi_pin_,
       .miso_io_num = this->miso_pin_,
@@ -82,20 +89,18 @@ bool CC1101Driver::init(spi_host_device_t host, gpio_num_t sck, gpio_num_t mosi,
       .quadhd_io_num = -1,
       .max_transfer_sz = 64,
   };
-
   esp_err_t ret = spi_bus_initialize(this->host_, &buscfg, SPI_DMA_CH_AUTO);
   if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
     ESP_LOGE(TAG, "spi_bus_initialize failed: %d", ret);
     return false;
   }
 
-  spi_device_interface_config_t devcfg = {
-      .mode = 0,
-      .clock_speed_hz = 10000000, // 10 MHz
-      .spics_io_num = this->cs_pin_,
-      .queue_size = 7,
-      .flags = SPI_DEVICE_NO_DUMMY,
-  };
+  spi_device_interface_config_t devcfg = {};
+  devcfg.mode = 0;
+  devcfg.clock_speed_hz = 10000000; // 10 MHz
+  devcfg.spics_io_num = this->cs_pin_;
+  devcfg.flags = SPI_DEVICE_NO_DUMMY;
+  devcfg.queue_size = 7;
 
   ret = spi_bus_add_device(this->host_, &devcfg, &this->spi_handle_);
   if (ret != ESP_OK) {
