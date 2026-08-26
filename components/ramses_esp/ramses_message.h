@@ -211,6 +211,18 @@ class RamsesMessageBuilder {
     return *this;
   }
 
+  RamsesMessageBuilder &append_binding(uint8_t oem_code, uint16_t op, const RamsesAddress &addr) {
+    if (msg_.len + 6 <= RAMSES_MAX_PAYLOAD) {
+      using BindingTupleFmt = ::esphome::ramses_esp::binary::Struct<"!BH">;
+      BindingTupleFmt::pack(msg_.payload + msg_.len, oem_code, op);
+      addr.to_bytes(msg_.payload + msg_.len + 3);
+      msg_.len += 6;
+      msg_.n_payload = msg_.len;
+      msg_.fields |= RAMSES_F_LEN;
+    }
+    return *this;
+  }
+
   RamsesMessageBuilder &fields(uint8_t f) {
     msg_.fields |= f;
     return *this;

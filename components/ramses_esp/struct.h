@@ -127,6 +127,90 @@ class Struct {
     return unpack(std::span<const uint8_t>(buf, len));
   }
 
+  static std::optional<TupleType> unpack_from(std::span<const uint8_t> &buf, size_t advance_by = size) {
+    if (buf.size() < size || buf.size() < advance_by) return std::nullopt;
+    auto res = unpack(buf);
+    buf = buf.subspan(advance_by);
+    return res;
+  }
+
+  class Range {
+   public:
+    class Iterator {
+     public:
+      using value_type = TupleType;
+      using difference_type = std::ptrdiff_t;
+      using pointer = const TupleType*;
+      using reference = const TupleType&;
+      using iterator_category = std::forward_iterator_tag;
+
+      Iterator() : buf_({}), stride_(size), current_(std::nullopt) {}
+      Iterator(std::span<const uint8_t> buf, size_t stride) : buf_(buf), stride_(stride) {
+        fetch();
+      }
+
+      const TupleType &operator*() const { return current_.value(); }
+      const TupleType *operator->() const { return &current_.value(); }
+
+      Iterator &operator++() {
+        if (buf_.size() >= stride_) {
+          buf_ = buf_.subspan(stride_);
+        } else {
+          buf_ = {};
+        }
+        fetch();
+        return *this;
+      }
+
+      Iterator operator++(int) {
+        Iterator tmp = *this;
+        ++(*this);
+        return tmp;
+      }
+
+      bool operator==(const Iterator &other) const {
+        if (!current_.has_value() && !other.current_.has_value()) return true;
+        if (current_.has_value() != other.current_.has_value()) return false;
+        return buf_.data() == other.buf_.data() && buf_.size() == other.buf_.size();
+      }
+
+      bool operator!=(const Iterator &other) const {
+        return !(*this == other);
+      }
+
+     private:
+      void fetch() {
+        if (buf_.size() >= size && buf_.size() >= stride_) {
+          current_ = Struct::unpack(buf_);
+        } else {
+          current_ = std::nullopt;
+        }
+      }
+
+      std::span<const uint8_t> buf_;
+      size_t stride_{size};
+      std::optional<TupleType> current_{std::nullopt};
+    };
+
+    Range(std::span<const uint8_t> buf, size_t stride) : buf_(buf), stride_(stride) {}
+
+    Iterator begin() const { return Iterator(buf_, stride_); }
+    Iterator end() const { return Iterator(); }
+
+   private:
+    std::span<const uint8_t> buf_;
+    size_t stride_;
+  };
+
+  static Range unpack_all(std::span<const uint8_t> buf, size_t stride = size) {
+    return Range(buf, stride);
+  }
+
+  static Range unpack_all(const uint8_t *buf, size_t len, size_t stride = size) {
+    if (!buf) return Range({}, stride);
+    return Range(std::span<const uint8_t>(buf, len), stride);
+  }
+
   // --- PACK ---
   static size_t pack(uint8_t *buf, const TupleType &tup) {
     if (!buf) return 0;

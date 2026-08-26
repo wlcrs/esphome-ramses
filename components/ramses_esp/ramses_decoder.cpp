@@ -39,8 +39,7 @@ std::optional<TemperaturePayload> TemperaturePayload::decode(const uint8_t *payl
   }
 
   // Multi-zone arrays: each zone item is 3 bytes: [zone_index (1B), temp (2B signed BE int)]
-  for (size_t i = 0; i + TemperatureZoneFmt::size <= len; i += TemperatureZoneFmt::size) {
-    auto [zone_idx, raw_temp] = *TemperatureZoneFmt::unpack(payload + i, TemperatureZoneFmt::size);
+  for (auto [zone_idx, raw_temp] : TemperatureZoneFmt::unpack_all(payload, len)) {
     ZoneTemperatureItem item;
     item.zone_index = zone_idx;
     item.is_valid = parse_temperature_raw(raw_temp, item.temperature);
@@ -59,9 +58,7 @@ std::optional<SetpointPayload> SetpointPayload::decode(const uint8_t *payload, s
   if (payload == nullptr || len < SetpointFmt::size) return std::nullopt;
 
   SetpointPayload res;
-  for (size_t i = 0; i + SetpointFmt::size <= len; i += SetpointFmt::size) {
-    auto [zone_idx, raw_sp] = *SetpointFmt::unpack(payload + i, SetpointFmt::size);
-
+  for (auto [zone_idx, raw_sp] : SetpointFmt::unpack_all(payload, len)) {
     ZoneSetpointItem item;
     item.zone_index = zone_idx;
     item.is_valid = parse_temperature_raw(raw_sp, item.setpoint);
@@ -272,13 +269,15 @@ std::optional<ZoneRolePayload> ZoneRolePayload::decode(const uint8_t *payload, s
   if (payload == nullptr || len < 5) return std::nullopt;
 
   ZoneRolePayload res;
+  std::span<const uint8_t> buf(payload, len);
   // Each entry is 5 bytes: [zone_idx (1B), role (1B), addr_bytes (3B)]
-  for (size_t i = 0; i + 5 <= len; i += 5) {
-    auto [zone_idx, role] = *ZoneRoleItemHeaderFmt::unpack(payload + i, 2);
+  for (size_t i = 0; i + 5 <= buf.size(); i += 5) {
+    auto item_slice = buf.subspan(i, 5);
+    auto [zone_idx, role] = *ZoneRoleItemHeaderFmt::unpack(item_slice);
     ZoneRoleBindingItem item;
     item.zone_index = zone_idx;
     item.role = role;
-    item.device_address = RamsesAddress::from_bytes(&payload[i + 2]);
+    item.device_address = RamsesAddress::from_bytes(item_slice.subspan(2).data());
     res.bindings.push_back(item);
   }
   return res;
@@ -288,6 +287,17 @@ std::optional<ZoneRolePayload> ZoneRolePayload::decode(const uint8_t *payload, s
 // Opcode 0x22F1 / 0x22F3: HVAC Fan State & Control
 // ramses_rf reference: ramses_rf/payloads/hvac.py:FanStatePayload & ramses_rf/models/hvac_schemas.py
 // ----------------------------------------------------------------------
+uint8_t get_hvac_oem_code(HvacScheme scheme) {
+  switch (scheme) {
+    case HvacScheme::VASCO: return 0x66;
+    case HvacScheme::ITHO: return 0x01;
+    case HvacScheme::ZEHNDER: return 0x02;
+    case HvacScheme::AUTO:
+    case HvacScheme::ORCON:
+    default: return 0x67;
+  }
+}
+
 const char *fan_preset_to_string(FanPresetMode mode) {
   switch (mode) {
     case FanPresetMode::AUTO: return "auto";
@@ -774,12 +784,14 @@ std::optional<BindingPayload> BindingPayload::decode(const RamsesMessage &msg) {
   }
 
   // Parse 6-byte binding tuples [oem_code (1B), opcode (2B), addr (3B)]
-  for (size_t i = 0; i + 6 <= msg.n_payload; i += 6) {
-    auto [oem_code, op_code] = *BindingTuple::unpack(msg.payload + i, 3);
+  std::span<const uint8_t> buf(msg.payload, msg.n_payload);
+  for (size_t i = 0; i + 6 <= buf.size(); i += 6) {
+    auto item_slice = buf.subspan(i, 6);
+    auto [oem_code, op_code] = *BindingTuple::unpack(item_slice);
     BindingItem item;
     item.oem_code = oem_code;
     item.opcode = op_code;
-    item.address = RamsesAddress::from_bytes(&msg.payload[i + 3]);
+    item.address = RamsesAddress::from_bytes(item_slice.subspan(3).data());
     res.bindings.push_back(item);
   }
 
@@ -787,33 +799,18 @@ std::optional<BindingPayload> BindingPayload::decode(const RamsesMessage &msg) {
 }
 
 RamsesMessage BindingPayload::encode_offer(const RamsesAddress &remote_addr, HvacScheme scheme) {
-  // Target: 63:262142 (broadcast)
-  RamsesAddress bcast_addr;
-  bcast_addr.dev_class = 63;
-  bcast_addr.id = 262142;
-  bcast_addr.is_valid = true;
-
-  uint8_t oem = 0x67; // Orcon default
-  if (scheme == HvacScheme::ORCON) oem = 0x67;
-  else if (scheme == HvacScheme::VASCO) oem = 0x66;
-  else if (scheme == HvacScheme::ITHO) oem = 0x01;
-  else if (scheme == HvacScheme::ZEHNDER) oem = 0x02;
-
-  uint8_t remote_b[3];
-  remote_addr.to_bytes(remote_b);
-
-  uint8_t p[24] = {
-    0x00, 0x22, 0xF1, remote_b[0], remote_b[1], remote_b[2],
-    0x00, 0x22, 0xF3, remote_b[0], remote_b[1], remote_b[2],
-    oem,  0x10, 0xE0, remote_b[0], remote_b[1], remote_b[2],
-    0x00, 0x1F, 0xC9, remote_b[0], remote_b[1], remote_b[2]
-  };
+  RamsesAddress bcast_addr{.dev_class = 63, .id = 262142, .is_valid = true};
+  uint8_t oem = get_hvac_oem_code(scheme);
 
   return RamsesMessageBuilder::info()
       .from(remote_addr)
       .to(bcast_addr)
       .opcode(0x1FC9)
-      .payload(p, 24);
+      .append_binding(0x00, 0x22F1, remote_addr)
+      .append_binding(0x00, 0x22F3, remote_addr)
+      .append_binding(oem,  0x10E0, remote_addr)
+      .append_binding(0x00, 0x1FC9, remote_addr)
+      .build();
 }
 
 RamsesMessage BindingPayload::encode_confirm(const RamsesAddress &remote_addr, const RamsesAddress &fan_addr) {

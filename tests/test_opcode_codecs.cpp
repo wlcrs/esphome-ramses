@@ -336,6 +336,34 @@ void test_opentherm_and_dhw_codecs() {
   TEST_ASSERT(enc_dhw_sp == 5500, "Encoded 55.0 C DHW setpoint as 5500");
 }
 
+void test_struct_unpack_helpers() {
+  std::cout << "\n--- Testing Struct::unpack_all and Struct::unpack_from ---\n";
+  using ItemFmt = binary::Struct<"!Bh">;
+  uint8_t payload[] = {0x00, 0x08, 0x34, 0x01, 0x07, 0x3A, 0x02, 0x0B, 0xB8}; // 3 items: (0, 2100), (1, 1850), (2, 3000)
+
+  int count = 0;
+  for (auto [idx, val] : ItemFmt::unpack_all(payload, sizeof(payload))) {
+    if (count == 0) {
+      TEST_ASSERT(idx == 0 && val == 2100, "unpack_all item 0 correct");
+    } else if (count == 1) {
+      TEST_ASSERT(idx == 1 && val == 1850, "unpack_all item 1 correct");
+    } else if (count == 2) {
+      TEST_ASSERT(idx == 2 && val == 3000, "unpack_all item 2 correct");
+    }
+    count++;
+  }
+  TEST_ASSERT(count == 3, "unpack_all iterated 3 items");
+
+  std::span<const uint8_t> buf(payload, sizeof(payload));
+  auto item1 = ItemFmt::unpack_from(buf);
+  TEST_ASSERT(item1.has_value() && std::get<0>(*item1) == 0, "unpack_from item 1");
+  TEST_ASSERT(buf.size() == 6, "unpack_from advanced buffer span");
+
+  auto item2 = ItemFmt::unpack_from(buf);
+  TEST_ASSERT(item2.has_value() && std::get<0>(*item2) == 1, "unpack_from item 2");
+  TEST_ASSERT(buf.size() == 3, "unpack_from advanced buffer span again");
+}
+
 int main() {
   std::cout << "========================================\n";
   std::cout << "Running Ramses Opcode Codecs & Edge Cases Unit Tests\n";
@@ -352,6 +380,7 @@ int main() {
   test_filter_and_battery_codecs();
   test_air_quality_12a0_edge_cases();
   test_opentherm_and_dhw_codecs();
+  test_struct_unpack_helpers();
 
   std::cout << "\n========================================\n";
   std::cout << "Results: " << tests_passed << "/" << tests_run << " tests passed.\n";

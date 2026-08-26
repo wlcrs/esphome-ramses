@@ -153,6 +153,8 @@ enum class HvacScheme {
   ZEHNDER = 4
 };
 
+uint8_t get_hvac_oem_code(HvacScheme scheme);
+
 enum class FanPresetMode {
   AUTO,
   LOW,
