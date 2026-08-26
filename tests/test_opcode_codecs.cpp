@@ -183,28 +183,39 @@ void test_zone_name_codec_0004() {
 
 void test_hvac_fan_codec_22f1() {
   std::cout << "\n--- Testing Opcode 0x22F1 (HVAC Fan State & Mode) ---\n";
-  // Orcon Low mode: [0x00, 0x02, 0xFF]
+  // Orcon Medium mode: [0x00, 0x02, 0xFF]
   uint8_t payload_orcon[] = {0x00, 0x02, 0xFF};
   auto dec_orcon = FanStatePayload::decode(payload_orcon, sizeof(payload_orcon), HvacScheme::ORCON);
   TEST_ASSERT(dec_orcon.has_value(), "Orcon fan state decoded successfully");
-  TEST_ASSERT(dec_orcon->preset_mode == FanPresetMode::LOW, "Orcon mode 0x02 is LOW");
-  TEST_ASSERT(std::string(fan_preset_to_string(dec_orcon->preset_mode)) == "low", "Preset name is 'low'");
+  TEST_ASSERT(dec_orcon->preset_mode == FanPresetMode::MEDIUM, "Orcon mode 0x02 is MEDIUM");
+  TEST_ASSERT(std::string(fan_preset_to_string(dec_orcon->preset_mode)) == "medium", "Preset name is 'medium'");
 
-  // Orcon Boost mode: [0x00, 0x05, 0xFF]
-  uint8_t payload_boost[] = {0x00, 0x05, 0xFF};
+  // Orcon Boost mode: [0x00, 0x06, 0xFF]
+  uint8_t payload_boost[] = {0x00, 0x06, 0xFF};
   auto dec_boost = FanStatePayload::decode(payload_boost, sizeof(payload_boost), HvacScheme::ORCON);
-  TEST_ASSERT(dec_boost->preset_mode == FanPresetMode::BOOST, "Orcon mode 0x05 is BOOST");
+  TEST_ASSERT(dec_boost->preset_mode == FanPresetMode::BOOST, "Orcon mode 0x06 is BOOST");
 
-  // Vasco Low mode: [0x00, 0x01, 0xFF]
-  uint8_t payload_vasco[] = {0x00, 0x01, 0xFF};
+  // Vasco Low mode: [0x00, 0x02, 0xFF]
+  uint8_t payload_vasco[] = {0x00, 0x02, 0xFF};
   auto dec_vasco = FanStatePayload::decode(payload_vasco, sizeof(payload_vasco), HvacScheme::VASCO);
-  TEST_ASSERT(dec_vasco->preset_mode == FanPresetMode::LOW, "Vasco mode 0x01 is LOW");
+  TEST_ASSERT(dec_vasco->preset_mode == FanPresetMode::LOW, "Vasco mode 0x02 is LOW");
 
-  // Itho speed mode: 70 / 200 = 35% -> LOW
-  uint8_t payload_itho[] = {0x00, 70, 0xFF};
+  // Itho mode index 2 -> LOW
+  uint8_t payload_itho[] = {0x00, 0x02, 0xFF};
   auto dec_itho = FanStatePayload::decode(payload_itho, sizeof(payload_itho), HvacScheme::ITHO);
   TEST_ASSERT(dec_itho.has_value(), "Itho fan state decoded");
-  TEST_ASSERT(dec_itho->preset_mode == FanPresetMode::LOW, "Itho 35% is LOW");
+  TEST_ASSERT(dec_itho->preset_mode == FanPresetMode::LOW, "Itho mode index 2 is LOW");
+
+  uint8_t payload_orcon_off[] = {0x00, 0x07, 0xFF};
+  auto dec_orcon_off = FanStatePayload::decode(payload_orcon_off, sizeof(payload_orcon_off), HvacScheme::ORCON);
+  TEST_ASSERT(dec_orcon_off->preset_mode == FanPresetMode::OFF, "Orcon mode 0x07 is OFF");
+
+  uint8_t payload_vasco_auto[] = {0x00, 0x05, 0xFF};
+  auto dec_vasco_auto = FanStatePayload::decode(payload_vasco_auto, sizeof(payload_vasco_auto), HvacScheme::VASCO);
+  TEST_ASSERT(dec_vasco_auto->preset_mode == FanPresetMode::AUTO, "Vasco mode 0x05 is AUTO");
+
+  auto dec_zehnder = FanStatePayload::decode(payload_vasco, sizeof(payload_vasco), HvacScheme::ZEHNDER);
+  TEST_ASSERT(dec_zehnder->preset_mode == FanPresetMode::LOW, "Zehnder fallback mode 0x02 is LOW");
 
   // Unknown mode: 0xFF
   uint8_t payload_unk[] = {0x00, 0xFF, 0xFF};
@@ -216,7 +227,15 @@ void test_hvac_fan_codec_22f1() {
   RamsesAddress dst = RamsesAddress::from_string("32:155617");
   RamsesMessage w_msg = FanStatePayload::encode_write(src, dst, FanPresetMode::HIGH, HvacScheme::ORCON);
   TEST_ASSERT(w_msg.type == RAMSES_MSG_W, "Fan command is W");
-  TEST_ASSERT(w_msg.payload[1] == 0x04, "Orcon High mode encoded as 0x04");
+  TEST_ASSERT(w_msg.payload[1] == 0x03, "Orcon High mode encoded as 0x03");
+
+  uint8_t boost_timer[] = {0x00, 0x00, 0x0A};
+  auto boost_dec = FanBoostPayload::decode(boost_timer, sizeof(boost_timer));
+  TEST_ASSERT(boost_dec.has_value() && boost_dec->minutes == 10, "22F3 boost timer decoded");
+
+  uint8_t boost_timer_hours[] = {0x00, 0x40, 0x02};
+  auto boost_hours_dec = FanBoostPayload::decode(boost_timer_hours, sizeof(boost_timer_hours));
+  TEST_ASSERT(boost_hours_dec.has_value() && boost_hours_dec->minutes == 120, "22F3 hour timer decoded");
 }
 
 void test_filter_and_battery_codecs() {

@@ -117,7 +117,7 @@ void test_corpus_file(const fs::path &file_path) {
         }
         case 0x22F1:
         case 0x22F3: {
-          auto dec = FanStatePayload::decode(msg.payload, msg.n_payload);
+          auto dec = FanBoostPayload::decode(msg.payload, msg.n_payload);
           record_decode(opcode, dec.has_value());
           break;
         }

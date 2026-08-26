@@ -68,8 +68,8 @@
     }
   },
   {
-    "name": "orcon_fan_status_low",
-    "description": "Orcon MVHR ventilator reporting Fan Status Speed 1 / Low (mode 0x02)",
+    "name": "orcon_fan_status_medium",
+    "description": "Orcon MVHR ventilator reporting Medium mode (mode 0x02)",
     "hgi80": "045  I --- 32:155617 --:------ 32:155617 22F1 003 0002FF",
     "expected": {
       "verb": "I",
@@ -78,12 +78,12 @@
       "opcode": "22F1",
       "scheme": "orcon",
       "fan_mode_raw": 2,
-      "fan_mode_name": "low"
+      "fan_mode_name": "medium"
     }
   },
   {
-    "name": "orcon_fan_status_boost",
-    "description": "Orcon MVHR ventilator reporting Boost mode (mode 0x05)",
+    "name": "orcon_fan_status_auto",
+    "description": "Orcon MVHR ventilator reporting Auto mode (mode 0x05)",
     "hgi80": "045  I --- 32:155617 --:------ 32:155617 22F1 003 0005FF",
     "expected": {
       "verb": "I",
@@ -92,7 +92,7 @@
       "opcode": "22F1",
       "scheme": "orcon",
       "fan_mode_raw": 5,
-      "fan_mode_name": "boost"
+      "fan_mode_name": "auto"
     }
   },
   {

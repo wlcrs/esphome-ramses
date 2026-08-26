@@ -225,7 +225,7 @@ void RamsesFan::on_message(const ramses_esp::RamsesMessage &msg) {
 
   if (!fan_address_matches(this->device_address_, msg)) return;
 
-  if (opcode == 0x22F1 || opcode == 0x22F3) {
+  if (opcode == 0x22F1) {
     auto dec = ramses_esp::FanStatePayload::decode(msg.payload, msg.n_payload, this->scheme_);
     if (dec.has_value()) {
       this->set_preset_mode_(ramses_esp::fan_preset_to_string(dec->preset_mode));
@@ -251,7 +251,7 @@ void RamsesFan::control(const fan::FanCall &call) {
     else if (pm == "off") target_mode = ramses_esp::FanPresetMode::OFF;
   } else if (call.get_state().has_value()) {
     if (!*call.get_state()) {
-      target_mode = (this->scheme_ == ramses_esp::HvacScheme::ORCON) ? ramses_esp::FanPresetMode::LOW : ramses_esp::FanPresetMode::OFF;
+      target_mode = ramses_esp::FanPresetMode::OFF;
     } else {
       target_mode = ramses_esp::FanPresetMode::AUTO;
     }

@@ -38,15 +38,15 @@ void test_fan_rx_status() {
   fan.set_device_address("32:155617");
   fan.set_scheme(HvacScheme::ORCON);
 
-  // Broadcast 22F1 Orcon Low (mode 2)
+  // Broadcast 22F1 Orcon Medium (mode 2)
   RamsesMessage low_msg = parse_msg("045  I --- 32:155617 --:------ 32:155617 22F1 003 0002FF");
   fan.on_message(low_msg);
   TEST_ASSERT(fan.state == true, "Fan state is ON");
-  TEST_ASSERT(fan.preset_mode == "low", "Fan preset mode is low");
-  TEST_ASSERT(fan.speed == 33, "Fan speed is 33%");
+  TEST_ASSERT(fan.preset_mode == "medium", "Fan preset mode is medium");
+  TEST_ASSERT(fan.speed == 66, "Fan speed is 66%");
 
-  // Broadcast 22F1 Orcon Boost (mode 5)
-  RamsesMessage boost_msg = parse_msg("045  I --- 32:155617 --:------ 32:155617 22F1 003 0005FF");
+  // Broadcast 22F1 Orcon Boost (mode 6)
+  RamsesMessage boost_msg = parse_msg("045  I --- 32:155617 --:------ 32:155617 22F1 003 0006FF");
   fan.on_message(boost_msg);
   TEST_ASSERT(fan.state == true, "Fan state is ON");
   TEST_ASSERT(fan.preset_mode == "boost", "Fan preset mode is boost");
@@ -74,11 +74,17 @@ void test_fan_control_tx() {
   RamsesMessage boost_write = FanStatePayload::encode_write(hgi_src, dev, FanPresetMode::BOOST, HvacScheme::ORCON);
   TEST_ASSERT(boost_write.type == RAMSES_MSG_W, "Fan write message type is W");
   TEST_ASSERT(boost_write.opcode[0] == 0x22 && boost_write.opcode[1] == 0xF1, "Opcode is 22F1");
-  TEST_ASSERT(boost_write.payload[0] == 0x00 && boost_write.payload[1] == 0x05, "Payload contains Orcon boost code 0x05");
+  TEST_ASSERT(boost_write.payload[0] == 0x00 && boost_write.payload[1] == 0x06, "Payload contains Orcon boost code 0x06");
 
   // Verify low write packet encoding
   RamsesMessage low_write = FanStatePayload::encode_write(hgi_src, dev, FanPresetMode::LOW, HvacScheme::ORCON);
-  TEST_ASSERT(low_write.payload[0] == 0x00 && low_write.payload[1] == 0x02, "Payload contains Orcon low code 0x02");
+  TEST_ASSERT(low_write.payload[0] == 0x00 && low_write.payload[1] == 0x01, "Payload contains Orcon low code 0x01");
+
+  auto off_call = fan.make_call();
+  off_call.set_state(false);
+  off_call.perform();
+  TEST_ASSERT(fan.state == false, "Fan state updated to OFF");
+  TEST_ASSERT(fan.speed == 0, "Fan speed updated to 0% when OFF");
 }
 
 void test_binding_codec() {

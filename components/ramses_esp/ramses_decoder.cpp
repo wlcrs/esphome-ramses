@@ -296,14 +296,16 @@ std::optional<FanStatePayload> FanStatePayload::decode(const uint8_t *payload, s
   switch (scheme) {
     case HvacScheme::ORCON:
     default:
-      // Orcon: 00=auto, 01=away, 02=low (1), 03=medium (2), 04=high (3), 05=boost
+      // Orcon: 00=away, 01=low, 02=medium, 03=high, 04/05=auto, 06=boost, 07=off.
       switch (res.raw_mode) {
-        case 0x00: res.preset_mode = FanPresetMode::AUTO; res.speed_percent = 50; break;
-        case 0x01: res.preset_mode = FanPresetMode::AWAY; res.speed_percent = 15; break;
-        case 0x02: res.preset_mode = FanPresetMode::LOW; res.speed_percent = 33; break;
-        case 0x03: res.preset_mode = FanPresetMode::MEDIUM; res.speed_percent = 66; break;
-        case 0x04: res.preset_mode = FanPresetMode::HIGH; res.speed_percent = 100; break;
-        case 0x05: res.preset_mode = FanPresetMode::BOOST; res.speed_percent = 100; break;
+        case 0x00: res.preset_mode = FanPresetMode::AWAY; res.speed_percent = 15; break;
+        case 0x01: res.preset_mode = FanPresetMode::LOW; res.speed_percent = 33; break;
+        case 0x02: res.preset_mode = FanPresetMode::MEDIUM; res.speed_percent = 66; break;
+        case 0x03: res.preset_mode = FanPresetMode::HIGH; res.speed_percent = 100; break;
+        case 0x04:
+        case 0x05: res.preset_mode = FanPresetMode::AUTO; res.speed_percent = 50; break;
+        case 0x06: res.preset_mode = FanPresetMode::BOOST; res.speed_percent = 100; break;
+        case 0x07: res.preset_mode = FanPresetMode::OFF; res.speed_percent = 0; break;
         default: res.preset_mode = FanPresetMode::UNKNOWN; break;
       }
       break;
@@ -311,21 +313,26 @@ std::optional<FanStatePayload> FanStatePayload::decode(const uint8_t *payload, s
     case HvacScheme::VASCO:
     case HvacScheme::ZEHNDER:
       switch (res.raw_mode) {
-        case 0x00: res.preset_mode = FanPresetMode::AUTO; res.speed_percent = 50; break;
-        case 0x01: res.preset_mode = FanPresetMode::LOW; res.speed_percent = 33; break;
-        case 0x02: res.preset_mode = FanPresetMode::MEDIUM; res.speed_percent = 66; break;
-        case 0x03: res.preset_mode = FanPresetMode::HIGH; res.speed_percent = 100; break;
+        case 0x00: res.preset_mode = FanPresetMode::OFF; res.speed_percent = 0; break;
+        case 0x01: res.preset_mode = FanPresetMode::AWAY; res.speed_percent = 15; break;
+        case 0x02: res.preset_mode = FanPresetMode::LOW; res.speed_percent = 33; break;
+        case 0x03: res.preset_mode = FanPresetMode::MEDIUM; res.speed_percent = 66; break;
+        case 0x04: res.preset_mode = FanPresetMode::HIGH; res.speed_percent = 100; break;
+        case 0x05: res.preset_mode = FanPresetMode::AUTO; res.speed_percent = 50; break;
         default: res.preset_mode = FanPresetMode::UNKNOWN; break;
       }
       break;
 
     case HvacScheme::ITHO:
-      // Itho percent / speed index mapping
-      res.speed_percent = (static_cast<float>(res.raw_mode) / 200.0f) * 100.0f;
-      if (res.speed_percent <= 10) res.preset_mode = FanPresetMode::AWAY;
-      else if (res.speed_percent <= 35) res.preset_mode = FanPresetMode::LOW;
-      else if (res.speed_percent <= 70) res.preset_mode = FanPresetMode::MEDIUM;
-      else res.preset_mode = FanPresetMode::HIGH;
+      // Itho uses a mode index: 00=off, 01=trickle, 02=low, 03=medium, 04=high.
+      switch (res.raw_mode) {
+        case 0x00: res.preset_mode = FanPresetMode::OFF; res.speed_percent = 0; break;
+        case 0x01: res.preset_mode = FanPresetMode::LOW; res.speed_percent = 20; break;
+        case 0x02: res.preset_mode = FanPresetMode::LOW; res.speed_percent = 33; break;
+        case 0x03: res.preset_mode = FanPresetMode::MEDIUM; res.speed_percent = 66; break;
+        case 0x04: res.preset_mode = FanPresetMode::HIGH; res.speed_percent = 100; break;
+        default: res.preset_mode = FanPresetMode::UNKNOWN; break;
+      }
       break;
   }
 
@@ -343,20 +350,59 @@ RamsesMessage FanStatePayload::encode_write(const RamsesAddress &src, const Rams
   msg.len = msg.n_payload = 3;
   msg.payload[0] = 0x00;
 
-  uint8_t mode_byte = 0x02; // Default Low
-  switch (mode) {
-    case FanPresetMode::AUTO: mode_byte = 0x00; break;
-    case FanPresetMode::AWAY: mode_byte = 0x01; break;
-    case FanPresetMode::LOW: mode_byte = 0x02; break;
-    case FanPresetMode::MEDIUM: mode_byte = 0x03; break;
-    case FanPresetMode::HIGH: mode_byte = 0x04; break;
-    case FanPresetMode::BOOST: mode_byte = 0x05; break;
-    default: mode_byte = 0x02; break;
+  uint8_t mode_byte = 0x00;
+  switch (scheme) {
+    case HvacScheme::ORCON:
+      switch (mode) {
+        case FanPresetMode::AWAY: mode_byte = 0x00; break;
+        case FanPresetMode::LOW: mode_byte = 0x01; break;
+        case FanPresetMode::MEDIUM: mode_byte = 0x02; break;
+        case FanPresetMode::HIGH: mode_byte = 0x03; break;
+        case FanPresetMode::AUTO: mode_byte = 0x04; break;
+        case FanPresetMode::BOOST: mode_byte = 0x06; break;
+        case FanPresetMode::OFF: mode_byte = 0x07; break;
+        default: break;
+      }
+      break;
+    case HvacScheme::ITHO:
+      switch (mode) {
+        case FanPresetMode::OFF: mode_byte = 0x00; break;
+        case FanPresetMode::LOW: mode_byte = 0x02; break;
+        case FanPresetMode::MEDIUM: mode_byte = 0x03; break;
+        case FanPresetMode::HIGH:
+        case FanPresetMode::BOOST: mode_byte = 0x04; break;
+        default: break;
+      }
+      break;
+    case HvacScheme::VASCO:
+    case HvacScheme::ZEHNDER:
+      switch (mode) {
+        case FanPresetMode::OFF: mode_byte = 0x00; break;
+        case FanPresetMode::AWAY: mode_byte = 0x01; break;
+        case FanPresetMode::LOW: mode_byte = 0x02; break;
+        case FanPresetMode::MEDIUM: mode_byte = 0x03; break;
+        case FanPresetMode::HIGH:
+        case FanPresetMode::BOOST: mode_byte = 0x04; break;
+        case FanPresetMode::AUTO: mode_byte = 0x05; break;
+        default: break;
+      }
+      break;
   }
 
   msg.payload[1] = mode_byte;
   msg.payload[2] = 0xFF;
   return msg;
+}
+
+std::optional<FanBoostPayload> FanBoostPayload::decode(const uint8_t *payload, size_t len) {
+  if (payload == nullptr || len < 3) return std::nullopt;
+
+  FanBoostPayload res;
+  res.header = payload[0];
+  res.flags = payload[1];
+  res.minutes = payload[2];
+  if (res.flags & 0x40) res.minutes = static_cast<uint16_t>(res.minutes * 60);
+  return res;
 }
 
 // ----------------------------------------------------------------------

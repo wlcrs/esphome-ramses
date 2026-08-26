@@ -174,6 +174,16 @@ struct FanStatePayload {
   static RamsesMessage encode_write(const RamsesAddress &src, const RamsesAddress &dst, FanPresetMode mode, HvacScheme scheme = HvacScheme::ORCON);
 };
 
+// Opcode 0x22F3: HVAC boost/timer control
+// Equivalent to: ramses_rf/payloads/hvac.py:HvacVentilationControlPayload
+struct FanBoostPayload {
+  uint8_t header{0};
+  uint8_t flags{0};
+  uint16_t minutes{0};
+
+  static std::optional<FanBoostPayload> decode(const uint8_t *payload, size_t len);
+};
+
 // ----------------------------------------------------------------------
 // Opcode 0x10A0 / 0x22E5: Ventilation Info & Bypass Damper
 // Equivalent to: ramses_rf/payloads/hvac.py:VentilationPayload
