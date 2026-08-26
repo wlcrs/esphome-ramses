@@ -1,0 +1,54 @@
+# Root hooks for the ramses_rf and ramses_cc Python projects.
+# Run with: .venv/bin/prek run --all-files
+
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check-ramses-rf
+        name: ramses_rf Ruff check
+        entry: .venv/bin/ruff check --config ramses_rf/pyproject.toml
+        language: system
+        types: [python]
+        files: ^ramses_rf/(src|tests)/.+\.py$
+
+      - id: ruff-format-ramses-rf
+        name: ramses_rf Ruff format
+        entry: .venv/bin/ruff format --check --config ramses_rf/pyproject.toml
+        language: system
+        types: [python]
+        files: ^ramses_rf/(src|tests)/.+\.py$
+
+      - id: mypy-strict-ramses-rf
+        name: ramses_rf mypy --strict
+        entry: bash -c 'cd ramses_rf && ../.venv/bin/mypy --strict'
+        language: system
+        pass_filenames: false
+        files: ^ramses_rf/(client\.py|src/.+\.py|tests/.+\.py)$
+
+      - id: ruff-check-ramses-cc
+        name: ramses_cc Ruff check
+        entry: .venv/bin/ruff check --config ramses_cc/pyproject.toml
+        language: system
+        types: [python]
+        files: ^ramses_cc/(custom_components|tests)/.+\.py$
+
+      - id: ruff-format-ramses-cc
+        name: ramses_cc Ruff format
+        entry: .venv/bin/ruff format --check --config ramses_cc/pyproject.toml
+        language: system
+        types: [python]
+        files: ^ramses_cc/(custom_components|tests)/.+\.py$
+
+      - id: mypy-strict-ramses-cc
+        name: ramses_cc mypy --strict
+        entry: bash -c 'cd ramses_cc && ../.venv/bin/mypy --strict'
+        language: system
+        pass_filenames: false
+        files: ^ramses_cc/(custom_components|tests)/.+\.py$
+
+      - id: no-legacy-typing-imports
+        name: no legacy typing imports
+        entry: 'from typing import.*\b(List|Dict|Set|Tuple|Optional|Union)\b'
+        language: pygrep
+        types: [python]
+        files: ^ramses_(rf|cc)/(src|custom_components|tests)/.+\.py$

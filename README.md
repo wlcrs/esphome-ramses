@@ -250,7 +250,7 @@ All PRs and commits are automatically verified via GitHub Actions against:
 Contributions, bug reports, and enhancements are welcome!
 
 1. Fork the repository and create a feature branch (`git checkout -b feature/my-feature`).
-2. Implement your changes and ensure code style is clean (`clang-format` for C++, `black`/`flake8` for Python).
+2. Implement your changes and ensure code style is clean (`clang-format` for C++, `ruff` for Python). Run the Python checks with `.venv/bin/prek run --all-files`.
 3. Run the unit tests (`ctest --test-dir tests/build`) and add tests for any new protocol logic.
 4. Verify compilation with `esphome compile example-c6.yaml`.
 5. Open a Pull Request.
