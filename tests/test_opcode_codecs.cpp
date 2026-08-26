@@ -70,7 +70,11 @@ void test_temperature_edge_cases() {
   // 4. Nullptr and zero length
   TEST_ASSERT(!TemperaturePayload::decode(nullptr, 10).has_value(), "Nullptr returns nullopt");
   TEST_ASSERT(!TemperaturePayload::decode(neg_payload, 0).has_value(), "0-length returns nullopt");
-  TEST_ASSERT(!TemperaturePayload::decode(neg_payload, 2).has_value(), "Short length (<3B) returns nullopt");
+  uint8_t short_temp_payload[] = {0xFD, 0xDA};
+  auto short_temp = TemperaturePayload::decode(short_temp_payload, sizeof(short_temp_payload));
+  TEST_ASSERT(short_temp.has_value(), "2-byte temperature variant decoded");
+  TEST_ASSERT(std::abs(short_temp->zones[0].temperature - (-5.50f)) < 0.01f,
+              "2-byte temperature variant matches");
 }
 
 void test_setpoint_codec_2309() {
@@ -236,6 +240,11 @@ void test_hvac_fan_codec_22f1() {
   uint8_t boost_timer_hours[] = {0x00, 0x40, 0x02};
   auto boost_hours_dec = FanBoostPayload::decode(boost_timer_hours, sizeof(boost_timer_hours));
   TEST_ASSERT(boost_hours_dec.has_value() && boost_hours_dec->minutes == 120, "22F3 hour timer decoded");
+
+  uint8_t short_device_info[] = {0x00};
+  auto short_info_dec = DeviceInfoPayload::decode(short_device_info, sizeof(short_device_info));
+  TEST_ASSERT(short_info_dec.has_value() && short_info_dec->info_type == 0 && short_info_dec->oem_code == 0,
+              "Short 10E0 device-info variant decoded");
 }
 
 void test_filter_and_battery_codecs() {

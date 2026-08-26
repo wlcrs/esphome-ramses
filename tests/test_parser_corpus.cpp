@@ -21,8 +21,9 @@ static int total_packets_parsed = 0;
 static int total_opcodes_decoded = 0;
 static int total_decode_failures = 0;
 static std::map<uint16_t, std::pair<int, int>> opcode_counts;
+static std::map<uint16_t, std::string> decode_failure_examples;
 
-static void record_decode(uint16_t opcode, bool decoded) {
+static void record_decode(uint16_t opcode, bool decoded, const std::string &frame) {
   auto &counts = opcode_counts[opcode];
   counts.first++;
   if (decoded) {
@@ -30,6 +31,9 @@ static void record_decode(uint16_t opcode, bool decoded) {
     total_opcodes_decoded++;
   } else {
     total_decode_failures++;
+    if (decode_failure_examples.find(opcode) == decode_failure_examples.end()) {
+      decode_failure_examples[opcode] = frame;
+    }
   }
 }
 
@@ -45,6 +49,7 @@ static std::string extract_hgi80_frame(const std::string &line) {
   cleaned = cleaned.substr(start, end - start + 1);
 
   if (cleaned.empty()) return "";
+  if (cleaned.find('*') != std::string::npos) return "";
 
   // If line starts with timestamp (e.g. 2024-01-01T12:00:00.000000 or 2024-...), skip the first token
   if (cleaned.size() > 27 && (cleaned[4] == '-' || cleaned[10] == 'T')) {
@@ -84,116 +89,121 @@ void test_corpus_file(const fs::path &file_path) {
 
     // Decode known opcodes
     uint16_t opcode = ((uint16_t)msg.opcode[0] << 8) | msg.opcode[1];
+    if (msg.type == RAMSES_MSG_RQ || msg.type == RAMSES_MSG_W) continue;
     switch (opcode) {
         case 0x30C9: {
           auto dec = TemperaturePayload::decode(msg.payload, msg.n_payload);
-          record_decode(opcode, dec.has_value());
+          record_decode(opcode, dec.has_value(), frame);
           break;
         }
         case 0x2309: {
           auto dec = SetpointPayload::decode(msg.payload, msg.n_payload);
-          record_decode(opcode, dec.has_value());
+          record_decode(opcode, dec.has_value(), frame);
           break;
         }
         case 0x1F09: {
           auto dec = SystemSyncPayload::decode(msg.payload, msg.n_payload);
-          record_decode(opcode, dec.has_value());
+          record_decode(opcode, dec.has_value(), frame);
           break;
         }
         case 0x0004: {
           auto dec = ZoneNamePayload::decode(msg.payload, msg.n_payload);
-          record_decode(opcode, dec.has_value());
+          record_decode(opcode, dec.has_value(), frame);
           break;
         }
         case 0x0005: {
           auto dec = ZoneStructurePayload::decode(msg.payload, msg.n_payload);
-          record_decode(opcode, dec.has_value());
+          record_decode(opcode, dec.has_value(), frame);
           break;
         }
         case 0x000C: {
           auto dec = ZoneRolePayload::decode(msg.payload, msg.n_payload);
-          record_decode(opcode, dec.has_value());
+          record_decode(opcode, dec.has_value(), frame);
           break;
         }
-        case 0x22F1:
+        case 0x22F1: {
+          auto dec = FanStatePayload::decode(msg.payload, msg.n_payload);
+          record_decode(opcode, dec.has_value(), frame);
+          break;
+        }
         case 0x22F3: {
           auto dec = FanBoostPayload::decode(msg.payload, msg.n_payload);
-          record_decode(opcode, dec.has_value());
+          record_decode(opcode, dec.has_value(), frame);
           break;
         }
         case 0x22E5: {
           auto dec = VentilationInfoPayload::decode(msg.payload, msg.n_payload);
-          record_decode(opcode, dec.has_value());
+          record_decode(opcode, dec.has_value(), frame);
           break;
         }
         case 0x10E0: {
           auto dec = DeviceInfoPayload::decode(msg.payload, msg.n_payload);
-          record_decode(opcode, dec.has_value());
+          record_decode(opcode, dec.has_value(), frame);
           break;
         }
         case 0x3150: {
           auto dec = HeatDemandPayload::decode(msg.payload, msg.n_payload);
-          record_decode(opcode, dec.has_value());
+          record_decode(opcode, dec.has_value(), frame);
           break;
         }
         case 0x1060: {
           auto dec = DeviceBatteryPayload::decode(msg.payload, msg.n_payload);
-          record_decode(opcode, dec.has_value());
+          record_decode(opcode, dec.has_value(), frame);
           break;
         }
         case 0x3220: {
           auto dec = OpenThermPayload::decode(msg.payload, msg.n_payload);
-          record_decode(opcode, dec.has_value());
+          record_decode(opcode, dec.has_value(), frame);
           break;
         }
         case 0x10D0: {
           auto dec = FilterInfoPayload::decode(msg.payload, msg.n_payload);
-          record_decode(opcode, dec.has_value());
+          record_decode(opcode, dec.has_value(), frame);
           break;
         }
         case 0x12C0: {
           auto dec = OutdoorTemperaturePayload::decode(msg.payload, msg.n_payload);
-          record_decode(opcode, dec.has_value());
+          record_decode(opcode, dec.has_value(), frame);
           break;
         }
         case 0x1260: {
           auto dec = DhwStatePayload::decode_temp(msg.payload, msg.n_payload);
-          record_decode(opcode, dec.has_value());
+          record_decode(opcode, dec.has_value(), frame);
           break;
         }
         case 0x12F0: {
           auto dec = DhwConfigPayload::decode(msg.payload, msg.n_payload);
-          record_decode(opcode, dec.has_value());
+          record_decode(opcode, dec.has_value(), frame);
           break;
         }
         case 0x1F41: {
           auto dec = DhwStatePayload::decode_state(msg.payload, msg.n_payload);
-          record_decode(opcode, dec.has_value());
+          record_decode(opcode, dec.has_value(), frame);
           break;
         }
         case 0x0008: {
           auto dec = RelayDemandPayload::decode(msg.payload, msg.n_payload);
-          record_decode(opcode, dec.has_value());
+          record_decode(opcode, dec.has_value(), frame);
           break;
         }
         case 0x1298: {
           auto dec = Co2SensorPayload::decode(msg.payload, msg.n_payload);
-          record_decode(opcode, dec.has_value());
+          record_decode(opcode, dec.has_value(), frame);
           break;
         }
         case 0x12A0: {
           auto dec = AirQualityPayload::decode(msg.payload, msg.n_payload);
-          record_decode(opcode, dec.has_value());
+          record_decode(opcode, dec.has_value(), frame);
           break;
         }
         case 0x12B0: {
           auto dec = ContactSensorPayload::decode(msg.payload, msg.n_payload);
-          record_decode(opcode, dec.has_value());
+          record_decode(opcode, dec.has_value(), frame);
           break;
         }
         case 0x10A0: {
           auto dec = VentilationInfoPayload::decode(msg.payload, msg.n_payload);
-          record_decode(opcode, dec.has_value());
+          record_decode(opcode, dec.has_value(), frame);
           break;
         }
         default:
@@ -263,7 +273,10 @@ int main(int argc, char **argv) {
   for (const auto &[opcode, counts] : opcode_counts) {
     char opcode_text[5];
     snprintf(opcode_text, sizeof(opcode_text), "%04X", opcode);
-    std::cout << "  - " << opcode_text << ": " << counts.first << " seen, " << counts.second << " decoded\n";
+    std::cout << "  - " << opcode_text << ": " << counts.first << " seen, " << counts.second << " decoded";
+    auto example = decode_failure_examples.find(opcode);
+    if (example != decode_failure_examples.end()) std::cout << "; example: " << example->second;
+    std::cout << "\n";
   }
   for (uint16_t opcode : supported_opcodes) {
     if (opcode_counts.find(opcode) == opcode_counts.end()) {
@@ -276,7 +289,8 @@ int main(int argc, char **argv) {
   std::cout << "====================================================\n";
 
   if (total_decode_failures > 0) {
-    std::cerr << "Warning: known opcode payload variants failed to decode; see coverage above.\n";
+    std::cerr << "Known opcode payloads failed to decode; see coverage above.\n";
+    return 1;
   }
   if (!all_supported_opcodes_seen) {
     return 1;

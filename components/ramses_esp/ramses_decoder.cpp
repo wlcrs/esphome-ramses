@@ -23,9 +23,18 @@ static inline bool parse_temperature_raw(int16_t raw, float &out_temp) {
 // ramses_rf reference: ramses_rf/payloads/heating.py:TemperaturePayload / parse_30c9()
 // ----------------------------------------------------------------------
 std::optional<TemperaturePayload> TemperaturePayload::decode(const uint8_t *payload, size_t len) {
-  if (payload == nullptr || len < 3) return std::nullopt;
+  if (payload == nullptr || len < 2) return std::nullopt;
 
   TemperaturePayload res;
+  if (len == 2) {
+    ZoneTemperatureItem item;
+    item.zone_index = 0;
+    int16_t raw_temp = static_cast<int16_t>((static_cast<uint16_t>(payload[0]) << 8) | payload[1]);
+    item.is_valid = parse_temperature_raw(raw_temp, item.temperature);
+    res.zones.push_back(item);
+    return res;
+  }
+
   // Multi-zone arrays: each zone item is 3 bytes: [zone_index (1B), temp_hi (1B), temp_lo (1B)]
   for (size_t i = 0; i + 3 <= len; i += 3) {
     ZoneTemperatureItem item;
@@ -424,10 +433,17 @@ std::optional<VentilationInfoPayload> VentilationInfoPayload::decode(const uint8
 // ramses_rf reference: ramses_rf/payloads/hvac.py:AirQualityPayload & ramses_rf/quirks.py
 // ----------------------------------------------------------------------
 std::optional<AirQualityPayload> AirQualityPayload::decode(const uint8_t *payload, size_t len) {
-  if (payload == nullptr || len < 4) return std::nullopt;
+  if (payload == nullptr || len < 2) return std::nullopt;
 
   AirQualityPayload res;
   res.sensor_index = payload[0];
+
+  if (len == 2) {
+    if (payload[1] <= 100) res.humidity = static_cast<float>(payload[1]);
+    return res;
+  }
+
+  if (len < 4) return std::nullopt;
   
   // Humidity is payload[1] (0..100%)
   if (payload[1] <= 100) {
@@ -480,10 +496,11 @@ std::optional<DeviceBatteryPayload> DeviceBatteryPayload::decode(const uint8_t *
 // ramses_rf reference: ramses_rf/protocol/fingerprints.py & binding_fsm.py
 // ----------------------------------------------------------------------
 std::optional<DeviceInfoPayload> DeviceInfoPayload::decode(const uint8_t *payload, size_t len) {
-  if (payload == nullptr || len < 7) return std::nullopt;
+  if (payload == nullptr || len < 1) return std::nullopt;
 
   DeviceInfoPayload res;
   res.info_type = payload[0];
+  if (len < 7) return res;
   res.oem_code = payload[6]; // Standard offset for short OEM vendor byte
   if (len >= 8 && (res.oem_code == 0 || res.oem_code == 0x0A || res.oem_code == 0xFF || payload[7] == 0x6A)) {
     res.oem_code = payload[7]; // Extended OEM vendor byte (e.g. Brofer / Hopper D375: 0x6A)
