@@ -144,20 +144,34 @@ void test_binding_codec() {
 void test_pairing_handshake_simulation() {
   std::cout << "\n--- Testing 1FC9 Pairing Handshake Simulation ---\n";
 
-  // Simulate a fan unit without a pre-known address (discovery pairing)
+  // When no fake_remote_address is configured, setup() derives the remote
+  // address deterministically from the chip ID (or fixture fallback in tests).
   RamsesFan fan;
   fan.set_scheme(HvacScheme::ORCON);
-  fan.set_fake_remote_address("37:005612");
+  fan.setup();  // triggers chip-ID derivation
+
+  // The derived remote address must be valid and stable
+  TEST_ASSERT(fan.get_remote_address().is_valid, "Remote address valid after setup()");
+  TEST_ASSERT(fan.get_remote_address().dev_class == 37, "Derived remote uses class 37 (DIS switch)");
+
+  // Record the derived remote address string so we can build a matching Accept
+  std::string remote_str = fan.get_remote_address().to_string();
 
   // Simulate pairing start
   fan.start_pairing(30000);
   TEST_ASSERT(fan.is_pairing(), "Pairing mode is active after start_pairing()");
 
-  // Simulate receiving a 1FC9 Accept from the HRU (Hopper D375 / Orcon)
-  // W --- 32:137527 37:005612 --:------ 1FC9 012 0031D9825FE10031DA825FE1
-  RamsesMessage accept_msg = parse_msg(
-      "070  W --- 32:137527 37:005612 --:------ 1FC9 012 "
-      "0031D9825FE10031DA825FE1");
+  // Simulate receiving a 1FC9 Accept from the HRU addressed to our derived remote
+  // Build packet using the actual derived address
+  ramses_esp::RamsesAddress rem = fan.get_remote_address();
+  uint8_t rb[3]; rem.to_bytes(rb);
+
+  // Construct: W --- 32:137527 <remote> --:------ 1FC9 012 0031D9825FE10031DA825FE1
+  char accept_frame[200];
+  snprintf(accept_frame, sizeof(accept_frame),
+           "070  W --- 32:137527 %s --:------ 1FC9 012 0031D9825FE10031DA825FE1",
+           remote_str.c_str());
+  RamsesMessage accept_msg = parse_msg(std::string(accept_frame));
   fan.on_message(accept_msg);
 
   // After receiving Accept, pairing should be complete
@@ -174,6 +188,47 @@ void test_pairing_handshake_simulation() {
   TEST_ASSERT(!fan2.is_pairing(), "Pairing stopped after stop_pairing()");
 }
 
+void test_chip_id_and_nvs_persistence() {
+  std::cout << "\n--- Testing Chip-ID Derived Address & NVS Serialisation ---\n";
+
+  // Two RamsesFan instances with no YAML address should derive the same remote
+  RamsesFan fan_a;
+  fan_a.set_scheme(HvacScheme::ORCON);
+  fan_a.setup();
+
+  RamsesFan fan_b;
+  fan_b.set_scheme(HvacScheme::ORCON);
+  fan_b.setup();
+
+  TEST_ASSERT(fan_a.get_remote_address().is_valid, "Fan A has valid derived remote address");
+  TEST_ASSERT(fan_b.get_remote_address().is_valid, "Fan B has valid derived remote address");
+  TEST_ASSERT(fan_a.get_remote_address() == fan_b.get_remote_address(),
+              "Two fans on same chip derive identical remote address");
+  TEST_ASSERT(fan_a.get_remote_address().dev_class == 37, "Derived address uses device class 37");
+
+  // YAML-configured address must override chip-ID derivation
+  RamsesFan fan_yaml;
+  fan_yaml.set_scheme(HvacScheme::ORCON);
+  fan_yaml.set_fake_remote_address("37:099999");
+  fan_yaml.setup();
+  TEST_ASSERT(fan_yaml.get_remote_address().id == 99999, "YAML remote address overrides chip-ID");
+
+  // Verify address u32 serialisation round-trips
+  ramses_esp::RamsesAddress orig = ramses_esp::RamsesAddress::from_string("32:137527");
+  uint32_t packed = addr_to_u32(orig);
+  ramses_esp::RamsesAddress roundtrip = u32_to_addr(packed);
+  TEST_ASSERT(roundtrip.is_valid, "Packed address is valid after u32 round-trip");
+  TEST_ASSERT(roundtrip.dev_class == 32, "Round-trip dev_class matches");
+  TEST_ASSERT(roundtrip.id == 137527, "Round-trip id matches");
+  TEST_ASSERT(roundtrip == orig, "Round-tripped address equals original");
+
+  // Invalid address serialises to 0 and deserialises back to invalid
+  ramses_esp::RamsesAddress invalid;
+  TEST_ASSERT(addr_to_u32(invalid) == 0, "Invalid address serialises to 0");
+  ramses_esp::RamsesAddress from_zero = u32_to_addr(0);
+  TEST_ASSERT(!from_zero.is_valid, "u32_to_addr(0) produces invalid address");
+}
+
 int main() {
   std::cout << "========================================\n";
   std::cout << "Running Ramses Fan Platform Unit Tests\n";
@@ -183,6 +238,7 @@ int main() {
   test_fan_control_tx();
   test_binding_codec();
   test_pairing_handshake_simulation();
+  test_chip_id_and_nvs_persistence();
 
   std::cout << "\n========================================\n";
   std::cout << "Results: " << tests_passed << "/" << tests_run << " tests passed.\n";
@@ -190,4 +246,3 @@ int main() {
 
   return (tests_passed == tests_run) ? 0 : 1;
 }
-

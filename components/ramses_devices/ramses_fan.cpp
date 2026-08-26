@@ -4,7 +4,10 @@
 
 #ifdef USE_ESP_IDF
 #include "esphome/core/hal.h"
+#include "esphome/core/helpers.h"
 #include "components/ramses_esp/ramses_esp.h"
+#include <esp_efuse.h>
+#include <esp_mac.h>
 #endif
 
 namespace esphome {
@@ -12,8 +15,102 @@ namespace ramses_devices {
 
 static const char *const TAG = "ramses_fan";
 
+// ----------------------------------------------------------------
+// Chip-ID derived address
+// ----------------------------------------------------------------
+ramses_esp::RamsesAddress RamsesFan::derive_remote_from_chip_id() const {
+  ramses_esp::RamsesAddress a;
+#ifdef USE_ESP_IDF
+  uint8_t mac[6] = {};
+  esp_efuse_mac_get_default(mac);
+  // Lower 22 bits of the 6-byte MAC give a stable per-board unique ID
+  uint32_t chip_id = ((uint32_t)mac[3] << 16) | ((uint32_t)mac[4] << 8) | mac[5];
+  chip_id &= 0x3FFFFF;
+  // Device class 37 (HVAC display switch / DIS) is the canonical virtual remote class
+  a.dev_class = 37;
+  a.id = chip_id;
+  a.is_valid = true;
+#else
+  // Native test builds: fall back to a deterministic fixture address
+  a.dev_class = 37;
+  a.id = 0x022034; // 37:140340
+  a.is_valid = true;
+#endif
+  return a;
+}
+
+// ----------------------------------------------------------------
+// NVS Persistence
+// ----------------------------------------------------------------
+void RamsesFan::load_preferences() {
+#ifdef USE_ESP_IDF
+  // Hash is derived from the entity name so each fan instance has its own slot
+  uint32_t hash_dev = fnv1_hash(std::string("ramses_fan_dev_") + this->get_name());
+  uint32_t hash_rem = fnv1_hash(std::string("ramses_fan_rem_") + this->get_name());
+  this->pref_device_addr_ = global_preferences->make_preference<uint32_t>(hash_dev, true);
+  this->pref_remote_addr_ = global_preferences->make_preference<uint32_t>(hash_rem, true);
+
+  // Load device address from NVS (only when not overridden by YAML)
+  uint32_t stored_dev = 0;
+  if (this->pref_device_addr_.load(&stored_dev) && stored_dev != 0) {
+    ramses_esp::RamsesAddress nvs_dev = u32_to_addr(stored_dev);
+    if (!this->device_address_from_yaml_.is_valid) {
+      this->device_address_ = nvs_dev;
+      ESP_LOGI(TAG, "Loaded device address from NVS: %s", nvs_dev.to_string().c_str());
+    } else if (!(this->device_address_from_yaml_ == nvs_dev)) {
+      ESP_LOGW(TAG, "NVS device address (%s) differs from YAML (%s); using YAML",
+               nvs_dev.to_string().c_str(), this->device_address_from_yaml_.to_string().c_str());
+    }
+  }
+
+  // Load remote address from NVS (only when not overridden by YAML)
+  uint32_t stored_rem = 0;
+  if (this->pref_remote_addr_.load(&stored_rem) && stored_rem != 0) {
+    ramses_esp::RamsesAddress nvs_rem = u32_to_addr(stored_rem);
+    if (!this->remote_address_from_yaml_.is_valid) {
+      this->remote_address_ = nvs_rem;
+      ESP_LOGI(TAG, "Loaded remote address from NVS: %s", nvs_rem.to_string().c_str());
+    } else if (!(this->remote_address_from_yaml_ == nvs_rem)) {
+      ESP_LOGW(TAG, "NVS remote address (%s) differs from YAML (%s); using YAML",
+               nvs_rem.to_string().c_str(), this->remote_address_from_yaml_.to_string().c_str());
+    }
+  }
+#endif
+}
+
+void RamsesFan::save_device_address() {
+#ifdef USE_ESP_IDF
+  uint32_t v = addr_to_u32(this->device_address_);
+  this->pref_device_addr_.save(&v);
+  global_preferences->sync();
+  ESP_LOGI(TAG, "Saved device address to NVS: %s", this->device_address_.to_string().c_str());
+#endif
+}
+
+void RamsesFan::save_remote_address() {
+#ifdef USE_ESP_IDF
+  uint32_t v = addr_to_u32(this->remote_address_);
+  this->pref_remote_addr_.save(&v);
+  global_preferences->sync();
+  ESP_LOGI(TAG, "Saved remote address to NVS: %s", this->remote_address_.to_string().c_str());
+#endif
+}
+
+// ----------------------------------------------------------------
+// Component lifecycle
+// ----------------------------------------------------------------
 void RamsesFan::setup() {
   this->set_supported_preset_modes({"auto", "low", "medium", "high", "boost", "away"});
+
+  // Ensure a stable remote address exists before we ever transmit
+  if (!this->remote_address_.is_valid) {
+    this->remote_address_ = this->derive_remote_from_chip_id();
+    ESP_LOGI(TAG, "Derived virtual remote address from chip ID: %s", this->remote_address_.to_string().c_str());
+  }
+
+  // Load NVS state (may override the chip-ID address if a pairing was previously completed)
+  this->load_preferences();
+
 #ifdef USE_ESP_IDF
   if (this->parent_ != nullptr) {
     this->parent_->add_raw_message_callback([this](const ramses_esp::RamsesMessage &msg) {
@@ -33,7 +130,7 @@ void RamsesFan::loop() {
     return;
   }
 
-  // Broadcast 1FC9 Offer packet every 1000ms during pairing mode
+  // Broadcast 1FC9 Offer every 1000 ms during pairing mode
   if (now - this->last_offer_time_ > 1000) {
     this->last_offer_time_ = now;
 #ifdef USE_ESP_IDF
@@ -47,18 +144,14 @@ void RamsesFan::loop() {
   }
 }
 
+// ----------------------------------------------------------------
+// Pairing control
+// ----------------------------------------------------------------
 void RamsesFan::start_pairing(uint32_t timeout_ms) {
   this->pairing_active_ = true;
   this->pairing_start_time_ = millis();
   this->pairing_timeout_ms_ = timeout_ms;
   this->last_offer_time_ = 0;
-
-  if (!this->remote_address_.is_valid) {
-    // Generate default virtual remote address (class 29 for switch / 37 for display switch)
-    this->remote_address_.dev_class = (this->scheme_ == ramses_esp::HvacScheme::VASCO) ? 29 : 37;
-    this->remote_address_.id = 0x005612;
-    this->remote_address_.is_valid = true;
-  }
 
   ESP_LOGI(TAG, "Starting 1FC9 Pairing Mode for Ventilation Unit (Remote ID: %s, Timeout: %u ms)",
            this->remote_address_.to_string().c_str(), (unsigned int)timeout_ms);
@@ -72,13 +165,12 @@ ramses_esp::RamsesAddress RamsesFan::get_effective_sender_address() const {
   if (this->remote_address_.is_valid) {
     return this->remote_address_;
   }
-  ramses_esp::RamsesAddress hgi_src;
-  hgi_src.dev_class = (this->scheme_ == ramses_esp::HvacScheme::VASCO) ? 29 : 37;
-  hgi_src.id = 0x005612;
-  hgi_src.is_valid = true;
-  return hgi_src;
+  return this->derive_remote_from_chip_id();
 }
 
+// ----------------------------------------------------------------
+// Fan entity
+// ----------------------------------------------------------------
 fan::FanTraits RamsesFan::get_traits() {
   fan::FanTraits traits;
   traits.set_speed(true);
@@ -109,9 +201,13 @@ void RamsesFan::on_message(const ramses_esp::RamsesMessage &msg) {
         ramses_esp::RamsesAddress fan_addr = ramses_esp::RamsesAddress::from_bytes(msg.addr[0]);
         ESP_LOGI(TAG, "Received 1FC9 Accept from Fan Unit %s! Confirming pairing...", fan_addr.to_string().c_str());
 
-        if (!this->device_address_.is_valid) {
+        // Discover device address if not pre-configured
+        if (!this->device_address_from_yaml_.is_valid) {
           this->device_address_ = fan_addr;
+          this->save_device_address();
         }
+        // Persist the remote address used during this pairing
+        this->save_remote_address();
 
 #ifdef USE_ESP_IDF
         if (this->parent_ != nullptr) {
@@ -120,7 +216,8 @@ void RamsesFan::on_message(const ramses_esp::RamsesMessage &msg) {
         }
 #endif
         this->stop_pairing();
-        ESP_LOGI(TAG, "Pairing successfully completed with Fan Unit %s!", fan_addr.to_string().c_str());
+        ESP_LOGI(TAG, "Pairing successfully completed with Fan Unit %s! Addresses persisted to NVS.",
+                 fan_addr.to_string().c_str());
         return;
       }
     }
@@ -175,7 +272,6 @@ void RamsesFan::control(const fan::FanCall &call) {
   else if (target_mode == ramses_esp::FanPresetMode::OFF) this->speed = 0;
 
   ramses_esp::RamsesAddress sender = this->get_effective_sender_address();
-
   ramses_esp::RamsesMessage msg = ramses_esp::FanStatePayload::encode_write(
       sender, this->device_address_, target_mode, this->scheme_);
 

@@ -7,6 +7,11 @@
 #include <string>
 #include <set>
 
+#ifdef USE_ESP_IDF
+#include "esphome/core/preferences.h"
+#include "esphome/core/helpers.h"
+#endif
+
 namespace esphome {
 namespace ramses_esp {
 class RamsesESPComponent;
@@ -14,13 +19,34 @@ class RamsesESPComponent;
 
 namespace ramses_devices {
 
+// Compact serialisation: upper 10 bits = dev_class, lower 22 bits = device id.
+// Zero = "not set / invalid" sentinel.
+static inline uint32_t addr_to_u32(const ramses_esp::RamsesAddress &a) {
+  if (!a.is_valid) return 0;
+  return ((uint32_t)(a.dev_class & 0x3FF) << 22) | (a.id & 0x3FFFFF);
+}
+static inline ramses_esp::RamsesAddress u32_to_addr(uint32_t v) {
+  ramses_esp::RamsesAddress a;
+  if (v == 0) return a;
+  a.dev_class = static_cast<uint8_t>((v >> 22) & 0x3FF);
+  a.id = v & 0x3FFFFF;
+  a.is_valid = true;
+  return a;
+}
+
 class RamsesFan : public fan::Fan, public Component {
  public:
   RamsesFan() = default;
 
   void set_parent(ramses_esp::RamsesESPComponent *parent) { this->parent_ = parent; }
-  void set_device_address(const std::string &addr) { this->device_address_ = ramses_esp::RamsesAddress::from_string(addr); }
-  void set_fake_remote_address(const std::string &addr) { this->remote_address_ = ramses_esp::RamsesAddress::from_string(addr); }
+  void set_device_address(const std::string &addr) {
+    this->device_address_ = ramses_esp::RamsesAddress::from_string(addr);
+    this->device_address_from_yaml_ = this->device_address_;
+  }
+  void set_fake_remote_address(const std::string &addr) {
+    this->remote_address_ = ramses_esp::RamsesAddress::from_string(addr);
+    this->remote_address_from_yaml_ = this->remote_address_;
+  }
   void set_scheme(ramses_esp::HvacScheme scheme) { this->scheme_ = scheme; }
 
   void setup() override;
@@ -40,6 +66,11 @@ class RamsesFan : public fan::Fan, public Component {
   ramses_esp::RamsesESPComponent *parent_{nullptr};
   ramses_esp::RamsesAddress device_address_;
   ramses_esp::RamsesAddress remote_address_;
+
+  // Yaml-originating addresses — kept for mismatch detection after NVS load
+  ramses_esp::RamsesAddress device_address_from_yaml_;
+  ramses_esp::RamsesAddress remote_address_from_yaml_;
+
   ramses_esp::HvacScheme scheme_{ramses_esp::HvacScheme::ORCON};
 
   bool pairing_active_{false};
@@ -47,7 +78,19 @@ class RamsesFan : public fan::Fan, public Component {
   uint32_t pairing_timeout_ms_{30000};
   uint32_t last_offer_time_{0};
 
+#ifdef USE_ESP_IDF
+  ESPPreferenceObject pref_device_addr_;
+  ESPPreferenceObject pref_remote_addr_;
+#endif
+
   ramses_esp::RamsesAddress get_effective_sender_address() const;
+
+  // Derive a stable virtual remote address from the chip MAC (survives reflash)
+  ramses_esp::RamsesAddress derive_remote_from_chip_id() const;
+
+  void load_preferences();
+  void save_device_address();
+  void save_remote_address();
 };
 
 } // namespace ramses_devices
