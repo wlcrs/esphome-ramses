@@ -12,8 +12,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Configure CMake
         run: cmake -B tests/build -S tests
@@ -29,8 +27,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -46,7 +42,7 @@ jobs:
           cmake --build tests/build -j4
 
       - name: Run Differential Parity Harness
-        run: uv run python tests/test_parity_harness.py
+        run: uv run --with ramses-rf python tests/test_parity_harness.py
 
   esphome-compile:
     name: ESPHome ESP-IDF Firmware Compilation

@@ -178,18 +178,32 @@ void test_corpus_file(const fs::path &file_path) {
 }
 
 int main(int argc, char **argv) {
-  std::string corpus_dir = "../ramses_rf/tests/tests_rf/data_driven/parsers";
+  std::string corpus_dir = "";
   if (argc > 1) {
     corpus_dir = argv[1];
+  } else {
+    std::vector<std::string> search_paths = {
+      "fixtures/corpus",
+      "../fixtures/corpus",
+      "tests/fixtures/corpus",
+      "../../tests/fixtures/corpus",
+      "../ramses_rf/tests/tests_rf"
+    };
+    for (const auto &p : search_paths) {
+      if (fs::exists(p) && fs::is_directory(p)) {
+        corpus_dir = p;
+        break;
+      }
+    }
   }
 
   std::cout << "====================================================\n";
-  std::cout << "Running Bulk Corpus Test against ramses_rf log files\n";
+  std::cout << "Running Bulk Corpus Test against RAMSES log files\n";
   std::cout << "Target Directory: " << corpus_dir << "\n";
   std::cout << "====================================================\n";
 
-  if (!fs::exists(corpus_dir)) {
-    std::cerr << "Directory does not exist: " << corpus_dir << "\n";
+  if (corpus_dir.empty() || !fs::exists(corpus_dir)) {
+    std::cerr << "Corpus directory not found: " << corpus_dir << "\n";
     return 1;
   }
 
