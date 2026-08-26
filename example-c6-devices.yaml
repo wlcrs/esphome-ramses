@@ -110,3 +110,10 @@ climate:
     controller_address: "01:145678"
     zone_index: 0
     zone_name: "Living Room"
+
+fan:
+  - platform: ramses_devices
+    ramses_esp_id: ramses_hub
+    name: "MVHR Ventilation Fan"
+    device_address: "32:155617"
+    scheme: orcon
