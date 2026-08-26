@@ -102,6 +102,17 @@ ramses_cc:
   restore_cache: true
 ```
 
+### Static ESPHome Entities
+
+The optional `ramses_devices` platforms use explicit, static YAML configuration. Run
+the separate discovery component first to identify device addresses, zones, and HVAC
+schemes; then add its generated YAML fragments to the firmware configuration before
+flashing.
+
+Each climate entity represents one configured zone. Multiple zones are represented by
+multiple climate entities sharing the same `ramses_esp` hub. Runtime discovery and
+device promotion are intentionally outside `ramses_devices`.
+
 ---
 
 ## MQTT Gateway Mode (`ramses-mqtt` Parity)
