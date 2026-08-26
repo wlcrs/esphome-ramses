@@ -87,6 +87,19 @@ The Python half requires the `ramses_rf`/`ramses_tx` dependencies to be installe
 the active environment. The native C++ parity target can be run independently with
 `ctest --test-dir tests/build -R ParityJsonTest`.
 
+### Regression Corpus Parity Subset
+```bash
+uv run python tests/test_parity_corpus.py
+```
+
+This deterministically selects one inbound packet for each supported opcode and
+payload-length variant from `ramses_rf/tests/fixtures/regression_packets_sorted.txt`.
+Generate the JSON selection for inspection or future native differential tests with:
+
+```bash
+uv run python tests/extract_parity_corpus.py --output /tmp/parity_corpus.json
+```
+
 ### C. Adding a New Test Case
 To add coverage for a new opcode or vendor quirk:
 1. Open `tests/fixtures/parity_cases.json`.
