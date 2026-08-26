@@ -95,12 +95,13 @@ bool CC1101Driver::init(spi_host_device_t host, gpio_num_t sck, gpio_num_t mosi,
     return false;
   }
 
-  spi_device_interface_config_t devcfg = {};
-  devcfg.mode = 0;
-  devcfg.clock_speed_hz = 10000000; // 10 MHz
-  devcfg.spics_io_num = this->cs_pin_;
-  devcfg.flags = SPI_DEVICE_NO_DUMMY;
-  devcfg.queue_size = 7;
+  spi_device_interface_config_t devcfg = {
+      .mode = 0,
+      .clock_speed_hz = 10000000, // 10 MHz
+      .spics_io_num = this->cs_pin_,
+      .flags = SPI_DEVICE_NO_DUMMY,
+      .queue_size = 7,
+  };
 
   ret = spi_bus_add_device(this->host_, &devcfg, &this->spi_handle_);
   if (ret != ESP_OK) {

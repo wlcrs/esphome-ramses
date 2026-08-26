@@ -136,10 +136,7 @@ void RamsesClimate::on_message(const ramses_esp::RamsesMessage &msg) {
 }
 
 void RamsesClimate::control(const climate::ClimateCall &call) {
-  ramses_esp::RamsesAddress hgi_src;
-  hgi_src.dev_class = 18;
-  hgi_src.id = 0x005612;
-  hgi_src.is_valid = true;
+  ramses_esp::RamsesAddress hgi_src{.dev_class = 18, .id = 0x005612, .is_valid = true};
 
   if (call.get_target_temperature().has_value()) {
     float new_sp = *call.get_target_temperature();

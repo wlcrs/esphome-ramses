@@ -100,10 +100,13 @@ void RamsesESPComponent::start_tcp_server() {
   setsockopt(this->server_fd_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
   fcntl(this->server_fd_, F_SETFL, O_NONBLOCK);
 
-  struct sockaddr_in dest_addr;
-  dest_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-  dest_addr.sin_family = AF_INET;
-  dest_addr.sin_port = htons(this->port_);
+  struct sockaddr_in dest_addr = {
+      .sin_family = AF_INET,
+      .sin_port = htons(this->port_),
+      .sin_addr = {
+          .s_addr = htonl(INADDR_ANY),
+      },
+  };
 
   int err = bind(this->server_fd_, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
   if (err != 0) {

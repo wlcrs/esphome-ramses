@@ -19,7 +19,6 @@ static const char *const TAG = "ramses_fan";
 // Chip-ID derived address
 // ----------------------------------------------------------------
 ramses_esp::RamsesAddress RamsesFan::derive_remote_from_chip_id() const {
-  ramses_esp::RamsesAddress a;
 #ifdef USE_ESP_IDF
   uint8_t mac[6] = {};
   esp_efuse_mac_get_default(mac);
@@ -27,16 +26,19 @@ ramses_esp::RamsesAddress RamsesFan::derive_remote_from_chip_id() const {
   uint32_t chip_id = ((uint32_t)mac[3] << 16) | ((uint32_t)mac[4] << 8) | mac[5];
   chip_id &= 0x3FFFFF;
   // Device class 37 (HVAC display switch / DIS) is the canonical virtual remote class
-  a.dev_class = 37;
-  a.id = chip_id;
-  a.is_valid = true;
+  return ramses_esp::RamsesAddress{
+      .dev_class = 37,
+      .id = chip_id,
+      .is_valid = true,
+  };
 #else
   // Native test builds: fall back to a deterministic fixture address
-  a.dev_class = 37;
-  a.id = 0x022034; // 37:140340
-  a.is_valid = true;
+  return ramses_esp::RamsesAddress{
+      .dev_class = 37,
+      .id = 0x022034, // 37:140340
+      .is_valid = true,
+  };
 #endif
-  return a;
 }
 
 // ----------------------------------------------------------------

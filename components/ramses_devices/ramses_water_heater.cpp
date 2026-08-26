@@ -70,10 +70,7 @@ void RamsesWaterHeater::on_message(const ramses_esp::RamsesMessage &msg) {
 }
 
 void RamsesWaterHeater::control(const water_heater::WaterHeaterCall &call) {
-  ramses_esp::RamsesAddress hgi_src;
-  hgi_src.dev_class = 18;
-  hgi_src.id = 0x005612;
-  hgi_src.is_valid = true;
+  ramses_esp::RamsesAddress hgi_src{.dev_class = 18, .id = 0x005612, .is_valid = true};
 
   float target = call.get_target_temperature();
   if (!std::isnan(target)) {

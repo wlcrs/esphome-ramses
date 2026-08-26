@@ -26,12 +26,12 @@ static inline uint32_t addr_to_u32(const ramses_esp::RamsesAddress &a) {
   return ((uint32_t)(a.dev_class & 0x3FF) << 22) | (a.id & 0x3FFFFF);
 }
 static inline ramses_esp::RamsesAddress u32_to_addr(uint32_t v) {
-  ramses_esp::RamsesAddress a;
-  if (v == 0) return a;
-  a.dev_class = static_cast<uint8_t>((v >> 22) & 0x3FF);
-  a.id = v & 0x3FFFFF;
-  a.is_valid = true;
-  return a;
+  if (v == 0) return ramses_esp::RamsesAddress{};
+  return ramses_esp::RamsesAddress{
+      .dev_class = static_cast<uint8_t>((v >> 22) & 0x3FF),
+      .id = v & 0x3FFFFF,
+      .is_valid = true,
+  };
 }
 
 class RamsesFan : public fan::Fan, public Component {

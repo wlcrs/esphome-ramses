@@ -30,20 +30,26 @@ std::optional<TemperaturePayload> TemperaturePayload::decode(const uint8_t *payl
 
   TemperaturePayload res;
   if (len == TemperatureSingleFmt::size) {
-    ZoneTemperatureItem item;
-    item.zone_index = 0;
     auto [raw_temp] = *TemperatureSingleFmt::unpack(payload, len);
-    item.is_valid = parse_temperature_raw(raw_temp, item.temperature);
-    res.zones.push_back(item);
+    float temp = 0.0f;
+    bool valid = parse_temperature_raw(raw_temp, temp);
+    res.zones.push_back(ZoneTemperatureItem{
+        .zone_index = 0,
+        .temperature = temp,
+        .is_valid = valid,
+    });
     return res;
   }
 
   // Multi-zone arrays: each zone item is 3 bytes: [zone_index (1B), temp (2B signed BE int)]
   for (auto [zone_idx, raw_temp] : TemperatureZoneFmt::unpack_all(payload, len)) {
-    ZoneTemperatureItem item;
-    item.zone_index = zone_idx;
-    item.is_valid = parse_temperature_raw(raw_temp, item.temperature);
-    res.zones.push_back(item);
+    float temp = 0.0f;
+    bool valid = parse_temperature_raw(raw_temp, temp);
+    res.zones.push_back(ZoneTemperatureItem{
+        .zone_index = zone_idx,
+        .temperature = temp,
+        .is_valid = valid,
+    });
   }
   return res;
 }
@@ -59,10 +65,13 @@ std::optional<SetpointPayload> SetpointPayload::decode(const uint8_t *payload, s
 
   SetpointPayload res;
   for (auto [zone_idx, raw_sp] : SetpointFmt::unpack_all(payload, len)) {
-    ZoneSetpointItem item;
-    item.zone_index = zone_idx;
-    item.is_valid = parse_temperature_raw(raw_sp, item.setpoint);
-    res.zones.push_back(item);
+    float sp = 0.0f;
+    bool valid = parse_temperature_raw(raw_sp, sp);
+    res.zones.push_back(ZoneSetpointItem{
+        .zone_index = zone_idx,
+        .setpoint = sp,
+        .is_valid = valid,
+    });
   }
   return res;
 }
@@ -274,11 +283,11 @@ std::optional<ZoneRolePayload> ZoneRolePayload::decode(const uint8_t *payload, s
   for (size_t i = 0; i + 5 <= buf.size(); i += 5) {
     auto item_slice = buf.subspan(i, 5);
     auto [zone_idx, role] = *ZoneRoleItemHeaderFmt::unpack(item_slice);
-    ZoneRoleBindingItem item;
-    item.zone_index = zone_idx;
-    item.role = role;
-    item.device_address = RamsesAddress::from_bytes(item_slice.subspan(2).data());
-    res.bindings.push_back(item);
+    res.bindings.push_back(ZoneRoleBindingItem{
+        .zone_index = zone_idx,
+        .role = role,
+        .device_address = RamsesAddress::from_bytes(item_slice.subspan(2).data()),
+    });
   }
   return res;
 }
@@ -788,11 +797,11 @@ std::optional<BindingPayload> BindingPayload::decode(const RamsesMessage &msg) {
   for (size_t i = 0; i + 6 <= buf.size(); i += 6) {
     auto item_slice = buf.subspan(i, 6);
     auto [oem_code, op_code] = *BindingTuple::unpack(item_slice);
-    BindingItem item;
-    item.oem_code = oem_code;
-    item.opcode = op_code;
-    item.address = RamsesAddress::from_bytes(item_slice.subspan(3).data());
-    res.bindings.push_back(item);
+    res.bindings.push_back(BindingItem{
+        .oem_code = oem_code,
+        .opcode = op_code,
+        .address = RamsesAddress::from_bytes(item_slice.subspan(3).data()),
+    });
   }
 
   return res;

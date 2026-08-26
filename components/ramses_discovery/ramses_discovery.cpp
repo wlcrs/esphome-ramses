@@ -231,10 +231,7 @@ void RamsesDiscoveryComponent::probe_pending() {
 #ifdef USE_ESP_IDF
   if (this->parent_ == nullptr) return;
 
-  ramses_esp::RamsesAddress hgi_src;
-  hgi_src.dev_class = 18;
-  hgi_src.id = 0x005612;
-  hgi_src.is_valid = true;
+  ramses_esp::RamsesAddress hgi_src{.dev_class = 18, .id = 0x005612, .is_valid = true};
 
   for (auto &kv : this->devices_) {
     DiscoveredDevice &dev = kv.second;

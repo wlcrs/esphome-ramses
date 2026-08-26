@@ -68,25 +68,26 @@ std::string RamsesAddress::to_string() const {
 }
 
 RamsesAddress RamsesAddress::from_bytes(const uint8_t *bytes) {
-  RamsesAddress addr;
-  if (bytes == nullptr) return addr;
-  addr.dev_class = (bytes[0] >> 2) & 0x3F;
-  addr.id = ((uint32_t)(bytes[0] & 0x03) << 16) | ((uint32_t)bytes[1] << 8) | (uint32_t)bytes[2];
-  addr.is_valid = true;
-  return addr;
+  if (bytes == nullptr) return RamsesAddress{};
+  return RamsesAddress{
+      .dev_class = static_cast<uint8_t>((bytes[0] >> 2) & 0x3F),
+      .id = ((uint32_t)(bytes[0] & 0x03) << 16) | ((uint32_t)bytes[1] << 8) | (uint32_t)bytes[2],
+      .is_valid = true,
+  };
 }
 
 RamsesAddress RamsesAddress::from_string(const std::string &str) {
-  RamsesAddress addr;
-  if (str == "--:------" || str.length() < 9) return addr;
+  if (str == "--:------" || str.length() < 9) return RamsesAddress{};
   unsigned dev_class = 0;
   unsigned long id = 0;
   if (sscanf(str.c_str(), "%u:%lu", &dev_class, &id) == 2) {
-    addr.dev_class = static_cast<uint8_t>(dev_class);
-    addr.id = static_cast<uint32_t>(id);
-    addr.is_valid = true;
+    return RamsesAddress{
+        .dev_class = static_cast<uint8_t>(dev_class),
+        .id = static_cast<uint32_t>(id),
+        .is_valid = true,
+    };
   }
-  return addr;
+  return RamsesAddress{};
 }
 
 void RamsesAddress::to_bytes(uint8_t *bytes) const {
