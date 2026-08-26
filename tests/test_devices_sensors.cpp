@@ -121,6 +121,20 @@ void test_environmental_and_opentherm_sensors() {
   ot_mod_sensor.on_message(ot_msg);
   TEST_ASSERT(ot_mod_sensor.state_published, "OpenTherm modulation published");
   TEST_ASSERT(std::abs(ot_mod_sensor.last_state - 40.0f) < 0.1f, "Modulation is 40.0%");
+
+  TestableRamsesSensor ot_flow_sensor;
+  ot_flow_sensor.set_device_address("10:045678");
+  ot_flow_sensor.set_sensor_type(RamsesSensorType::OPENTHERM_FLOW_TEMP);
+  ot_flow_sensor.on_message(parse_msg("045  I --- 10:045678 --:------ 10:045678 3220 005 0008193780"));
+  TEST_ASSERT(ot_flow_sensor.state_published && std::abs(ot_flow_sensor.last_state - 55.5f) < 0.01f,
+              "OpenTherm flow temperature is 55.5 C");
+
+  TestableRamsesSensor ot_return_sensor;
+  ot_return_sensor.set_device_address("10:045678");
+  ot_return_sensor.set_sensor_type(RamsesSensorType::OPENTHERM_RETURN_TEMP);
+  ot_return_sensor.on_message(parse_msg("045  I --- 10:045678 --:------ 10:045678 3220 005 00081C2D80"));
+  TEST_ASSERT(ot_return_sensor.state_published && std::abs(ot_return_sensor.last_state - 45.5f) < 0.01f,
+              "OpenTherm return temperature is 45.5 C");
 }
 
 void test_relay_and_hvac_diagnostic_sensors() {
@@ -164,6 +178,12 @@ void test_binary_sensors() {
   flame_sensor.on_message(ot_msg);
   TEST_ASSERT(flame_sensor.state_published, "Flame active state published");
   TEST_ASSERT(flame_sensor.last_state == true, "Flame is active (true)");
+
+  TestableRamsesBinarySensor fault_sensor;
+  fault_sensor.set_device_address("10:045678");
+  fault_sensor.set_sensor_type(RamsesBinarySensorType::FAULT_ALARM);
+  fault_sensor.on_message(parse_msg("045  I --- 10:045678 --:------ 10:045678 3220 005 0001005000"));
+  TEST_ASSERT(fault_sensor.state_published && fault_sensor.last_state, "OpenTherm fault state is active");
 
   TestableRamsesBinarySensor filter_sensor;
   filter_sensor.set_device_address("32:155617");
