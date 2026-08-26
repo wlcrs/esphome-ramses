@@ -561,16 +561,16 @@ std::optional<ContactSensorPayload> ContactSensorPayload::decode(const uint8_t *
 }
 
 // ----------------------------------------------------------------------
-// Opcode 0x12F0: DHW Configuration / Setpoint
-// ramses_rf reference: ramses_rf/payloads/dhw.py:DhwConfigPayload
+// Opcode 0x12F0: DHW Flow Rate
+// ramses_rf reference: ramses_rf/payloads/dhw.py:DhwFlowRatePayload
 // ----------------------------------------------------------------------
 std::optional<DhwConfigPayload> DhwConfigPayload::decode(const uint8_t *payload, size_t len) {
   if (payload == nullptr || len < 3) return std::nullopt;
 
   DhwConfigPayload res;
   res.dhw_index = payload[0];
-  int16_t raw_sp = static_cast<int16_t>((static_cast<uint16_t>(payload[1]) << 8) | payload[2]);
-  parse_temperature_raw(raw_sp, res.setpoint_temperature);
+  int16_t raw_flow_rate = static_cast<int16_t>((static_cast<uint16_t>(payload[1]) << 8) | payload[2]);
+  res.flow_rate = static_cast<float>(raw_flow_rate) / 100.0f;
   return res;
 }
 

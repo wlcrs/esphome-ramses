@@ -296,12 +296,12 @@ struct ContactSensorPayload {
 };
 
 // ----------------------------------------------------------------------
-// Opcode 0x12F0: DHW Configuration / Setpoint
-// Equivalent to: ramses_rf/payloads/dhw.py:DhwConfigPayload
+// Opcode 0x12F0: DHW Flow Rate
+// Equivalent to: ramses_rf/payloads/dhw.py:DhwFlowRatePayload
 // ----------------------------------------------------------------------
 struct DhwConfigPayload {
   uint8_t dhw_index{0};
-  float setpoint_temperature{0.0f};
+  float flow_rate{0.0f}; // Litres per minute
 
   static std::optional<DhwConfigPayload> decode(const uint8_t *payload, size_t len);
 };

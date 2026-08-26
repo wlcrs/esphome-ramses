@@ -56,12 +56,6 @@ void RamsesWaterHeater::on_message(const ramses_esp::RamsesMessage &msg) {
       this->current_temperature_ = dec->current_temp;
       this->publish_state();
     }
-  } else if (opcode == 0x12F0) {
-    auto dec = ramses_esp::DhwConfigPayload::decode(msg.payload, msg.n_payload);
-    if (dec.has_value()) {
-      this->target_temperature_ = dec->setpoint_temperature;
-      this->publish_state();
-    }
   } else if (opcode == 0x1F41) {
     auto dec = ramses_esp::DhwStatePayload::decode_state(msg.payload, msg.n_payload);
     if (dec.has_value()) {

@@ -24,31 +24,108 @@ static int tests_passed = 0;
     } \
   } while (0)
 
-// Helper to extract JSON string property by key
+// The parity fixture is intentionally limited to an array of objects with a nested
+// "expected" object. These helpers validate that contract without adding a runtime
+// JSON dependency to the native test binary.
+static bool has_json_key(const std::string &json, const std::string &key) {
+  return json.find("\"" + key + "\"") != std::string::npos;
+}
+
 static std::string extract_json_str(const std::string &json, const std::string &key) {
-  std::string pattern = "\"" + key + "\": \"";
-  size_t start = json.find(pattern);
+  size_t start = json.find("\"" + key + "\"");
   if (start == std::string::npos) return "";
-  start += pattern.length();
-  size_t end = json.find("\"", start);
-  if (end == std::string::npos) return "";
-  return json.substr(start, end - start);
+  start = json.find(':', start);
+  if (start == std::string::npos) return "";
+  start = json.find_first_not_of(" \t\r\n", start + 1);
+  if (start == std::string::npos || json[start] != '"') return "";
+  std::string value;
+  bool escaped = false;
+  for (size_t index = start + 1; index < json.size(); index++) {
+    char character = json[index];
+    if (escaped) {
+      value += character;
+      escaped = false;
+    } else if (character == '\\') {
+      escaped = true;
+    } else if (character == '"') {
+      return value;
+    } else {
+      value += character;
+    }
+  }
+  return "";
 }
 
 static int extract_json_int(const std::string &json, const std::string &key, int default_val = -1) {
-  std::string pattern = "\"" + key + "\": ";
-  size_t start = json.find(pattern);
+  size_t start = json.find("\"" + key + "\"");
   if (start == std::string::npos) return default_val;
-  start += pattern.length();
+  start = json.find(':', start);
+  if (start == std::string::npos) return default_val;
+  start = json.find_first_not_of(" \t\r\n", start + 1);
+  if (start == std::string::npos) return default_val;
   return std::strtol(json.c_str() + start, nullptr, 10);
 }
 
 static float extract_json_float(const std::string &json, const std::string &key, float default_val = -1.0f) {
-  std::string pattern = "\"" + key + "\": ";
-  size_t start = json.find(pattern);
+  size_t start = json.find("\"" + key + "\"");
   if (start == std::string::npos) return default_val;
-  start += pattern.length();
+  start = json.find(':', start);
+  if (start == std::string::npos) return default_val;
+  start = json.find_first_not_of(" \t\r\n", start + 1);
+  if (start == std::string::npos) return default_val;
   return std::strtof(json.c_str() + start, nullptr);
+}
+
+static bool extract_json_bool(const std::string &json, const std::string &key, bool default_val = false) {
+  size_t start = json.find("\"" + key + "\"");
+  if (start == std::string::npos) return default_val;
+  start = json.find(':', start);
+  if (start == std::string::npos) return default_val;
+  start = json.find_first_not_of(" \t\r\n", start + 1);
+  if (start == std::string::npos) return default_val;
+  return json.compare(start, 4, "true") == 0;
+}
+
+static std::vector<float> extract_json_floats(const std::string &json, const std::string &key) {
+  std::vector<float> values;
+  size_t search_start = 0;
+  while (true) {
+    size_t key_start = json.find("\"" + key + "\"", search_start);
+    if (key_start == std::string::npos) return values;
+    size_t colon = json.find(':', key_start);
+    if (colon == std::string::npos) return values;
+    size_t value_start = json.find_first_not_of(" \t\r\n", colon + 1);
+    if (value_start == std::string::npos) return values;
+    values.push_back(std::strtof(json.c_str() + value_start, nullptr));
+    search_start = value_start + 1;
+  }
+}
+
+static size_t find_json_object_end(const std::string &content, size_t start) {
+  int depth = 0;
+  bool in_string = false;
+  bool escaped = false;
+  for (size_t index = start; index < content.size(); index++) {
+    char character = content[index];
+    if (in_string) {
+      if (escaped) {
+        escaped = false;
+      } else if (character == '\\') {
+        escaped = true;
+      } else if (character == '"') {
+        in_string = false;
+      }
+      continue;
+    }
+    if (character == '"') {
+      in_string = true;
+    } else if (character == '{') {
+      depth++;
+    } else if (character == '}' && --depth == 0) {
+      return index;
+    }
+  }
+  return std::string::npos;
 }
 
 void run_parity_fixture(const std::string &fixture_path) {
@@ -60,10 +137,17 @@ void run_parity_fixture(const std::string &fixture_path) {
 
   std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 
-  // Split fixture by object blocks { ... }
+  size_t first_non_whitespace = content.find_first_not_of(" \t\r\n");
+  size_t last_non_whitespace = content.find_last_not_of(" \t\r\n");
+  TEST_ASSERT(first_non_whitespace != std::string::npos && content[first_non_whitespace] == '[',
+              "Parity fixture is a JSON array");
+  TEST_ASSERT(last_non_whitespace != std::string::npos && content[last_non_whitespace] == ']',
+              "Parity fixture has a closing JSON array");
+
+  // Extract complete outer objects, including their nested "expected" object.
   size_t pos = 0;
   while ((pos = content.find('{', pos)) != std::string::npos) {
-    size_t end = content.find('}', pos);
+    size_t end = find_json_object_end(content, pos);
     if (end == std::string::npos) break;
     std::string block = content.substr(pos, end - pos + 1);
     pos = end + 1;
@@ -75,7 +159,10 @@ void run_parity_fixture(const std::string &fixture_path) {
     std::string expected_dst = extract_json_str(block, "dst");
     std::string expected_opcode = extract_json_str(block, "opcode");
 
-    if (hgi80.empty() || expected_opcode.empty()) continue;
+    TEST_ASSERT(has_json_key(block, "name") && has_json_key(block, "hgi80") && has_json_key(block, "expected"),
+          "Parity case has required fields");
+    TEST_ASSERT(!hgi80.empty() && !expected_opcode.empty() && !expected_verb.empty() && !expected_src.empty(),
+          "Parity case required values are valid");
 
     std::cout << "\nValidating Case: " << name << " (" << expected_opcode << ")\n";
 
@@ -99,42 +186,58 @@ void run_parity_fixture(const std::string &fixture_path) {
     }
 
     // Specific opcode payload semantic tests
-    if (expected_opcode == "0004") {
+    if (expected_opcode == "1F09") {
+      auto dec = SystemSyncPayload::decode(msg.payload, msg.n_payload);
+      TEST_ASSERT(dec.has_value(), "Decoded system sync payload");
+      TEST_ASSERT(has_json_key(block, "system_mode_raw") && dec->mode_raw == extract_json_int(block, "system_mode_raw"),
+                  "System mode raw value matches expected");
+      TEST_ASSERT(has_json_key(block, "remaining_raw") && dec->remaining_raw == extract_json_int(block, "remaining_raw"),
+                  "System sync remaining value matches expected");
+      TEST_ASSERT(has_json_key(block, "system_mode") && system_mode_to_string(dec->mode) == extract_json_str(block, "system_mode"),
+                  "System mode matches expected");
+    } else if (expected_opcode == "0004") {
       std::string exp_name = extract_json_str(block, "zone_name");
-      if (!exp_name.empty()) {
-        std::string actual_name(reinterpret_cast<char*>(&msg.payload[2]));
-        TEST_ASSERT(actual_name.rfind(exp_name, 0) == 0, "Decoded zone name matches expected string");
-      }
+      auto dec = ZoneNamePayload::decode(msg.payload, msg.n_payload);
+      TEST_ASSERT(dec.has_value(), "Decoded zone name payload");
+      TEST_ASSERT(has_json_key(block, "zone_index") && dec->zone_index == extract_json_int(block, "zone_index"),
+                  "Zone name index matches expected");
+      TEST_ASSERT(dec->name == exp_name, "Decoded zone name matches expected string");
     } else if (expected_opcode == "2309") {
-      float exp_sp = extract_json_float(block, "setpoint");
-      if (exp_sp > 0) {
-        uint16_t raw_sp = ((uint16_t)msg.payload[1] << 8) | msg.payload[2];
-        float actual_sp = raw_sp / 100.0f;
-        TEST_ASSERT(std::abs(actual_sp - exp_sp) < 0.05f, "Decoded setpoint matches expected float");
+      auto dec = SetpointPayload::decode(msg.payload, msg.n_payload);
+      TEST_ASSERT(dec.has_value() && dec->zones.size() == 1, "Decoded setpoint payload");
+      TEST_ASSERT(has_json_key(block, "zone_index") && dec->zones[0].zone_index == extract_json_int(block, "zone_index"),
+                  "Setpoint zone index matches expected");
+      TEST_ASSERT(std::abs(dec->zones[0].setpoint - extract_json_float(block, "setpoint")) < 0.05f,
+                  "Decoded setpoint matches expected float");
+    } else if (expected_opcode == "30C9") {
+      auto dec = TemperaturePayload::decode(msg.payload, msg.n_payload);
+      auto expected_temperatures = extract_json_floats(block, "temperature");
+      TEST_ASSERT(dec.has_value() && dec->zones.size() == expected_temperatures.size(),
+                  "Decoded all expected zone temperatures");
+      for (size_t index = 0; index < expected_temperatures.size(); index++) {
+        TEST_ASSERT(std::abs(dec->zones[index].temperature - expected_temperatures[index]) < 0.05f,
+                    "Decoded zone temperature matches expected");
       }
     } else if (expected_opcode == "3150") {
-      float exp_dem = extract_json_float(block, "demand_pct");
-      if (exp_dem >= 0) {
-        float actual_dem = (msg.payload[1] / 200.0f) * 100.0f;
-        TEST_ASSERT(std::abs(actual_dem - exp_dem) < 0.1f, "Decoded heat demand % matches expected");
-      }
+      auto dec = HeatDemandPayload::decode(msg.payload, msg.n_payload);
+      TEST_ASSERT(dec.has_value(), "Decoded heat demand payload");
+      TEST_ASSERT(dec->domain_or_zone_index == extract_json_int(block, "domain_or_zone_index"),
+                  "Heat demand zone index matches expected");
+      TEST_ASSERT(std::abs(dec->demand_percent - extract_json_float(block, "demand_pct")) < 0.1f,
+                  "Decoded heat demand % matches expected");
     } else if (expected_opcode == "1060") {
-      int exp_bat = extract_json_int(block, "battery_pct");
-      if (exp_bat >= 0) {
-        int actual_bat = msg.payload[1];
-        TEST_ASSERT(actual_bat == exp_bat, "Decoded battery % matches expected");
-      }
+      auto dec = DeviceBatteryPayload::decode(msg.payload, msg.n_payload);
+      TEST_ASSERT(dec.has_value(), "Decoded battery payload");
+      TEST_ASSERT(dec->battery_percent == extract_json_int(block, "battery_pct"), "Decoded battery % matches expected");
+      TEST_ASSERT(dec->battery_low == extract_json_bool(block, "battery_low"), "Decoded battery state matches expected");
     } else if (expected_opcode == "10E0") {
-      std::string exp_oem = extract_json_str(block, "oem_code");
-      if (exp_oem == "0x67") {
-        TEST_ASSERT(msg.payload[6] == 0x67, "Decoded OEM signature matches 0x67 (Orcon)");
-      }
+      auto dec = DeviceInfoPayload::decode(msg.payload, msg.n_payload);
+      int expected_oem = std::stoi(extract_json_str(block, "oem_code"), nullptr, 16);
+      TEST_ASSERT(dec.has_value() && dec->oem_code == expected_oem, "Decoded OEM signature matches expected");
     } else if (expected_opcode == "10D0") {
-      int exp_days = extract_json_int(block, "filter_remaining_days");
-      if (exp_days >= 0) {
-        uint16_t actual_days = msg.payload[1];
-        TEST_ASSERT(actual_days == (uint16_t)exp_days, "Decoded filter days match expected");
-      }
+      auto dec = FilterInfoPayload::decode(msg.payload, msg.n_payload);
+      TEST_ASSERT(dec.has_value() && dec->remaining_days == extract_json_int(block, "filter_remaining_days"),
+                  "Decoded filter days match expected");
     } else if (expected_opcode == "12C0") {
       auto dec = OutdoorTemperaturePayload::decode(msg.payload, msg.n_payload);
       float exp_temp = extract_json_float(block, "temperature");
@@ -147,14 +250,27 @@ void run_parity_fixture(const std::string &fixture_path) {
       TEST_ASSERT(std::abs(dec->current_temp - exp_temp) < 0.05f, "DHW temp matches expected");
     } else if (expected_opcode == "12F0") {
       auto dec = DhwConfigPayload::decode(msg.payload, msg.n_payload);
-      float exp_sp = extract_json_float(block, "setpoint");
-      TEST_ASSERT(dec.has_value(), "Decoded DHW config payload");
-      TEST_ASSERT(std::abs(dec->setpoint_temperature - exp_sp) < 0.05f, "DHW setpoint matches expected");
+      float exp_flow_rate = extract_json_float(block, "flow_rate");
+      TEST_ASSERT(dec.has_value(), "Decoded DHW flow-rate payload");
+      TEST_ASSERT(std::abs(dec->flow_rate - exp_flow_rate) < 0.05f,
+                  "DHW flow rate matches expected");
     } else if (expected_opcode == "0008") {
       auto dec = RelayDemandPayload::decode(msg.payload, msg.n_payload);
       float exp_dem = extract_json_float(block, "demand_pct");
       TEST_ASSERT(dec.has_value(), "Decoded relay demand payload");
       TEST_ASSERT(std::abs(dec->demand_percent - exp_dem) < 0.1f, "Relay demand matches expected");
+    } else if (expected_opcode == "22F1") {
+      auto dec = FanStatePayload::decode(msg.payload, msg.n_payload, HvacScheme::ORCON);
+      TEST_ASSERT(dec.has_value(), "Decoded fan state payload");
+      TEST_ASSERT(dec->raw_mode == extract_json_int(block, "fan_mode_raw"), "Fan raw mode matches expected");
+      TEST_ASSERT(fan_preset_to_string(dec->preset_mode) == extract_json_str(block, "fan_mode_name"),
+                  "Fan preset mode matches expected");
+    } else if (expected_opcode == "3220") {
+      auto dec = OpenThermPayload::decode(msg.payload, msg.n_payload);
+      TEST_ASSERT(dec.has_value(), "Decoded OpenTherm payload");
+      TEST_ASSERT(dec->flame_active == extract_json_bool(block, "flame_active"), "Flame state matches expected");
+      TEST_ASSERT(std::abs(dec->modulation_percent - extract_json_float(block, "modulation_pct")) < 0.1f,
+                  "OpenTherm modulation matches expected");
     } else if (expected_opcode == "1298") {
       auto dec = Co2SensorPayload::decode(msg.payload, msg.n_payload);
       int exp_co2 = extract_json_int(block, "co2_ppm");

@@ -42,10 +42,10 @@ void test_water_heater_rx_temp_and_setpoint() {
   dhw.on_message(temp_msg);
   TEST_ASSERT(std::abs(dhw.get_current_temperature() - 21.03f) < 0.01f, "Current DHW temperature is 21.03 C");
 
-  // Broadcast 12F0 (DHW Setpoint = 50.00 C)
+  // Broadcast 12F0 (DHW flow rate = 50.00 L/min); it must not change the target.
   RamsesMessage sp_msg = parse_msg("045  I --- 01:145678 --:------ 01:145678 12F0 003 001388");
   dhw.on_message(sp_msg);
-  TEST_ASSERT(std::abs(dhw.get_target_temperature() - 50.00f) < 0.01f, "Target DHW setpoint is 50.00 C");
+  TEST_ASSERT(std::isnan(dhw.get_target_temperature()), "DHW flow rate does not set a target temperature");
 }
 
 void test_water_heater_rx_state() {

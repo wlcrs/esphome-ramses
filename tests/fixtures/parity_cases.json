@@ -184,15 +184,15 @@
     }
   },
   {
-    "name": "dhw_setpoint_50_deg",
-    "description": "DHW configuration reporting target setpoint 50.0 C (0x1388 = 5000)",
+    "name": "dhw_flow_rate_50",
+    "description": "DHW telemetry reporting flow rate 50.0 L/min (0x1388 = 5000)",
     "hgi80": "045  I --- 01:145678 --:------ 01:145678 12F0 003 001388",
     "expected": {
       "verb": "I",
       "src": "01:145678",
       "dst": "01:145678",
       "opcode": "12F0",
-      "setpoint": 50.0
+      "flow_rate": 50.0
     }
   },
   {

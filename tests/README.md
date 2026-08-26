@@ -54,9 +54,9 @@ To solve both challenges, we use a **Dual-Sided Parity Testing Architecture**:
 * **`test_mock.cpp`**:  
   Integration tests verifying virtual device simulation and bidirectional query/reply flows.
 * **`test_parity_cases.cpp`**:  
-  C++ test runner that ingests `fixtures/parity_cases.json` and verifies that C++ decoders match all expected values.
+  C++ test runner that validates the parity fixture structure, parses each HGI80 frame, and verifies the currently covered semantic fields.
 * **`test_parser_corpus.cpp`**:  
-  High-throughput bulk corpus regression test runner that recursively ingests all **174 real-world test log files** (~10,000+ packet lines) from `ramses_rf/tests/tests_rf/`, ensuring that 100% of real-world captures parse cleanly through `RamsesMessage::from_hgi80()` and our zero-heap C++ codecs.
+  Bulk corpus regression test runner that recursively ingests the local corpus of **170 `packet.log` files**. It reports candidate frames, invalid packets, per-opcode coverage, and known-opcode decode failures. Variant failures are intentionally visible until their decoders are implemented.
 * **`test_devices_sensors.cpp`**:  
   Integration tests for all sensor and binary sensor types (`temperature`, `setpoint`, `co2`, `humidity`, `filter_alarm`, `flame_active`, `battery_low`, etc.).
 * **`test_devices_climate.cpp`**:  
@@ -82,6 +82,10 @@ ctest --output-on-failure
 ```bash
 uv run python tests/test_parity_harness.py
 ```
+
+The Python half requires the `ramses_rf`/`ramses_tx` dependencies to be installed in
+the active environment. The native C++ parity target can be run independently with
+`ctest --test-dir tests/build -R ParityJsonTest`.
 
 ### C. Adding a New Test Case
 To add coverage for a new opcode or vendor quirk:
