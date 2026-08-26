@@ -158,10 +158,13 @@ void RamsesDiscoveryComponent::process_hvac_packet(DiscoveredDevice &dev, const 
       if (dec->oem_code == 0x67) {
         dev.oem_name = "orcon";
         dev.hvac_scheme = ramses_esp::HvacScheme::ORCON;
-      } else if (dec->oem_code == 0x08) {
+      } else if (dec->oem_code == 0x6A) {
+        dev.oem_name = "orcon"; // Hopper D375 / Brofer uses the Orcon scheme
+        dev.hvac_scheme = ramses_esp::HvacScheme::ORCON;
+      } else if (dec->oem_code == 0x08 || dec->oem_code == 0x01) {
         dev.oem_name = "itho";
         dev.hvac_scheme = ramses_esp::HvacScheme::ITHO;
-      } else if (dec->oem_code == 0x13) {
+      } else if (dec->oem_code == 0x13 || dec->oem_code == 0x66) {
         dev.oem_name = "vasco";
         dev.hvac_scheme = ramses_esp::HvacScheme::VASCO;
       } else if (dec->oem_code == 0x02) {

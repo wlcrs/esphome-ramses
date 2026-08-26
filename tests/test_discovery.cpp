@@ -222,6 +222,26 @@ void test_real_world_opentherm_log() {
   TEST_ASSERT(ot.device_type == "opentherm", "Identified as OpenTherm Bridge");
 }
 
+void test_hopper_d375_discovery() {
+  std::cout << "\n--- Testing Hopper D375 HRU Auto-Discovery ---\n";
+  RamsesDiscoveryComponent discovery;
+
+  // Hopper D375 VMD-02RPS54 fingerprint and fan status
+  discovery.on_message(parse_msg("068  I --- 32:137527 63:262142 --:------ 10E0 038 000001C84F0E0A6AFEFFFFFFFFFF0B0C07E1564D442D30325250533534000000000000000000"));
+  discovery.on_message(parse_msg("072  I --- 32:137527 --:------ 32:137527 22F1 003 0002FF"));
+
+  const auto &devices = discovery.get_devices();
+  TEST_ASSERT(devices.count("32:137527") == 1, "Discovered Hopper D375 HRU 32:137527");
+  const auto &hvac = devices.at("32:137527");
+  TEST_ASSERT(hvac.is_hvac == true, "Identified as HVAC unit");
+  TEST_ASSERT(hvac.oem_name == "orcon", "Hopper D375 mapped to 'orcon' scheme");
+
+  std::string yaml = discovery.generate_yaml();
+  TEST_ASSERT(yaml.find("fan:") != std::string::npos, "YAML contains fan platform");
+  TEST_ASSERT(yaml.find("device_address: \"32:137527\"") != std::string::npos, "YAML contains Hopper D375 address");
+  TEST_ASSERT(yaml.find("scheme: orcon") != std::string::npos, "YAML specifies scheme: orcon");
+}
+
 int main() {
   std::cout << "========================================\n";
   std::cout << "Running Ramses Discovery Platform Unit Tests\n";
@@ -231,6 +251,7 @@ int main() {
   test_yaml_generation();
   test_real_world_system_logs();
   test_real_world_opentherm_log();
+  test_hopper_d375_discovery();
 
   std::cout << "\n========================================\n";
   std::cout << "Results: " << tests_passed << "/" << tests_run << " tests passed.\n";

@@ -402,7 +402,10 @@ std::optional<DeviceInfoPayload> DeviceInfoPayload::decode(const uint8_t *payloa
 
   DeviceInfoPayload res;
   res.info_type = payload[0];
-  res.oem_code = payload[6]; // Standard offset for OEM vendor byte
+  res.oem_code = payload[6]; // Standard offset for short OEM vendor byte
+  if (len >= 8 && (res.oem_code == 0 || res.oem_code == 0x0A || res.oem_code == 0xFF || payload[7] == 0x6A)) {
+    res.oem_code = payload[7]; // Extended OEM vendor byte (e.g. Brofer / Hopper D375: 0x6A)
+  }
   return res;
 }
 
