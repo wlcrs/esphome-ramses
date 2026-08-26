@@ -621,8 +621,8 @@ RamsesMessage DhwStatePayload::encode_write_setpoint(const RamsesAddress &src, c
   return msg;
 }
 
-RamsesMessage DhwStatePayload::encode_write_mode(const RamsesAddress &src, const RamsesAddress &dst, bool enabled,
-                                                 bool temporary) {
+RamsesMessage DhwStatePayload::encode_write_mode(const RamsesAddress &src, const RamsesAddress &dst,
+                                                 OperationMode mode) {
   RamsesMessage msg;
   msg.type = RAMSES_MSG_W;
   msg.fields = RAMSES_F_ADDR0 | RAMSES_F_ADDR1;
@@ -632,8 +632,8 @@ RamsesMessage DhwStatePayload::encode_write_mode(const RamsesAddress &src, const
   msg.opcode[1] = 0x41;
   msg.len = msg.n_payload = 6;
   msg.payload[0] = 0x00;
-  msg.payload[1] = enabled ? 0x01 : 0x00;
-  msg.payload[2] = temporary ? 0x04 : 0x02;
+  msg.payload[1] = mode == OperationMode::FOLLOW_SCHEDULE ? 0xFF : mode == OperationMode::PERMANENT_ON ? 0x01 : 0x00;
+  msg.payload[2] = mode == OperationMode::FOLLOW_SCHEDULE ? 0x00 : mode == OperationMode::TEMPORARY_ON ? 0x04 : 0x02;
   msg.payload[3] = 0xFF;
   msg.payload[4] = 0xFF;
   msg.payload[5] = 0xFF;

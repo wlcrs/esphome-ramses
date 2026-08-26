@@ -274,8 +274,14 @@ struct DhwStatePayload {
   static std::optional<DhwStatePayload> decode_temp(const uint8_t *payload, size_t len);
   static std::optional<DhwStatePayload> decode_state(const uint8_t *payload, size_t len);
   static RamsesMessage encode_write_setpoint(const RamsesAddress &src, const RamsesAddress &dst, float setpoint);
-  static RamsesMessage encode_write_mode(const RamsesAddress &src, const RamsesAddress &dst, bool enabled,
-                                         bool temporary = false);
+  enum class OperationMode : uint8_t {
+    FOLLOW_SCHEDULE = 0,
+    PERMANENT_OFF = 1,
+    PERMANENT_ON = 2,
+    TEMPORARY_ON = 3,
+  };
+
+  static RamsesMessage encode_write_mode(const RamsesAddress &src, const RamsesAddress &dst, OperationMode mode);
 };
 
 // ----------------------------------------------------------------------

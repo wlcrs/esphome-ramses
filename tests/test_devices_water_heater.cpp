@@ -91,15 +91,22 @@ void test_water_heater_control_tx() {
   uint16_t encoded_temp = (static_cast<uint16_t>(dhw_write.payload[1]) << 8) | dhw_write.payload[2];
   TEST_ASSERT(encoded_temp == 5500, "Encoded setpoint is 5500 (55.00 C)");
 
-  RamsesMessage mode_write = DhwStatePayload::encode_write_mode(hgi_src, ctl, true);
+  RamsesMessage mode_write = DhwStatePayload::encode_write_mode(
+      hgi_src, ctl, DhwStatePayload::OperationMode::PERMANENT_ON);
   TEST_ASSERT(mode_write.type == RAMSES_MSG_W && mode_write.opcode[0] == 0x1F && mode_write.opcode[1] == 0x41,
               "DHW mode write uses 1F41");
   TEST_ASSERT(mode_write.n_payload == 6 && mode_write.payload[1] == 0x01 && mode_write.payload[2] == 0x02,
               "DHW performance mode payload is encoded");
 
-  RamsesMessage off_write = DhwStatePayload::encode_write_mode(hgi_src, ctl, false);
+  RamsesMessage off_write = DhwStatePayload::encode_write_mode(
+      hgi_src, ctl, DhwStatePayload::OperationMode::PERMANENT_OFF);
   TEST_ASSERT(off_write.payload[1] == 0x00 && off_write.payload[2] == 0x02,
               "DHW OFF mode payload is encoded");
+
+  RamsesMessage eco_write = DhwStatePayload::encode_write_mode(
+      hgi_src, ctl, DhwStatePayload::OperationMode::FOLLOW_SCHEDULE);
+  TEST_ASSERT(eco_write.payload[1] == 0xFF && eco_write.payload[2] == 0x00,
+              "DHW ECO mode follows the schedule");
 }
 
 int main() {

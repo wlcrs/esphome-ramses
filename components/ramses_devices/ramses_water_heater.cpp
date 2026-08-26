@@ -91,10 +91,16 @@ void RamsesWaterHeater::control(const water_heater::WaterHeaterCall &call) {
 
   if (call.get_mode().has_value()) {
     auto mode = *call.get_mode();
-    bool enabled = mode != water_heater::WATER_HEATER_MODE_OFF;
-    bool temporary = mode == water_heater::WATER_HEATER_MODE_ELECTRIC;
+    auto operation_mode = ramses_esp::DhwStatePayload::OperationMode::FOLLOW_SCHEDULE;
+    if (mode == water_heater::WATER_HEATER_MODE_OFF) {
+      operation_mode = ramses_esp::DhwStatePayload::OperationMode::PERMANENT_OFF;
+    } else if (mode == water_heater::WATER_HEATER_MODE_PERFORMANCE) {
+      operation_mode = ramses_esp::DhwStatePayload::OperationMode::PERMANENT_ON;
+    } else if (mode == water_heater::WATER_HEATER_MODE_ELECTRIC) {
+      operation_mode = ramses_esp::DhwStatePayload::OperationMode::TEMPORARY_ON;
+    }
     ramses_esp::RamsesMessage msg = ramses_esp::DhwStatePayload::encode_write_mode(
-        hgi_src, this->controller_address_, enabled, temporary);
+        hgi_src, this->controller_address_, operation_mode);
 
 #ifdef USE_ESP_IDF
     if (this->parent_ != nullptr) {
