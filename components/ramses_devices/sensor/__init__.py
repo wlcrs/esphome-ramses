@@ -24,6 +24,7 @@ from .. import (
     CONF_DEVICE_ADDRESS,
     CONF_RAMSES_ADDRESS,
     CONF_RAMSES_ESP_ID,
+    CONF_RELAY_INDEX,
     CONF_ZONE_INDEX,
     RamsesESPComponent,
     ramses_devices_ns,
@@ -63,7 +64,7 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_RAMSES_ADDRESS): cv.string,
             cv.Optional(CONF_ZONE_INDEX): cv.int_range(min=0, max=15),
             cv.Optional(CONF_ZONE): cv.int_range(min=0, max=15),
-            cv.Optional("relay_index"): cv.int_range(min=0, max=255),
+            cv.Optional(CONF_RELAY_INDEX): cv.int_range(min=0, max=255),
         }
     )
     .extend(cv.COMPONENT_SCHEMA)
@@ -95,5 +96,6 @@ async def to_code(config):
     if zone_idx is not None:
         cg.add(var.set_zone_index(zone_idx))
 
-    if (relay_idx := config.get("relay_index")) is not None:
+    relay_idx = config.get(CONF_RELAY_INDEX)
+    if relay_idx is not None:
         cg.add(var.set_relay_index(relay_idx))

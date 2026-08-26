@@ -15,5 +15,6 @@ CONF_DEVICE_ADDRESS = "device_address"
 CONF_CONTROLLER_ADDRESS = "controller_address"
 CONF_RAMSES_ADDRESS = "ramses_address"
 CONF_ZONE_INDEX = "zone_index"
+CONF_RELAY_INDEX = "relay_index"
 
 CONFIG_SCHEMA = cv.Schema({})
