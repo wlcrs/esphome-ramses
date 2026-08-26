@@ -1,10 +1,14 @@
 #include <iostream>
+#include <fstream>
+#include <sstream>
 #include <cassert>
 #include <vector>
 #include <string>
+#include <filesystem>
 #include "components/ramses_esp/ramses_decoder.h"
 #include "components/ramses_discovery/ramses_discovery.h"
 
+namespace fs = std::filesystem;
 using namespace esphome;
 using namespace esphome::ramses_esp;
 using namespace esphome::ramses_discovery;
@@ -24,14 +28,53 @@ static int tests_passed = 0;
     } \
   } while (0)
 
+static std::string extract_hgi80_frame(const std::string &line) {
+  size_t hash_pos = line.find('#');
+  std::string cleaned = (hash_pos != std::string::npos) ? line.substr(0, hash_pos) : line;
+
+  size_t start = cleaned.find_first_not_of(" \t\r\n");
+  if (start == std::string::npos) return "";
+  size_t end = cleaned.find_last_not_of(" \t\r\n");
+  cleaned = cleaned.substr(start, end - start + 1);
+
+  if (cleaned.empty()) return "";
+
+  if (cleaned.size() > 27 && (cleaned[4] == '-' || cleaned[10] == 'T')) {
+    size_t space_pos = cleaned.find(' ');
+    if (space_pos != std::string::npos) {
+      cleaned = cleaned.substr(space_pos + 1);
+      size_t s2 = cleaned.find_first_not_of(" \t\r\n");
+      if (s2 != std::string::npos) {
+        cleaned = cleaned.substr(s2);
+      }
+    }
+  }
+  return cleaned;
+}
+
 static RamsesMessage parse_msg(const std::string &hgi80) {
   RamsesMessage msg;
   msg.from_hgi80(hgi80);
   return msg;
 }
 
+static std::string find_corpus_file(const std::string &rel_path) {
+  std::vector<std::string> prefixes = {
+    "fixtures/corpus/",
+    "../fixtures/corpus/",
+    "tests/fixtures/corpus/",
+    "../../tests/fixtures/corpus/",
+    "../ramses_rf/tests/tests_rf/data_driven/"
+  };
+  for (const auto &p : prefixes) {
+    std::string full = p + rel_path;
+    if (fs::exists(full)) return full;
+  }
+  return "";
+}
+
 void test_passive_discovery() {
-  std::cout << "\n--- Testing RamsesDiscovery Passive Device Ingestion ---\n";
+  std::cout << "\n--- Testing RamsesDiscovery Synthetic Ingestion ---\n";
   RamsesDiscoveryComponent discovery;
 
   // 1. Controller packets
@@ -93,7 +136,6 @@ void test_yaml_generation() {
   discovery.on_message(parse_msg("045  I --- 10:045678 --:------ 10:045678 3220 005 0008005000"));
 
   std::string yaml = discovery.generate_yaml();
-  std::cout << "Generated YAML snippet:\n" << yaml << "\n";
 
   TEST_ASSERT(yaml.find("climate:") != std::string::npos, "YAML contains climate platform");
   TEST_ASSERT(yaml.find("name: \"Lounge Heating\"") != std::string::npos, "YAML contains 'Lounge Heating'");
@@ -105,6 +147,81 @@ void test_yaml_generation() {
   TEST_ASSERT(yaml.find("binary_sensor:") != std::string::npos, "YAML contains binary_sensor platform");
 }
 
+void test_real_world_system_logs() {
+  std::cout << "\n--- Testing Discovery Against Real-World Evohome System Log ---\n";
+  std::string log_file = find_corpus_file("systems/heat_zxdavb/packet.log");
+  if (log_file.empty()) {
+    std::cout << "  [SKIP] heat_zxdavb/packet.log not found\n";
+    return;
+  }
+
+  std::ifstream infile(log_file);
+  TEST_ASSERT(infile.is_open(), "Opened heat_zxdavb/packet.log");
+
+  RamsesDiscoveryComponent discovery;
+  std::string line;
+  int packet_count = 0;
+  while (std::getline(infile, line)) {
+    std::string frame = extract_hgi80_frame(line);
+    if (frame.empty()) continue;
+    RamsesMessage msg;
+    if (msg.from_hgi80(frame)) {
+      discovery.on_message(msg);
+      packet_count++;
+    }
+  }
+
+  std::cout << "  Ingested " << packet_count << " packets from real system log.\n";
+  const auto &devices = discovery.get_devices();
+  TEST_ASSERT(devices.size() >= 5, "Discovered multiple real-world devices");
+  TEST_ASSERT(devices.count("01:145038") == 1, "Discovered controller 01:145038");
+
+  const auto &ctl = devices.at("01:145038");
+  TEST_ASSERT(ctl.device_type == "controller", "Identified as Evohome controller");
+
+  // Verify TRVs in the installation
+  bool has_trv = false;
+  for (const auto &kv : devices) {
+    if (kv.second.device_type == "trv") {
+      has_trv = true;
+      break;
+    }
+  }
+  TEST_ASSERT(has_trv, "Discovered TRV radiator valves in topology");
+
+  std::string yaml = discovery.generate_yaml();
+  TEST_ASSERT(yaml.find("climate:") != std::string::npos || yaml.find("sensor:") != std::string::npos,
+              "Generated valid ESPHome configuration from real-world packet stream");
+}
+
+void test_real_world_opentherm_log() {
+  std::cout << "\n--- Testing Discovery Against Real-World OpenTherm System Log ---\n";
+  std::string log_file = find_corpus_file("systems/heat_otb_00/packet.log");
+  if (log_file.empty()) {
+    std::cout << "  [SKIP] heat_otb_00/packet.log not found\n";
+    return;
+  }
+
+  std::ifstream infile(log_file);
+  TEST_ASSERT(infile.is_open(), "Opened heat_otb_00/packet.log");
+
+  RamsesDiscoveryComponent discovery;
+  std::string line;
+  while (std::getline(infile, line)) {
+    std::string frame = extract_hgi80_frame(line);
+    if (frame.empty()) continue;
+    RamsesMessage msg;
+    if (msg.from_hgi80(frame)) {
+      discovery.on_message(msg);
+    }
+  }
+
+  const auto &devices = discovery.get_devices();
+  TEST_ASSERT(devices.count("10:048122") == 1, "Discovered OpenTherm Bridge 10:048122");
+  const auto &ot = devices.at("10:048122");
+  TEST_ASSERT(ot.device_type == "opentherm", "Identified as OpenTherm Bridge");
+}
+
 int main() {
   std::cout << "========================================\n";
   std::cout << "Running Ramses Discovery Platform Unit Tests\n";
@@ -112,6 +229,8 @@ int main() {
 
   test_passive_discovery();
   test_yaml_generation();
+  test_real_world_system_logs();
+  test_real_world_opentherm_log();
 
   std::cout << "\n========================================\n";
   std::cout << "Results: " << tests_passed << "/" << tests_run << " tests passed.\n";
