@@ -113,6 +113,10 @@ Each climate entity represents one configured zone. Multiple zones are represent
 multiple climate entities sharing the same `ramses_esp` hub. Runtime discovery and
 device promotion are intentionally outside `ramses_devices`.
 
+Static sensor configurations can expose relay demand (with `relay_index` filtering),
+filter lifetime and remaining percentage, bypass position/activity, OpenTherm
+telemetry, and the existing heating and air-quality measurements.
+
 ---
 
 ## MQTT Gateway Mode (`ramses-mqtt` Parity)
