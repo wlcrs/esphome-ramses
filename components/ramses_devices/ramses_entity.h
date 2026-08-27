@@ -60,11 +60,16 @@ public:
     }
   }
 
+  virtual bool matches_opcode(uint16_t opcode) const { return true; }
+
 protected:
   ramses_esp::RamsesESPComponent *parent_{nullptr};
   ramses_esp::RamsesAddress device_address_;
 
   virtual bool matches(const ramses_esp::RamsesMessage &msg) const {
+    uint16_t opcode = ((uint16_t)msg.opcode[0] << 8) | msg.opcode[1];
+    if (!this->matches_opcode(opcode))
+      return false;
     return address_matches(this->device_address_, msg);
   }
 

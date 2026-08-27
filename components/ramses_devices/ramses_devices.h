@@ -23,7 +23,7 @@ namespace ramses_devices {
 // Base Sensor Types for RAMSES Devices
 // ----------------------------------------------------------------------
 
-enum class RamsesSensorType {
+enum class RamsesSensorType : uint8_t {
   ZONE_TEMPERATURE,
   ZONE_SETPOINT,
   OUTDOOR_TEMPERATURE,
@@ -53,17 +53,33 @@ enum class RamsesSensorType {
   FAULT_CODE,
 };
 
+enum class RamsesBinarySensorType : uint8_t {
+  FILTER_ALARM,
+  FLAME_ACTIVE,
+  FAULT_ALARM,
+  WINDOW_OPEN,
+  BYPASS_ACTIVE,
+  BATTERY_LOW,
+  ACTUATOR_RELAY,
+};
+
 #ifdef USE_SENSOR
 class RamsesSensor : public sensor::Sensor,
                      public Component,
                      public RamsesEntityBase {
 public:
   RamsesSensor() = default;
+  explicit RamsesSensor(RamsesSensorType type) : sensor_type_(type) {}
 
   void set_zone_index(uint8_t zone) { this->zone_index_ = zone; }
   void set_relay_index(uint8_t relay) { this->relay_index_ = relay; }
   void set_sensor_type(RamsesSensorType type) { this->sensor_type_ = type; }
 
+  std::optional<uint8_t> get_zone_index() const { return this->zone_index_; }
+  std::optional<uint8_t> get_relay_index() const { return this->relay_index_; }
+  RamsesSensorType get_sensor_type() const { return this->sensor_type_; }
+
+  bool matches_opcode(uint16_t opcode) const override;
   void setup() override;
   void publish_state(float state);
 
@@ -74,21 +90,11 @@ protected:
   std::optional<uint8_t> relay_index_;
   RamsesSensorType sensor_type_{RamsesSensorType::ZONE_TEMPERATURE};
 };
-#endif
 
-// ----------------------------------------------------------------------
-// Base Binary Sensor Types for RAMSES Devices
-// ----------------------------------------------------------------------
-
-enum class RamsesBinarySensorType {
-  FILTER_ALARM,
-  FLAME_ACTIVE,
-  FAULT_ALARM,
-  WINDOW_OPEN,
-  BYPASS_ACTIVE,
-  BATTERY_LOW,
-  ACTUATOR_RELAY,
-};
+inline RamsesSensor *make_ramses_sensor(RamsesSensorType type) {
+  return new RamsesSensor(type);
+}
+#endif // USE_SENSOR
 
 #ifdef USE_BINARY_SENSOR
 class RamsesBinarySensor : public binary_sensor::BinarySensor,
@@ -96,12 +102,18 @@ class RamsesBinarySensor : public binary_sensor::BinarySensor,
                            public RamsesEntityBase {
 public:
   RamsesBinarySensor() = default;
+  explicit RamsesBinarySensor(RamsesBinarySensorType type)
+      : sensor_type_(type) {}
 
   void set_zone_index(uint8_t zone) { this->zone_index_ = zone; }
   void set_sensor_type(RamsesBinarySensorType type) {
     this->sensor_type_ = type;
   }
 
+  std::optional<uint8_t> get_zone_index() const { return this->zone_index_; }
+  RamsesBinarySensorType get_sensor_type() const { return this->sensor_type_; }
+
+  bool matches_opcode(uint16_t opcode) const override;
   void setup() override;
 
 protected:
@@ -110,7 +122,12 @@ protected:
   std::optional<uint8_t> zone_index_;
   RamsesBinarySensorType sensor_type_{RamsesBinarySensorType::FILTER_ALARM};
 };
-#endif
+
+inline RamsesBinarySensor *
+make_ramses_binary_sensor(RamsesBinarySensorType type) {
+  return new RamsesBinarySensor(type);
+}
+#endif // USE_BINARY_SENSOR
 
 } // namespace ramses_devices
 } // namespace esphome
