@@ -85,6 +85,12 @@ public:
   }
   void set_html(const char *html) { this->html_ = html; }
   const char *get_html() const { return this->html_; }
+  void set_html_gz(const uint8_t *html_gz, size_t len) {
+    this->html_gz_ = html_gz;
+    this->html_gz_len_ = len;
+  }
+  const uint8_t *get_html_gz() const { return this->html_gz_; }
+  size_t get_html_gz_len() const { return this->html_gz_len_; }
 
 #ifdef RAMSES_HAS_WEB_SERVER_BASE
   void set_web_server_base(web_server_base::WebServerBase *base) {
@@ -124,6 +130,8 @@ protected:
   uint32_t last_probe_time_{0};
   uint32_t last_dump_time_{0};
   const char *html_{nullptr};
+  const uint8_t *html_gz_{nullptr};
+  size_t html_gz_len_{0};
 
   std::map<std::string, DiscoveredDevice> devices_;
   std::deque<DiscoveredPacket> recent_packets_;

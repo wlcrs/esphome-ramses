@@ -622,11 +622,25 @@ public:
     char url_buf[AsyncWebServerRequest::URL_BUF_SIZE];
     StringRef u = request->url_to(url_buf);
     if (u == "/ramses" || u == "/discovery") {
-      const char *html = this->parent_->get_html();
-      if (html == nullptr) {
-        html = RAMSES_DISCOVERY_FALLBACK_HTML;
+      const uint8_t *html_gz = this->parent_->get_html_gz();
+      size_t html_gz_len = this->parent_->get_html_gz_len();
+      if (html_gz != nullptr && html_gz_len > 0) {
+#ifndef USE_ESP8266
+        AsyncWebServerResponse *response =
+            request->beginResponse(200, "text/html", html_gz, html_gz_len);
+#else
+        AsyncWebServerResponse *response =
+            request->beginResponse_P(200, "text/html", html_gz, html_gz_len);
+#endif
+        response->addHeader("Content-Encoding", "gzip");
+        request->send(response);
+      } else {
+        const char *html = this->parent_->get_html();
+        if (html == nullptr) {
+          html = RAMSES_DISCOVERY_FALLBACK_HTML;
+        }
+        request->send(200, "text/html", html);
       }
-      request->send(200, "text/html", html);
     } else if (u == "/ramses/devices.json") {
       uint32_t now = 0;
 #ifdef USE_ESP_IDF

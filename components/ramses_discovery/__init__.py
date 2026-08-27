@@ -1,3 +1,4 @@
+import gzip
 import shutil
 from pathlib import Path
 
@@ -7,7 +8,11 @@ from esphome.const import CONF_ID
 from esphome.core import CORE
 
 HTML_FILE = Path(__file__).parent / "discovery.html"
-HTML_CONTENT = HTML_FILE.read_text(encoding="utf-8") if HTML_FILE.exists() else None
+if HTML_FILE.exists():
+    HTML_BYTES = HTML_FILE.read_bytes()
+    HTML_GZ = gzip.compress(HTML_BYTES, mtime=0)
+else:
+    HTML_GZ = None
 
 try:
     from esphome.components import web_server_base
@@ -93,8 +98,16 @@ async def to_code(config):
     cg.add_define("USE_BUTTON")
     cg.add_define("ESPHOME_ENTITY_BUTTON_COUNT", 4)
 
-    if HTML_CONTENT is not None:
-        cg.add(var.set_html(cg.RawExpression(f'R"rawhtml({HTML_CONTENT})rawhtml"')))
+    if HTML_GZ is not None:
+        bytes_str = ", ".join(f"0x{b:02x}" for b in HTML_GZ)
+        cg.add_global(
+            cg.RawStatement(
+                f"static const uint8_t RAMSES_DISCOVERY_HTML_GZ[{len(HTML_GZ)}] = {{{bytes_str}}};"
+            )
+        )
+        cg.add(
+            var.set_html_gz(cg.RawExpression("RAMSES_DISCOVERY_HTML_GZ"), len(HTML_GZ))
+        )
 
     if HAS_WEB_SERVER and CONF_WEB_SERVER_BASE_ID in config:
         web_server = await cg.get_variable(config[CONF_WEB_SERVER_BASE_ID])
