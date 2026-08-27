@@ -416,6 +416,40 @@ RamsesNvsStorage::instantiate_from_json(const std::string &json_str,
       }
 #endif
 
+#ifndef RAMSES_FIELDS_TEMP
+#define RAMSES_FIELDS_TEMP 0
+#endif
+#ifndef RAMSES_FIELDS_HUMIDITY
+#define RAMSES_FIELDS_HUMIDITY 0
+#endif
+#ifndef RAMSES_FIELDS_CO2
+#define RAMSES_FIELDS_CO2 0
+#endif
+#ifndef RAMSES_FIELDS_PERCENT
+#define RAMSES_FIELDS_PERCENT 0
+#endif
+#ifndef RAMSES_FIELDS_BATTERY
+#define RAMSES_FIELDS_BATTERY 0
+#endif
+#ifndef RAMSES_FIELDS_MINUTES
+#define RAMSES_FIELDS_MINUTES 0
+#endif
+#ifndef RAMSES_FIELDS_DAYS
+#define RAMSES_FIELDS_DAYS 0
+#endif
+#ifndef RAMSES_FIELDS_BIN_PROBLEM
+#define RAMSES_FIELDS_BIN_PROBLEM 0
+#endif
+#ifndef RAMSES_FIELDS_BIN_WINDOW
+#define RAMSES_FIELDS_BIN_WINDOW 0
+#endif
+#ifndef RAMSES_FIELDS_BIN_RUNNING
+#define RAMSES_FIELDS_BIN_RUNNING 0
+#endif
+#ifndef RAMSES_FIELDS_BIN_BATTERY
+#define RAMSES_FIELDS_BIN_BATTERY 0
+#endif
+
 #ifdef USE_SENSOR
       if (json_get_bool(dev_block, "supply_temperature", false)) {
         auto *s = new ramses_devices::RamsesSensor();
@@ -424,9 +458,10 @@ RamsesNvsStorage::instantiate_from_json(const std::string &json_str,
         s->set_sensor_type(
             ramses_devices::RamsesSensorType::SUPPLY_TEMPERATURE);
         s->set_accuracy_decimals(1);
+        s->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
         s->setup();
         std::string n = dev_name + " Supply Temperature";
-        App.register_sensor(s, this->intern_string(n), 0, 0);
+        App.register_sensor(s, this->intern_string(n), 0, RAMSES_FIELDS_TEMP);
         count++;
       }
       if (json_get_bool(dev_block, "exhaust_temperature", false)) {
@@ -436,9 +471,10 @@ RamsesNvsStorage::instantiate_from_json(const std::string &json_str,
         s->set_sensor_type(
             ramses_devices::RamsesSensorType::EXHAUST_TEMPERATURE);
         s->set_accuracy_decimals(1);
+        s->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
         s->setup();
         std::string n = dev_name + " Exhaust Temperature";
-        App.register_sensor(s, this->intern_string(n), 0, 0);
+        App.register_sensor(s, this->intern_string(n), 0, RAMSES_FIELDS_TEMP);
         count++;
       }
       if (json_get_bool(
@@ -450,9 +486,10 @@ RamsesNvsStorage::instantiate_from_json(const std::string &json_str,
         s->set_sensor_type(
             ramses_devices::RamsesSensorType::AIR_QUALITY_TEMPERATURE);
         s->set_accuracy_decimals(1);
+        s->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
         s->setup();
         std::string n = dev_name + " Indoor Temperature";
-        App.register_sensor(s, this->intern_string(n), 0, 0);
+        App.register_sensor(s, this->intern_string(n), 0, RAMSES_FIELDS_TEMP);
         count++;
       }
       if (json_get_bool(dev_block, "outdoor_temperature", false)) {
@@ -462,9 +499,10 @@ RamsesNvsStorage::instantiate_from_json(const std::string &json_str,
         s->set_sensor_type(
             ramses_devices::RamsesSensorType::OUTDOOR_TEMPERATURE);
         s->set_accuracy_decimals(1);
+        s->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
         s->setup();
         std::string n = dev_name + " Outdoor Temperature";
-        App.register_sensor(s, this->intern_string(n), 0, 0);
+        App.register_sensor(s, this->intern_string(n), 0, RAMSES_FIELDS_TEMP);
         count++;
       }
       if (json_get_bool(dev_block, "bypass_position", false)) {
@@ -473,9 +511,11 @@ RamsesNvsStorage::instantiate_from_json(const std::string &json_str,
         s->set_device_address(addr);
         s->set_sensor_type(ramses_devices::RamsesSensorType::BYPASS_POSITION);
         s->set_accuracy_decimals(0);
+        s->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
         s->setup();
         std::string n = dev_name + " Bypass Position";
-        App.register_sensor(s, this->intern_string(n), 0, 0);
+        App.register_sensor(s, this->intern_string(n), 0,
+                            RAMSES_FIELDS_PERCENT);
         count++;
       }
       if (json_get_bool(dev_block, "supply_fan_speed", false)) {
@@ -484,9 +524,11 @@ RamsesNvsStorage::instantiate_from_json(const std::string &json_str,
         s->set_device_address(addr);
         s->set_sensor_type(ramses_devices::RamsesSensorType::SUPPLY_FAN_SPEED);
         s->set_accuracy_decimals(0);
+        s->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
         s->setup();
         std::string n = dev_name + " Supply Fan Speed";
-        App.register_sensor(s, this->intern_string(n), 0, 0);
+        App.register_sensor(s, this->intern_string(n), 0,
+                            RAMSES_FIELDS_PERCENT);
         count++;
       }
       if (json_get_bool(dev_block, "exhaust_fan_speed", false)) {
@@ -495,9 +537,11 @@ RamsesNvsStorage::instantiate_from_json(const std::string &json_str,
         s->set_device_address(addr);
         s->set_sensor_type(ramses_devices::RamsesSensorType::EXHAUST_FAN_SPEED);
         s->set_accuracy_decimals(0);
+        s->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
         s->setup();
         std::string n = dev_name + " Exhaust Fan Speed";
-        App.register_sensor(s, this->intern_string(n), 0, 0);
+        App.register_sensor(s, this->intern_string(n), 0,
+                            RAMSES_FIELDS_PERCENT);
         count++;
       }
       if (json_get_bool(dev_block, "remaining_mins",
@@ -507,9 +551,11 @@ RamsesNvsStorage::instantiate_from_json(const std::string &json_str,
         s->set_device_address(addr);
         s->set_sensor_type(ramses_devices::RamsesSensorType::REMAINING_MINS);
         s->set_accuracy_decimals(0);
+        s->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
         s->setup();
         std::string n = dev_name + " Remaining Timer";
-        App.register_sensor(s, this->intern_string(n), 0, 0);
+        App.register_sensor(s, this->intern_string(n), 0,
+                            RAMSES_FIELDS_MINUTES);
         count++;
       }
       if (json_get_bool(dev_block, "co2", false)) {
@@ -518,9 +564,10 @@ RamsesNvsStorage::instantiate_from_json(const std::string &json_str,
         s->set_device_address(addr);
         s->set_sensor_type(ramses_devices::RamsesSensorType::CO2);
         s->set_accuracy_decimals(0);
+        s->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
         s->setup();
         std::string n = dev_name + " CO2";
-        App.register_sensor(s, this->intern_string(n), 0, 0);
+        App.register_sensor(s, this->intern_string(n), 0, RAMSES_FIELDS_CO2);
         count++;
       }
       if (json_get_bool(dev_block, "indoor_humidity",
@@ -530,9 +577,11 @@ RamsesNvsStorage::instantiate_from_json(const std::string &json_str,
         s->set_device_address(addr);
         s->set_sensor_type(ramses_devices::RamsesSensorType::INDOOR_HUMIDITY);
         s->set_accuracy_decimals(0);
+        s->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
         s->setup();
         std::string n = dev_name + " Humidity";
-        App.register_sensor(s, this->intern_string(n), 0, 0);
+        App.register_sensor(s, this->intern_string(n), 0,
+                            RAMSES_FIELDS_HUMIDITY);
         count++;
       }
       if (json_get_bool(dev_block, "outdoor_humidity", false)) {
@@ -541,9 +590,11 @@ RamsesNvsStorage::instantiate_from_json(const std::string &json_str,
         s->set_device_address(addr);
         s->set_sensor_type(ramses_devices::RamsesSensorType::OUTDOOR_HUMIDITY);
         s->set_accuracy_decimals(0);
+        s->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
         s->setup();
         std::string n = dev_name + " Outdoor Humidity";
-        App.register_sensor(s, this->intern_string(n), 0, 0);
+        App.register_sensor(s, this->intern_string(n), 0,
+                            RAMSES_FIELDS_HUMIDITY);
         count++;
       }
       if (json_get_bool(dev_block, "filter_remaining_days", false)) {
@@ -553,9 +604,10 @@ RamsesNvsStorage::instantiate_from_json(const std::string &json_str,
         s->set_sensor_type(
             ramses_devices::RamsesSensorType::FILTER_REMAINING_DAYS);
         s->set_accuracy_decimals(0);
+        s->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
         s->setup();
         std::string n = dev_name + " Filter Remaining Days";
-        App.register_sensor(s, this->intern_string(n), 0, 0);
+        App.register_sensor(s, this->intern_string(n), 0, RAMSES_FIELDS_DAYS);
         count++;
       }
       if (json_get_bool(dev_block, "filter_lifetime_days", false)) {
@@ -565,9 +617,10 @@ RamsesNvsStorage::instantiate_from_json(const std::string &json_str,
         s->set_sensor_type(
             ramses_devices::RamsesSensorType::FILTER_LIFETIME_DAYS);
         s->set_accuracy_decimals(0);
+        s->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
         s->setup();
         std::string n = dev_name + " Filter Lifetime";
-        App.register_sensor(s, this->intern_string(n), 0, 0);
+        App.register_sensor(s, this->intern_string(n), 0, RAMSES_FIELDS_DAYS);
         count++;
       }
       if (json_get_bool(dev_block, "filter_remaining_percent", false)) {
@@ -577,9 +630,11 @@ RamsesNvsStorage::instantiate_from_json(const std::string &json_str,
         s->set_sensor_type(
             ramses_devices::RamsesSensorType::FILTER_REMAINING_PERCENT);
         s->set_accuracy_decimals(0);
+        s->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
         s->setup();
         std::string n = dev_name + " Filter Remaining Percent";
-        App.register_sensor(s, this->intern_string(n), 0, 0);
+        App.register_sensor(s, this->intern_string(n), 0,
+                            RAMSES_FIELDS_PERCENT);
         count++;
       }
 #endif
@@ -594,7 +649,8 @@ RamsesNvsStorage::instantiate_from_json(const std::string &json_str,
             ramses_devices::RamsesBinarySensorType::FILTER_ALARM);
         bs->setup();
         std::string n = dev_name + " Filter Warning";
-        App.register_binary_sensor(bs, this->intern_string(n), 0, 0);
+        App.register_binary_sensor(bs, this->intern_string(n), 0,
+                                   RAMSES_FIELDS_BIN_PROBLEM);
         count++;
       }
       if (json_get_bool(dev_block, "bypass_active", false)) {
@@ -620,9 +676,11 @@ RamsesNvsStorage::instantiate_from_json(const std::string &json_str,
         s->set_device_address(addr);
         s->set_sensor_type(ramses_devices::RamsesSensorType::HEAT_DEMAND);
         s->set_accuracy_decimals(0);
+        s->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
         s->setup();
         std::string n = dev_name + " Heat Demand";
-        App.register_sensor(s, this->intern_string(n), 0, 0);
+        App.register_sensor(s, this->intern_string(n), 0,
+                            RAMSES_FIELDS_PERCENT);
         count++;
       }
       if (json_get_bool(dev_block, "battery_level", true)) {
@@ -631,9 +689,11 @@ RamsesNvsStorage::instantiate_from_json(const std::string &json_str,
         s->set_device_address(addr);
         s->set_sensor_type(ramses_devices::RamsesSensorType::BATTERY_LEVEL);
         s->set_accuracy_decimals(0);
+        s->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
         s->setup();
         std::string n = dev_name + " Battery";
-        App.register_sensor(s, this->intern_string(n), 0, 0);
+        App.register_sensor(s, this->intern_string(n), 0,
+                            RAMSES_FIELDS_BATTERY);
         count++;
       }
 #endif
@@ -646,7 +706,8 @@ RamsesNvsStorage::instantiate_from_json(const std::string &json_str,
             ramses_devices::RamsesBinarySensorType::BATTERY_LOW);
         bs->setup();
         std::string n = dev_name + " Battery Low";
-        App.register_binary_sensor(bs, this->intern_string(n), 0, 0);
+        App.register_binary_sensor(bs, this->intern_string(n), 0,
+                                   RAMSES_FIELDS_BIN_BATTERY);
         count++;
       }
 #endif
@@ -662,9 +723,11 @@ RamsesNvsStorage::instantiate_from_json(const std::string &json_str,
         s->set_sensor_type(
             ramses_devices::RamsesSensorType::OPENTHERM_MODULATION);
         s->set_accuracy_decimals(0);
+        s->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
         s->setup();
         std::string n = dev_name + " Modulation";
-        App.register_sensor(s, this->intern_string(n), 0, 0);
+        App.register_sensor(s, this->intern_string(n), 0,
+                            RAMSES_FIELDS_PERCENT);
         count++;
       }
       if (json_get_bool(dev_block, "flow_temperature", true)) {
@@ -674,9 +737,10 @@ RamsesNvsStorage::instantiate_from_json(const std::string &json_str,
         s->set_sensor_type(
             ramses_devices::RamsesSensorType::OPENTHERM_FLOW_TEMP);
         s->set_accuracy_decimals(1);
+        s->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
         s->setup();
         std::string n = dev_name + " Flow Temp";
-        App.register_sensor(s, this->intern_string(n), 0, 0);
+        App.register_sensor(s, this->intern_string(n), 0, RAMSES_FIELDS_TEMP);
         count++;
       }
       if (json_get_bool(dev_block, "return_temperature", true)) {
@@ -686,9 +750,10 @@ RamsesNvsStorage::instantiate_from_json(const std::string &json_str,
         s->set_sensor_type(
             ramses_devices::RamsesSensorType::OPENTHERM_RETURN_TEMP);
         s->set_accuracy_decimals(1);
+        s->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
         s->setup();
         std::string n = dev_name + " Return Temp";
-        App.register_sensor(s, this->intern_string(n), 0, 0);
+        App.register_sensor(s, this->intern_string(n), 0, RAMSES_FIELDS_TEMP);
         count++;
       }
 #endif
@@ -701,7 +766,8 @@ RamsesNvsStorage::instantiate_from_json(const std::string &json_str,
             ramses_devices::RamsesBinarySensorType::FLAME_ACTIVE);
         bs->setup();
         std::string n = dev_name + " Flame";
-        App.register_binary_sensor(bs, this->intern_string(n), 0, 0);
+        App.register_binary_sensor(bs, this->intern_string(n), 0,
+                                   RAMSES_FIELDS_BIN_RUNNING);
         count++;
       }
       if (json_get_bool(dev_block, "fault_alarm", true)) {
@@ -712,7 +778,8 @@ RamsesNvsStorage::instantiate_from_json(const std::string &json_str,
             ramses_devices::RamsesBinarySensorType::FAULT_ALARM);
         bs->setup();
         std::string n = dev_name + " Fault Warning";
-        App.register_binary_sensor(bs, this->intern_string(n), 0, 0);
+        App.register_binary_sensor(bs, this->intern_string(n), 0,
+                                   RAMSES_FIELDS_BIN_PROBLEM);
         count++;
       }
 #endif
@@ -727,9 +794,11 @@ RamsesNvsStorage::instantiate_from_json(const std::string &json_str,
         s->set_device_address(addr);
         s->set_sensor_type(ramses_devices::RamsesSensorType::RELAY_DEMAND);
         s->set_accuracy_decimals(0);
+        s->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
         s->setup();
         std::string n = dev_name + " Demand";
-        App.register_sensor(s, this->intern_string(n), 0, 0);
+        App.register_sensor(s, this->intern_string(n), 0,
+                            RAMSES_FIELDS_PERCENT);
         count++;
       }
 #endif
@@ -745,9 +814,10 @@ RamsesNvsStorage::instantiate_from_json(const std::string &json_str,
         s->set_sensor_type(
             ramses_devices::RamsesSensorType::AIR_QUALITY_TEMPERATURE);
         s->set_accuracy_decimals(1);
+        s->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
         s->setup();
         std::string n = dev_name + " Temperature";
-        App.register_sensor(s, this->intern_string(n), 0, 0);
+        App.register_sensor(s, this->intern_string(n), 0, RAMSES_FIELDS_TEMP);
         count++;
       }
       if (json_get_bool(dev_block, "indoor_humidity", false)) {
@@ -756,9 +826,11 @@ RamsesNvsStorage::instantiate_from_json(const std::string &json_str,
         s->set_device_address(addr);
         s->set_sensor_type(ramses_devices::RamsesSensorType::INDOOR_HUMIDITY);
         s->set_accuracy_decimals(0);
+        s->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
         s->setup();
         std::string n = dev_name + " Humidity";
-        App.register_sensor(s, this->intern_string(n), 0, 0);
+        App.register_sensor(s, this->intern_string(n), 0,
+                            RAMSES_FIELDS_HUMIDITY);
         count++;
       }
       if (json_get_bool(dev_block, "co2", false)) {
@@ -767,9 +839,10 @@ RamsesNvsStorage::instantiate_from_json(const std::string &json_str,
         s->set_device_address(addr);
         s->set_sensor_type(ramses_devices::RamsesSensorType::CO2);
         s->set_accuracy_decimals(0);
+        s->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
         s->setup();
         std::string n = dev_name + " CO2";
-        App.register_sensor(s, this->intern_string(n), 0, 0);
+        App.register_sensor(s, this->intern_string(n), 0, RAMSES_FIELDS_CO2);
         count++;
       }
 #endif

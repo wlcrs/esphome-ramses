@@ -1,6 +1,7 @@
 #include "ramses_devices.h"
 #include "esphome/core/defines.h"
 #include "esphome/core/log.h"
+#include <cmath>
 
 #ifdef USE_ESP_IDF
 #include "components/ramses_esp/ramses_esp.h"
@@ -12,7 +13,43 @@ namespace ramses_devices {
 static const char *const TAG = "ramses_devices";
 
 #ifdef USE_SENSOR
-void RamsesSensor::setup() { this->setup_base(); }
+void RamsesSensor::setup() {
+  this->setup_base();
+  if (!this->has_accuracy_decimals()) {
+    switch (this->sensor_type_) {
+    case RamsesSensorType::ZONE_TEMPERATURE:
+    case RamsesSensorType::ZONE_SETPOINT:
+    case RamsesSensorType::OUTDOOR_TEMPERATURE:
+    case RamsesSensorType::SUPPLY_TEMPERATURE:
+    case RamsesSensorType::EXHAUST_TEMPERATURE:
+    case RamsesSensorType::AIR_QUALITY_TEMPERATURE:
+    case RamsesSensorType::OPENTHERM_FLOW_TEMP:
+    case RamsesSensorType::OPENTHERM_RETURN_TEMP:
+    case RamsesSensorType::UFH_MIN_TEMP:
+    case RamsesSensorType::UFH_MAX_TEMP:
+    case RamsesSensorType::SPIDER_TEMPERATURE:
+      this->set_accuracy_decimals(1);
+      break;
+    default:
+      this->set_accuracy_decimals(0);
+      break;
+    }
+  }
+  if (this->get_state_class() == sensor::STATE_CLASS_NONE) {
+    this->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
+  }
+}
+
+void RamsesSensor::publish_state(float state) {
+  int8_t decimals = this->get_accuracy_decimals();
+  if (decimals >= 0 && decimals <= 4) {
+    float factor = 1.0f;
+    for (int i = 0; i < decimals; i++)
+      factor *= 10.0f;
+    state = std::round(state * factor) / factor;
+  }
+  sensor::Sensor::publish_state(state);
+}
 
 void RamsesSensor::handle_message(const ramses_esp::RamsesMessage &msg) {
   uint16_t opcode = ((uint16_t)msg.opcode[0] << 8) | msg.opcode[1];

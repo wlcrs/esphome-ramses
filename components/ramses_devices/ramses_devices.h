@@ -65,6 +65,7 @@ public:
   void set_sensor_type(RamsesSensorType type) { this->sensor_type_ = type; }
 
   void setup() override;
+  void publish_state(float state);
 
 protected:
   void handle_message(const ramses_esp::RamsesMessage &msg) override;

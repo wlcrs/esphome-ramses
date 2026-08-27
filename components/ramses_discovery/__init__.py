@@ -98,6 +98,63 @@ async def to_code(config):
     cg.add_define("USE_BUTTON")
     cg.add_define("ESPHOME_ENTITY_BUTTON_COUNT", 4)
 
+    from esphome.const import (
+        DEVICE_CLASS_BATTERY,
+        DEVICE_CLASS_CARBON_DIOXIDE,
+        DEVICE_CLASS_DURATION,
+        DEVICE_CLASS_HUMIDITY,
+        DEVICE_CLASS_PROBLEM,
+        DEVICE_CLASS_RUNNING,
+        DEVICE_CLASS_TEMPERATURE,
+        DEVICE_CLASS_WINDOW,
+        UNIT_CELSIUS,
+        UNIT_MINUTE,
+        UNIT_PARTS_PER_MILLION,
+        UNIT_PERCENT,
+    )
+    from esphome.core.entity_helpers import (
+        _DC_SHIFT,
+        _UOM_SHIFT,
+        register_device_class,
+        register_unit_of_measurement,
+    )
+
+    cg.add_define("USE_ENTITY_DEVICE_CLASS")
+    cg.add_define("USE_ENTITY_UNIT_OF_MEASUREMENT")
+
+    uom_c = register_unit_of_measurement(UNIT_CELSIUS)
+    uom_pct = register_unit_of_measurement(UNIT_PERCENT)
+    uom_ppm = register_unit_of_measurement(UNIT_PARTS_PER_MILLION)
+    uom_min = register_unit_of_measurement(UNIT_MINUTE)
+    uom_d = register_unit_of_measurement("d")
+
+    dc_temp = register_device_class(DEVICE_CLASS_TEMPERATURE)
+    dc_hum = register_device_class(DEVICE_CLASS_HUMIDITY)
+    dc_co2 = register_device_class(DEVICE_CLASS_CARBON_DIOXIDE)
+    dc_batt = register_device_class(DEVICE_CLASS_BATTERY)
+    dc_dur = register_device_class(DEVICE_CLASS_DURATION)
+    dc_prob = register_device_class(DEVICE_CLASS_PROBLEM)
+    dc_win = register_device_class(DEVICE_CLASS_WINDOW)
+    dc_run = register_device_class(DEVICE_CLASS_RUNNING)
+
+    cg.add_define("RAMSES_FIELDS_TEMP", (dc_temp << _DC_SHIFT) | (uom_c << _UOM_SHIFT))
+    cg.add_define(
+        "RAMSES_FIELDS_HUMIDITY", (dc_hum << _DC_SHIFT) | (uom_pct << _UOM_SHIFT)
+    )
+    cg.add_define("RAMSES_FIELDS_CO2", (dc_co2 << _DC_SHIFT) | (uom_ppm << _UOM_SHIFT))
+    cg.add_define("RAMSES_FIELDS_PERCENT", (0 << _DC_SHIFT) | (uom_pct << _UOM_SHIFT))
+    cg.add_define(
+        "RAMSES_FIELDS_BATTERY", (dc_batt << _DC_SHIFT) | (uom_pct << _UOM_SHIFT)
+    )
+    cg.add_define(
+        "RAMSES_FIELDS_MINUTES", (dc_dur << _DC_SHIFT) | (uom_min << _UOM_SHIFT)
+    )
+    cg.add_define("RAMSES_FIELDS_DAYS", (dc_dur << _DC_SHIFT) | (uom_d << _UOM_SHIFT))
+    cg.add_define("RAMSES_FIELDS_BIN_PROBLEM", (dc_prob << _DC_SHIFT))
+    cg.add_define("RAMSES_FIELDS_BIN_WINDOW", (dc_win << _DC_SHIFT))
+    cg.add_define("RAMSES_FIELDS_BIN_RUNNING", (dc_run << _DC_SHIFT))
+    cg.add_define("RAMSES_FIELDS_BIN_BATTERY", (dc_batt << _DC_SHIFT))
+
     if HTML_GZ is not None:
         bytes_str = ", ".join(f"0x{b:02x}" for b in HTML_GZ)
         cg.add_global(
