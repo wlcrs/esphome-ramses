@@ -81,7 +81,7 @@ struct RamsesMessage {
   uint8_t n_payload{0};
   uint8_t payload[RAMSES_MAX_PAYLOAD]{0};
 
-  char timestamp[32]{0};
+  char timestamp[36]{0};
 
   void reset();
 

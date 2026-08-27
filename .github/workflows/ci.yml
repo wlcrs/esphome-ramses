@@ -83,10 +83,14 @@ jobs:
 
           if [ -n "$factory_bin" ] && [ -f "$factory_bin" ]; then
             cp "$factory_bin" "dist/${name}.factory.bin"
+            echo "Staged: dist/${name}.factory.bin"
           fi
           if [ -n "$ota_bin" ] && [ -f "$ota_bin" ]; then
             cp "$ota_bin" "dist/${name}.ota.bin"
+            echo "Staged: dist/${name}.ota.bin"
           fi
+
+          ls -la dist/
 
       - name: Upload Single Config Artifacts
         uses: actions/upload-artifact@v4

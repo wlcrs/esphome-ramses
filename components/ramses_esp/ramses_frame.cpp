@@ -319,10 +319,10 @@ void RamsesFrameHandler::handle_rx_done() {
   gettimeofday(&tv, nullptr);
   struct tm *nowtm = localtime(&tv.tv_sec);
   if (nowtm != nullptr) {
-    char ts_buf[24];
+    char ts_buf[20];
     strftime(ts_buf, sizeof(ts_buf), "%Y-%m-%dT%H:%M:%S", nowtm);
     snprintf(this->current_msg_.timestamp, sizeof(this->current_msg_.timestamp),
-             "%s.%03ld", ts_buf, tv.tv_usec / 1000);
+             "%s.%03d", ts_buf, static_cast<int>(tv.tv_usec / 1000));
   } else {
     this->current_msg_.timestamp[0] = '\0';
   }
