@@ -1,4 +1,10 @@
 #include "ramses_discovery.h"
+#if __has_include("esphome/components/ramses_discovery/ramses_nvs_storage.h")
+#include "esphome/components/ramses_discovery/ramses_nvs_storage.h"
+#else
+#include "components/ramses_discovery/ramses_nvs_storage.h"
+#endif
+#include "esphome/core/application.h"
 #include "esphome/core/log.h"
 #include <iomanip>
 #include <sstream>
@@ -599,7 +605,17 @@ public:
     char url_buf[AsyncWebServerRequest::URL_BUF_SIZE];
     StringRef u = request->url_to(url_buf);
     return u == "/ramses" || u == "/discovery" || u == "/ramses/devices.json" ||
-           u == "/ramses/probe";
+           u == "/ramses/probe" || u == "/ramses/api/config" ||
+           u == "/ramses/api/reset";
+  }
+
+  void handleBody(AsyncWebServerRequest *request, uint8_t *data, size_t len,
+                  size_t index, size_t total) override {
+    if (index == 0) {
+      this->body_buffer_.clear();
+      this->body_buffer_.reserve(total);
+    }
+    this->body_buffer_.append(reinterpret_cast<const char *>(data), len);
   }
 
   void handleRequest(AsyncWebServerRequest *request) override {
@@ -622,16 +638,54 @@ public:
       this->parent_->trigger_probe();
       request->send(200, "application/json",
                     "{\"status\":\"probing_triggered\"}");
+    } else if (u == "/ramses/api/config") {
+      if (request->method() == HTTP_GET) {
+        std::string cfg = RamsesNvsStorage::instance().load_config();
+        if (cfg.empty()) {
+          cfg = "{\"configured\":false,\"devices\":[]}";
+        }
+        request->send(200, "application/json", cfg.c_str());
+      } else {
+        bool ok = RamsesNvsStorage::instance().save_config(this->body_buffer_);
+        if (ok) {
+          request->send(200, "application/json",
+                        "{\"status\":\"ok\",\"message\":\"Configuration saved. "
+                        "Applying to Home Assistant...\",\"rebooting\":true}");
+          this->parent_->schedule_reboot(600);
+        } else {
+          request->send(500, "application/json",
+                        "{\"status\":\"error\",\"message\":\"Failed to save "
+                        "configuration.\"}");
+        }
+      }
+    } else if (u == "/ramses/api/reset") {
+      RamsesNvsStorage::instance().clear_config();
+      request->send(200, "application/json",
+                    "{\"status\":\"reset\",\"message\":\"Configuration reset. "
+                    "Restarting in discovery mode...\",\"rebooting\":true}");
+      this->parent_->schedule_reboot(600);
     }
   }
 
 protected:
   RamsesDiscoveryComponent *parent_;
+  std::string body_buffer_;
 };
 #endif
 
 void RamsesDiscoveryComponent::setup() {
   ESP_LOGI(TAG, "Initializing RAMSES Auto-Discovery engine...");
+
+  // Load active Home Assistant entities from stored configuration (if present)
+  size_t loaded_count =
+      RamsesNvsStorage::instance().load_and_register_entities(this->parent_);
+  if (loaded_count > 0) {
+    ESP_LOGI(TAG,
+             "Loaded %u active Home Assistant entity/entities from stored "
+             "configuration",
+             (unsigned)loaded_count);
+  }
+
 #ifdef USE_ESP_IDF
   if (this->parent_ != nullptr) {
     this->parent_->add_raw_message_callback(
@@ -653,12 +707,30 @@ void RamsesDiscoveryComponent::setup() {
 #endif
 }
 
+void RamsesDiscoveryComponent::schedule_reboot(uint32_t delay_ms) {
+#ifdef USE_ESP_IDF
+  this->set_timeout(delay_ms, []() { App.safe_reboot(); });
+#endif
+}
+
+bool RamsesDiscoveryComponent::is_nvs_configured() const {
+  return RamsesNvsStorage::instance().is_configured();
+}
+
 void RamsesDiscoveryComponent::loop() {
   uint32_t now = millis();
   if (this->active_probing_ &&
       (now - this->last_probe_time_ > this->probing_interval_ms_)) {
     this->last_probe_time_ = now;
     this->probe_pending();
+  }
+
+  // Drive loop() on dynamically instantiated entities (fan, etc.) that are
+  // registered as entities but not as ESPHome looping components (since
+  // App.register_component_() is protected and we cannot call it at runtime).
+  for (Component *comp :
+       RamsesNvsStorage::instance().get_dynamic_components()) {
+    comp->loop();
   }
 
   // Periodic discovery summary dump every 60s (brief status log)
@@ -1467,6 +1539,24 @@ std::string RamsesDiscoveryComponent::generate_json(uint32_t now_ms) const {
   std::stringstream ss;
   ss << "{\n";
   ss << "  \"device_count\": " << this->devices_.size() << ",\n";
+  ss << "  \"is_configured\": "
+     << (RamsesNvsStorage::instance().is_configured() ? "true" : "false")
+     << ",\n";
+  ss << "  \"configured_entities\": "
+     << RamsesNvsStorage::instance().get_entity_count() << ",\n";
+
+  const auto &configured_addrs =
+      RamsesNvsStorage::instance().get_configured_addresses();
+  ss << "  \"configured_addresses\": [";
+  bool first_ca = true;
+  for (const auto &ca : configured_addrs) {
+    if (!first_ca)
+      ss << ", ";
+    first_ca = false;
+    ss << "\"" << json_escape(ca) << "\"";
+  }
+  ss << "],\n";
+
   ss << "  \"devices\": [\n";
 
   bool first_dev = true;
@@ -1504,6 +1594,9 @@ std::string RamsesDiscoveryComponent::generate_json(uint32_t now_ms) const {
       type_label = "BDR91 Relay";
     }
 
+    bool is_saved = RamsesNvsStorage::instance().is_device_configured(
+        dev.address.to_string());
+
     ss << "    {\n";
     ss << "      \"address\": \"" << dev.address.to_string() << "\",\n";
     ss << "      \"device_type\": \"" << json_escape(dev.device_type)
@@ -1517,6 +1610,7 @@ std::string RamsesDiscoveryComponent::generate_json(uint32_t now_ms) const {
     ss << "      \"rssi\": " << (int)dev.last_rssi << ",\n";
     ss << "      \"last_seen_sec\": " << last_seen_ago_sec << ",\n";
     ss << "      \"has_dhw\": " << (dev.has_dhw ? "true" : "false") << ",\n";
+    ss << "      \"is_saved\": " << (is_saved ? "true" : "false") << ",\n";
 
     // Zones
     ss << "      \"zones\": [";
@@ -1554,6 +1648,30 @@ std::string RamsesDiscoveryComponent::generate_json(uint32_t now_ms) const {
     std::string dev_yaml = this->generate_device_yaml(dev);
     ss << "      \"yaml\": \"" << json_escape(dev_yaml) << "\"\n";
     ss << "    }";
+  }
+
+  // Include any configured devices not yet observed on RF during this session
+  for (const auto &ca : configured_addrs) {
+    if (this->devices_.count(ca) == 0) {
+      if (!first_dev)
+        ss << ",\n";
+      first_dev = false;
+      ss << "    {\n";
+      ss << "      \"address\": \"" << json_escape(ca) << "\",\n";
+      ss << "      \"device_type\": \"saved\",\n";
+      ss << "      \"type_label\": \"Configured Device\",\n";
+      ss << "      \"oem_name\": \"\",\n";
+      ss << "      \"associated_remote\": \"\",\n";
+      ss << "      \"associated_target\": \"\",\n";
+      ss << "      \"rssi\": 0,\n";
+      ss << "      \"last_seen_sec\": 0,\n";
+      ss << "      \"has_dhw\": false,\n";
+      ss << "      \"is_saved\": true,\n";
+      ss << "      \"zones\": [],\n";
+      ss << "      \"telemetry\": {},\n";
+      ss << "      \"yaml\": \"\"\n";
+      ss << "    }";
+    }
   }
 
   ss << "\n  ],\n";

@@ -463,8 +463,7 @@ void RamsesBinarySensor::handle_message(const ramses_esp::RamsesMessage &msg) {
     break;
   }
 }
+#endif // USE_BINARY_SENSOR
 
 } // namespace ramses_devices
 } // namespace esphome
-
-#endif // USE_BINARY_SENSOR

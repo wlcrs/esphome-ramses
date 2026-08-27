@@ -1,8 +1,10 @@
+import shutil
 from pathlib import Path
 
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.const import CONF_ID
+from esphome.core import CORE
 
 HTML_FILE = Path(__file__).parent / "discovery.html"
 HTML_CONTENT = HTML_FILE.read_text(encoding="utf-8") if HTML_FILE.exists() else None
@@ -15,7 +17,16 @@ try:
 except ImportError:
     HAS_WEB_SERVER = False
 
-AUTO_LOAD = ["ramses_esp"]
+AUTO_LOAD = [
+    "ramses_esp",
+    "sensor",
+    "binary_sensor",
+    "climate",
+    "fan",
+    "water_heater",
+    "button",
+    "json",
+]
 DEPENDENCIES = ["ramses_esp"]
 
 ramses_esp_ns = cg.esphome_ns.namespace("ramses_esp")
@@ -48,6 +59,18 @@ CONFIG_SCHEMA = cv.Schema(schema_dict).extend(cv.COMPONENT_SCHEMA)
 
 
 async def to_code(config):
+    devices_dir = Path(__file__).resolve().parent.parent / "ramses_devices"
+    if devices_dir.exists():
+        for dst_sub in (
+            "components/ramses_devices",
+            "esphome/components/ramses_devices",
+        ):
+            dst_dir = CORE.relative_src_path(dst_sub)
+            dst_dir.mkdir(parents=True, exist_ok=True)
+            for ext in ("*.h", "*.cpp"):
+                for f in devices_dir.glob(ext):
+                    shutil.copy2(f, dst_dir / f.name)
+
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
 
@@ -56,6 +79,19 @@ async def to_code(config):
 
     cg.add(var.set_active_probing(config[CONF_ACTIVE_PROBING]))
     cg.add(var.set_probing_interval(config[CONF_PROBING_INTERVAL]))
+
+    cg.add_define("USE_SENSOR")
+    cg.add_define("ESPHOME_ENTITY_SENSOR_COUNT", 32)
+    cg.add_define("USE_BINARY_SENSOR")
+    cg.add_define("ESPHOME_ENTITY_BINARY_SENSOR_COUNT", 16)
+    cg.add_define("USE_CLIMATE")
+    cg.add_define("ESPHOME_ENTITY_CLIMATE_COUNT", 16)
+    cg.add_define("USE_FAN")
+    cg.add_define("ESPHOME_ENTITY_FAN_COUNT", 8)
+    cg.add_define("USE_WATER_HEATER")
+    cg.add_define("ESPHOME_ENTITY_WATER_HEATER_COUNT", 4)
+    cg.add_define("USE_BUTTON")
+    cg.add_define("ESPHOME_ENTITY_BUTTON_COUNT", 4)
 
     if HTML_CONTENT is not None:
         cg.add(var.set_html(cg.RawExpression(f'R"rawhtml({HTML_CONTENT})rawhtml"')))

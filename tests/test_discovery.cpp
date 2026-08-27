@@ -1,5 +1,6 @@
 #include "components/ramses_discovery/ramses_discovery.h"
 #include "components/ramses_esp/ramses_decoder.h"
+#include "esphome/core/application.h"
 #include <cassert>
 #include <filesystem>
 #include <fstream>
@@ -12,6 +13,8 @@ namespace fs = std::filesystem;
 using namespace esphome;
 using namespace esphome::ramses_esp;
 using namespace esphome::ramses_discovery;
+
+Application esphome::App;
 
 static int tests_run = 0;
 static int tests_passed = 0;

@@ -96,6 +96,25 @@ add_executable(test_discovery
     ../components/ramses_esp/ramses_codec.cpp
     ../components/ramses_esp/ramses_message.cpp
     ../components/ramses_esp/ramses_decoder.cpp
+    ../components/ramses_devices/ramses_devices.cpp
+    ../components/ramses_devices/ramses_climate.cpp
+    ../components/ramses_devices/ramses_fan.cpp
+    ../components/ramses_devices/ramses_water_heater.cpp
+    ../components/ramses_discovery/ramses_nvs_storage.cpp
+    ../components/ramses_discovery/ramses_discovery.cpp
+)
+
+add_executable(test_nvs_storage
+    test_nvs_storage.cpp
+    mock/mock_ramses_esp.cpp
+    ../components/ramses_esp/ramses_codec.cpp
+    ../components/ramses_esp/ramses_message.cpp
+    ../components/ramses_esp/ramses_decoder.cpp
+    ../components/ramses_devices/ramses_devices.cpp
+    ../components/ramses_devices/ramses_climate.cpp
+    ../components/ramses_devices/ramses_fan.cpp
+    ../components/ramses_devices/ramses_water_heater.cpp
+    ../components/ramses_discovery/ramses_nvs_storage.cpp
     ../components/ramses_discovery/ramses_discovery.cpp
 )
 
@@ -111,3 +130,4 @@ add_test(NAME DevicesFanTest COMMAND test_devices_fan)
 add_test(NAME DevicesWaterHeaterTest COMMAND test_devices_water_heater)
 add_test(NAME ParserCorpusTest COMMAND test_parser_corpus "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/corpus")
 add_test(NAME DiscoveryTest COMMAND test_discovery)
+add_test(NAME NvsStorageTest COMMAND test_nvs_storage)

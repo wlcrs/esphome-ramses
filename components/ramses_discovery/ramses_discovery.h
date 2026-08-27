@@ -104,6 +104,7 @@ public:
   std::string generate_device_yaml(const DiscoveredDevice &dev) const;
   std::string generate_json(uint32_t now_ms = 0) const;
   void dump_yaml() const;
+  void schedule_reboot(uint32_t delay_ms = 500);
 
   const std::map<std::string, DiscoveredDevice> &get_devices() const {
     return this->devices_;
@@ -111,6 +112,7 @@ public:
   const std::deque<DiscoveredPacket> &get_recent_packets() const {
     return this->recent_packets_;
   }
+  bool is_nvs_configured() const;
 
 protected:
   ramses_esp::RamsesESPComponent *parent_{nullptr};
