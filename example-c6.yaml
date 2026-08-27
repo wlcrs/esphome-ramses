@@ -33,12 +33,13 @@ ota:
 logger:
   level: DEBUG
 
+# Enable Improv Wi-Fi over Web Serial (for web.esphome.io)
+improv_serial:
+
+# Enable Wi-Fi & Web Server to access the Discovery Dashboard in browser at http://<esp-ip>/ramses
 wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
   ap:
     ssid: "ESPHome-RAMSES-AP"
-    password: !secret wifi_ap_password
 
 captive_portal:
 
