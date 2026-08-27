@@ -1,14 +1,15 @@
 # ==============================================================================
-# Target Hardware: Elecram ESP32-C6 WiFi/Zigbee to 855–925 MHz Wireless Interface Board
+# Target Hardware: Elecram ESP32-C6 WiFi/Zigbee to 855–925 MHz Wireless Interface Board (Auto-Discovery Mode)
 # Product Page: https://elecram.com/products/esp32-c6-wifi-zigbee-to-855-925mhz-wireless
 # Repository: https://github.com/Elecram/ramses_esp
 # Pinout: CS=GPIO18, SCK=GPIO6, MOSI=GPIO7, MISO=GPIO2, GDO0=GPIO15, GDO2=GPIO14, LED=GPIO19
+# Live Web Discovery Table: http://<esp-ip>/ramses
 # ==============================================================================
 
 
 substitutions:
-  name: "esphome-ramses"
-  friendly_name: "ESPHome RAMSES Gateway"
+  name: "esphome-ramses-discovery"
+  friendly_name: "RAMSES ESP Discovery Engine"
 
 esphome:
   name: ${name}
@@ -20,18 +21,16 @@ esp32:
   framework:
     type: esp-idf
 
+
 external_components:
   - source: components
-    components: [ ramses_esp ]
+    components: [ ramses_esp, ramses_devices, ramses_discovery ]
 
-# Enable Home Assistant API & Web Server / Logging / OTA
 api:
 
 ota:
   - platform: esphome
-
-logger:
-  level: DEBUG
+  - platform: web_server
 
 # Enable Improv Wi-Fi over Web Serial (for web.esphome.io)
 improv_serial:
@@ -43,9 +42,15 @@ wifi:
 
 captive_portal:
 
-# ==============================================================================
-# Activity LED on GPIO19 (Flashes on RF packet RX/TX)
-# ==============================================================================
+# Embedded Web Server (enables live web discovery table at http://<esp-ip>/ramses)
+web_server:
+  port: 80
+
+
+logger:
+  level: DEBUG
+
+# Elecram / IMMRMKW ESP32-C6 Board Activity LED on GPIO19
 output:
   - platform: gpio
     pin: GPIO19
@@ -57,8 +62,9 @@ light:
     output: led_output
     id: activity_led
     restore_mode: ALWAYS_OFF
+    internal: true
 
-# Fast 40ms pulse script triggered on RF packet events
+
 script:
   - id: pulse_activity_led
     mode: restart
@@ -67,21 +73,22 @@ script:
       - delay: 40ms
       - light.turn_off: activity_led
 
-# RAMSES II Transceiver & HGI80 TCP Gateway (Port 6638)
+# RAMSES II Physical / MAC Transceiver (Elecram ESP32-C6 Pinout)
 ramses_esp:
   id: ramses_hub
-  cs_pin: GPIO18
   sck_pin: GPIO6
-  mosi_pin: GPIO7
   miso_pin: GPIO2
+  mosi_pin: GPIO7
+  cs_pin: GPIO18
   gdo0_pin: GPIO15 # CC1101 GDO0 (TX)
   gdo2_pin: GPIO14 # CC1101 GDO2 (Demodulated RX Data)
-  uart_num: 1      # ESP32 hardware UART peripheral (default: 1)
-  port: 6638       # TCP port for Home Assistant ramses_rf / ramses_cc (socket://<ip>:6638)
+  port: 6638
   on_message:
-    - lambda: |-
-        ESP_LOGD("ramses", "HGI80: %s", x.c_str());
-    # Flash the activity LED on incoming RAMSES frame
     - script.execute: pulse_activity_led
+
+ramses_discovery:
+  ramses_esp_id: ramses_hub
+  active_probing: true
+  probing_interval: 30s
 
 

@@ -50,24 +50,65 @@ jobs:
   esphome-compile:
     name: ESPHome ESP-IDF Firmware Compilation
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - esp32-c6-ramses.yaml
+          - esp32-c6-ramses-mqtt.yaml
+          - esp32-c6-ramses-discovery.yaml
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.14"
 
       - name: Install ESPHome
         run: |
           python -m pip install --upgrade pip
           pip install esphome
 
-      - name: Validate Core Hub Config & Compile
-        run: esphome compile example-c6.yaml
+      - name: Compile and Stage Firmware
+        run: |
+          yaml_file="${{ matrix.config }}"
+          name="${yaml_file%.yaml}"
+          mkdir -p dist
 
-      - name: Validate Devices Platforms Config & Compile
-        run: esphome compile example-c6-devices.yaml
+          esphome compile "${yaml_file}"
 
-      - name: Validate Auto-Discovery Config & Compile
-        run: esphome compile example-c6-discovery.yaml
+          factory_bin=$(find .esphome/build -name "firmware.factory.bin" -type f | head -n 1)
+          ota_bin=$(find .esphome/build -name "firmware.ota.bin" -type f | head -n 1)
+
+          if [ -n "$factory_bin" ] && [ -f "$factory_bin" ]; then
+            cp "$factory_bin" "dist/${name}.factory.bin"
+          fi
+          if [ -n "$ota_bin" ] && [ -f "$ota_bin" ]; then
+            cp "$ota_bin" "dist/${name}.ota.bin"
+          fi
+
+      - name: Upload Single Config Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-${{ matrix.config }}
+          path: dist/*
+          retention-days: 14
+          if-no-files-found: error
+
+  release:
+    needs: esphome-compile
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: firmware-*
+          path: dist
+          merge-multiple: true
+
+      - name: Release Firmware Binaries
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*

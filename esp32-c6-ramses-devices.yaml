@@ -15,6 +15,7 @@ esphome:
     - id: ramses_13_123456
       name: "BDR91 Relay 13:123456"
 
+
 esp32:
   board: esp32-c6-devkitc-1
   variant: esp32c6
@@ -27,6 +28,10 @@ external_components:
 
 logger:
   level: DEBUG
+
+ota:
+  - platform: esphome
+  - platform: web_server
 
 output:
   - platform: gpio
