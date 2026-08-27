@@ -1,4 +1,8 @@
 #include "ramses_water_heater.h"
+#include "esphome/core/defines.h"
+
+#ifdef USE_WATER_HEATER
+
 #include "esphome/core/log.h"
 
 #ifdef USE_ESP_IDF
@@ -10,16 +14,7 @@ namespace ramses_devices {
 
 static const char *const TAG = "ramses_water_heater";
 
-void RamsesWaterHeater::setup() {
-#ifdef USE_ESP_IDF
-  if (this->parent_ != nullptr) {
-    this->parent_->add_raw_message_callback(
-        [this](const ramses_esp::RamsesMessage &msg) {
-          this->on_message(msg);
-        });
-  }
-#endif
-}
+void RamsesWaterHeater::setup() { this->setup_base(); }
 
 water_heater::WaterHeaterTraits RamsesWaterHeater::traits() {
   water_heater::WaterHeaterTraits traits;
@@ -35,28 +30,7 @@ water_heater::WaterHeaterTraits RamsesWaterHeater::traits() {
   return traits;
 }
 
-static inline bool
-dhw_address_matches(const ramses_esp::RamsesAddress &configured,
-                    const ramses_esp::RamsesMessage &msg) {
-  if (!configured.is_valid)
-    return true;
-  ramses_esp::RamsesAddress src =
-      ramses_esp::RamsesAddress::from_bytes(msg.addr[0]);
-  if (src == configured)
-    return true;
-  if (msg.fields & RAMSES_F_ADDR2) {
-    ramses_esp::RamsesAddress targ =
-        ramses_esp::RamsesAddress::from_bytes(msg.addr[2]);
-    if (targ == configured)
-      return true;
-  }
-  return false;
-}
-
-void RamsesWaterHeater::on_message(const ramses_esp::RamsesMessage &msg) {
-  if (!dhw_address_matches(this->controller_address_, msg))
-    return;
-
+void RamsesWaterHeater::handle_message(const ramses_esp::RamsesMessage &msg) {
   uint16_t opcode = ((uint16_t)msg.opcode[0] << 8) | msg.opcode[1];
 
   if (opcode == 0x1260) {
@@ -92,7 +66,7 @@ void RamsesWaterHeater::control(const water_heater::WaterHeaterCall &call) {
 
     ramses_esp::RamsesMessage msg =
         ramses_esp::DhwStatePayload::encode_write_setpoint(
-            hgi_src, this->controller_address_, target);
+            hgi_src, this->device_address_, target);
 
 #ifdef USE_ESP_IDF
     if (this->parent_ != nullptr) {
@@ -115,7 +89,7 @@ void RamsesWaterHeater::control(const water_heater::WaterHeaterCall &call) {
     }
     ramses_esp::RamsesMessage msg =
         ramses_esp::DhwStatePayload::encode_write_mode(
-            hgi_src, this->controller_address_, operation_mode);
+            hgi_src, this->device_address_, operation_mode);
 
 #ifdef USE_ESP_IDF
     if (this->parent_ != nullptr) {
@@ -130,3 +104,5 @@ void RamsesWaterHeater::control(const water_heater::WaterHeaterCall &call) {
 
 } // namespace ramses_devices
 } // namespace esphome
+
+#endif // USE_WATER_HEATER

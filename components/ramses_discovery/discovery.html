@@ -1,0 +1,1681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESPHome &bull; RAMSES II Discovery</title>
+  <style>
+    :root {
+      /* Light theme tokens (Clean ESPHome/Material design) */
+      --bg: #f5f6f8;
+      --card-bg: #ffffff;
+      --card-header-bg: #f8fafc;
+      --card-border: #e2e8f0;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --text-dim: #94a3b8;
+      --primary: #03a9f4;
+      --primary-hover: #0288d1;
+      --primary-dark: #01579b;
+      --accent: #03a9f4;
+      --esphome-orange: #ff9800;
+      --success: #16a34a;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --code-bg: #f1f5f9;
+      --input-bg: #ffffff;
+      --input-border: #cbd5e1;
+      --row-hover: rgba(0, 0, 0, 0.035);
+      --row-ignored: rgba(0, 0, 0, 0.06);
+      --btn-sec-bg: #f1f5f9;
+      --btn-sec-hover: #e2e8f0;
+      --table-th-bg: rgba(0, 0, 0, 0.03);
+      --foldout-bg: #f8fafc;
+      --field-card-bg: #ffffff;
+      --raw-box-bg: #f1f5f9;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #111111;
+        --card-bg: #1c1c1e;
+        --card-header-bg: #242426;
+        --card-border: #2c2c2e;
+        --text: #f2f2f7;
+        --text-muted: #8e8e93;
+        --text-dim: #636366;
+        --primary: #03a9f4;
+        --primary-hover: #0288d1;
+        --primary-dark: #01579b;
+        --accent: #03a9f4;
+        --esphome-orange: #ff9800;
+        --success: #4caf50;
+        --warning: #ff9800;
+        --danger: #f44336;
+        --code-bg: #151517;
+        --input-bg: #151517;
+        --input-border: #3a3a3c;
+        --row-hover: rgba(255, 255, 255, 0.035);
+        --row-ignored: rgba(0, 0, 0, 0.4);
+        --btn-sec-bg: #2c2c2e;
+        --btn-sec-hover: #3a3a3c;
+        --table-th-bg: rgba(0, 0, 0, 0.25);
+        --foldout-bg: #151517;
+        --field-card-bg: #1f1f23;
+        --raw-box-bg: #0e0e10;
+      }
+    }
+
+    :root[data-theme="dark"] {
+      --bg: #111111;
+      --card-bg: #1c1c1e;
+      --card-header-bg: #242426;
+      --card-border: #2c2c2e;
+      --text: #f2f2f7;
+      --text-muted: #8e8e93;
+      --text-dim: #636366;
+      --primary: #03a9f4;
+      --primary-hover: #0288d1;
+      --primary-dark: #01579b;
+      --accent: #03a9f4;
+      --esphome-orange: #ff9800;
+      --success: #4caf50;
+      --warning: #ff9800;
+      --danger: #f44336;
+      --code-bg: #151517;
+      --input-bg: #151517;
+      --input-border: #3a3a3c;
+      --row-hover: rgba(255, 255, 255, 0.035);
+      --row-ignored: rgba(0, 0, 0, 0.4);
+      --btn-sec-bg: #2c2c2e;
+      --btn-sec-hover: #3a3a3c;
+      --table-th-bg: rgba(0, 0, 0, 0.25);
+      --foldout-bg: #151517;
+      --field-card-bg: #1f1f23;
+      --raw-box-bg: #0e0e10;
+    }
+
+    :root[data-theme="light"] {
+      --bg: #f5f6f8;
+      --card-bg: #ffffff;
+      --card-header-bg: #f8fafc;
+      --card-border: #e2e8f0;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --text-dim: #94a3b8;
+      --primary: #03a9f4;
+      --primary-hover: #0288d1;
+      --primary-dark: #01579b;
+      --accent: #03a9f4;
+      --esphome-orange: #ff9800;
+      --success: #16a34a;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --code-bg: #f1f5f9;
+      --input-bg: #ffffff;
+      --input-border: #cbd5e1;
+      --row-hover: rgba(0, 0, 0, 0.035);
+      --row-ignored: rgba(0, 0, 0, 0.06);
+      --btn-sec-bg: #f1f5f9;
+      --btn-sec-hover: #e2e8f0;
+      --table-th-bg: rgba(0, 0, 0, 0.03);
+      --foldout-bg: #f8fafc;
+      --field-card-bg: #ffffff;
+      --raw-box-bg: #f1f5f9;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 1.5rem;
+      -webkit-font-smoothing: antialiased;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+    .container { max-width: 1280px; margin: 0 auto; }
+    
+    /* ESPHome Navigation / App Bar Header */
+    header {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .title-group { display: flex; align-items: center; gap: 0.85rem; }
+    .brand-icon {
+      width: 36px;
+      height: 36px;
+      background: rgba(3, 169, 244, 0.12);
+      border: 1px solid rgba(3, 169, 244, 0.3);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary);
+    }
+    .brand-icon svg { width: 22px; height: 22px; fill: currentColor; }
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .esphome-tag {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      background: rgba(3, 169, 244, 0.15);
+      color: var(--primary);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      border: 1px solid rgba(3, 169, 244, 0.3);
+    }
+    .subtitle {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-top: 0.15rem;
+    }
+    
+    .status-pill {
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 0.2rem 0.55rem;
+      border-radius: 9999px;
+      background: rgba(76, 175, 80, 0.15);
+      color: var(--success);
+      border: 1px solid rgba(76, 175, 80, 0.25);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .status-pill.paused {
+      background: rgba(255, 152, 0, 0.15);
+      color: var(--warning);
+      border-color: rgba(255, 152, 0, 0.25);
+    }
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+    
+    .actions-bar { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+    
+    /* ESPHome Button Styles */
+    button {
+      background: var(--primary);
+      color: #ffffff;
+      border: 1px solid transparent;
+      padding: 0.45rem 0.85rem;
+      border-radius: 4px;
+      font-size: 0.82rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      transition: background 0.15s ease, border-color 0.15s ease;
+      font-family: inherit;
+    }
+    button:hover { background: var(--primary-hover); }
+    button:active { transform: translateY(1px); }
+    button.secondary {
+      background: var(--btn-sec-bg);
+      color: var(--text);
+      border: 1px solid var(--input-border);
+    }
+    button.secondary:hover { background: var(--btn-sec-hover); }
+    button.danger { background: #d32f2f; }
+    button.danger:hover { background: #b71c1c; }
+    button.warning {
+      background: rgba(255, 152, 0, 0.12);
+      color: var(--warning);
+      border: 1px solid rgba(255, 152, 0, 0.3);
+    }
+    button.warning:hover { background: rgba(255, 152, 0, 0.2); }
+    button.small { padding: 0.25rem 0.55rem; font-size: 0.75rem; }
+    
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.85rem;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+    .search-box {
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      color: var(--text);
+      padding: 0.45rem 0.75rem;
+      border-radius: 4px;
+      font-size: 0.82rem;
+      min-width: 240px;
+      font-family: inherit;
+    }
+    .search-box:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+    
+    .filter-label {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      cursor: pointer;
+      user-select: none;
+    }
+    
+    /* ESPHome Cards */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    }
+    .card-header {
+      padding: 0.75rem 1.25rem;
+      background: var(--card-header-bg);
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .card-title {
+      font-weight: 600;
+      font-size: 0.95rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--text);
+    }
+    
+    /* Tables */
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th {
+      padding: 0.65rem 1rem;
+      background: var(--table-th-bg);
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+      border-bottom: 1px solid var(--card-border);
+    }
+    td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--card-border);
+      font-size: 0.84rem;
+      vertical-align: middle;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--row-hover); }
+    
+    tr.ignored-row {
+      background: var(--row-ignored);
+      opacity: 0.6;
+    }
+    tr.ignored-row td {
+      filter: grayscale(30%);
+    }
+    
+    /* Badges & Chips */
+    .addr-badge {
+      font-family: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-weight: 600;
+      background: rgba(3, 169, 244, 0.12);
+      color: var(--primary);
+      padding: 0.2rem 0.45rem;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      border: 1px solid rgba(3, 169, 244, 0.25);
+      white-space: nowrap;
+    }
+    .badge {
+      display: inline-block;
+      padding: 0.18rem 0.45rem;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: capitalize;
+      white-space: nowrap;
+    }
+    .badge-controller { background: rgba(129, 140, 248, 0.15); color: #818cf8; border: 1px solid rgba(129, 140, 248, 0.25); }
+    .badge-hvac { background: rgba(0, 188, 212, 0.15); color: #00bcd4; border: 1px solid rgba(0, 188, 212, 0.25); }
+    .badge-remote { background: rgba(33, 150, 243, 0.15); color: #2196f3; border: 1px solid rgba(33, 150, 243, 0.25); }
+    .badge-trv { background: rgba(255, 152, 0, 0.15); color: #ff9800; border: 1px solid rgba(255, 152, 0, 0.25); }
+    .badge-opentherm { background: rgba(244, 67, 54, 0.15); color: #f44336; border: 1px solid rgba(244, 67, 54, 0.25); }
+    .badge-sensor { background: rgba(158, 158, 158, 0.15); color: var(--text-muted); border: 1px solid rgba(158, 158, 158, 0.25); }
+    .badge-relay { background: rgba(156, 39, 176, 0.15); color: #9c27b0; border: 1px solid rgba(156, 39, 176, 0.25); }
+    .badge-ignored { background: rgba(244, 67, 54, 0.15); color: #f44336; border: 1px solid rgba(244, 67, 54, 0.3); }
+
+    .verb-badge {
+      font-family: "Roboto Mono", ui-monospace, monospace;
+      font-weight: 700;
+      padding: 0.12rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      display: inline-block;
+      text-align: center;
+      min-width: 1.8rem;
+    }
+    .verb-i { background: rgba(3, 169, 244, 0.15); color: #03a9f4; border: 1px solid rgba(3, 169, 244, 0.25); }
+    .verb-rp { background: rgba(156, 39, 176, 0.15); color: #ab47bc; border: 1px solid rgba(156, 39, 176, 0.25); }
+    .verb-rq { background: rgba(255, 152, 0, 0.15); color: #ff9800; border: 1px solid rgba(255, 152, 0, 0.25); }
+    .verb-w { background: rgba(76, 175, 80, 0.15); color: #4caf50; border: 1px solid rgba(76, 175, 80, 0.25); }
+
+    .traffic-row {
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s ease;
+    }
+    .traffic-row:hover {
+      background: rgba(3, 169, 244, 0.05) !important;
+    }
+    .traffic-row.expanded {
+      background: rgba(3, 169, 244, 0.08) !important;
+      border-left: 3px solid var(--primary);
+    }
+    
+    /* Fold-Out Breakdown */
+    .foldout-container {
+      padding: 0.85rem 1.25rem;
+      background: var(--foldout-bg);
+      border-bottom: 1px solid var(--card-border);
+    }
+    .foldout-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.65rem;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .foldout-title {
+      font-size: 0.84rem;
+      font-weight: 600;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .fields-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+    .field-card {
+      background: var(--field-card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 4px;
+      padding: 0.45rem 0.65rem;
+      display: flex;
+      flex-direction: column;
+    }
+    .field-label {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 600;
+    }
+    .field-value {
+      font-size: 0.84rem;
+      color: var(--text);
+      font-weight: 600;
+      font-family: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      margin-top: 0.1rem;
+    }
+    .raw-hgi80-box {
+      background: var(--raw-box-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 4px;
+      padding: 0.45rem 0.65rem;
+      font-family: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      overflow-x: auto;
+      white-space: pre;
+    }
+
+    .name-input {
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      border-radius: 4px;
+      color: var(--text);
+      padding: 0.35rem 0.55rem;
+      font-size: 0.82rem;
+      width: 100%;
+      min-width: 180px;
+      max-width: 260px;
+      font-family: inherit;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .name-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 1px var(--primary);
+    }
+    .name-input::placeholder {
+      color: var(--text-dim);
+      font-style: italic;
+    }
+
+    .subdevice-id-preview {
+      font-family: "Roboto Mono", ui-monospace, monospace;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-top: 0.2rem;
+      display: block;
+    }
+    
+    .zones-list { margin-top: 0.3rem; display: flex; flex-direction: column; gap: 0.15rem; }
+    .zone-item { font-size: 0.78rem; color: var(--text-muted); }
+    .zone-name { color: var(--text); font-weight: 500; }
+    
+    .rssi-pill {
+      font-family: "Roboto Mono", monospace;
+      font-weight: 600;
+      font-size: 0.78rem;
+      white-space: nowrap;
+    }
+    .rssi-good { color: var(--success); }
+    .rssi-fair { color: var(--warning); }
+    .rssi-poor { color: var(--danger); }
+    
+    /* Code Viewer */
+    pre {
+      background: var(--code-bg);
+      padding: 1rem 1.25rem;
+      border-radius: 6px;
+      border: 1px solid var(--card-border);
+      font-family: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.8rem;
+      color: var(--text);
+      overflow-x: auto;
+      white-space: pre;
+      max-height: 480px;
+      line-height: 1.45;
+    }
+    
+    .toast {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      background: #2e7d32;
+      color: #ffffff;
+      padding: 0.65rem 1.1rem;
+      border-radius: 4px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      font-size: 0.82rem;
+      font-weight: 500;
+      display: none;
+      z-index: 1000;
+      animation: fadeIn 0.2s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .empty-state { text-align: center; padding: 2.25rem; color: var(--text-muted); font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="title-group">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 2L2 9.5V22h20V9.5L12 2zm0 2.85l7 5.25V20H5V10.1l7-5.25zM7 12h10v2H7v-2zm0 4h10v2H7v-2z"/>
+          </svg>
+        </div>
+        <div>
+          <h1>
+            ESPHome RAMSES II Discovery
+            <span class="esphome-tag">868 MHz</span>
+          </h1>
+          <div class="subtitle">
+            <span class="status-pill"><span class="status-dot"></span> RF Sniffer Active</span>
+            <span id="device-count">0 devices detected</span>
+          </div>
+        </div>
+      </div>
+      <div class="actions-bar">
+        <button id="btn-theme-toggle" class="secondary" onclick="toggleTheme()" title="Toggle Theme (Auto / Light / Dark)">🌓 <span id="theme-btn-label">Auto</span></button>
+        <button id="btn-probe" class="secondary" onclick="triggerProbe()">⚡ Trigger Probing</button>
+        <button onclick="copyFullYaml()">📋 Copy Full YAML</button>
+        <button class="secondary" onclick="downloadYaml()">⬇️ Download YAML</button>
+      </div>
+    </header>
+
+    <!-- SECTION 1: DISCOVERED DEVICES TABLE -->
+    <div class="toolbar">
+      <input type="text" id="filter-search" class="search-box" placeholder="🔍 Search by address, name, type..." oninput="renderTable()">
+      <div style="display: flex; gap: 0.85rem; align-items: center; flex-wrap: wrap;">
+        <label class="filter-label">
+          <input type="checkbox" id="show-ignored" checked onchange="renderTable()">
+          Show Ignored (<span id="ignored-count">0</span>)
+        </label>
+        <button class="small secondary" onclick="resetPreferences()" title="Clear local friendly names and ignore list">🔄 Reset Names</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">📦 Discovered Devices &amp; Sub-Devices</span>
+        <span id="last-update" style="font-size: 0.72rem; color: var(--text-muted);">Auto-updating...</span>
+      </div>
+      <div style="overflow-x: auto;">
+        <table id="device-table">
+          <thead>
+            <tr>
+              <th>Address</th>
+              <th>Type / OEM</th>
+              <th style="min-width: 200px;">Sub-Device Friendly Name</th>
+              <th>Details &amp; Zones</th>
+              <th>Signal</th>
+              <th>Last Seen</th>
+              <th style="text-align: right; min-width: 150px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="device-tbody">
+            <tr>
+              <td colspan="7" class="empty-state">
+                Listening for RAMSES II RF packets (Evohome, MVHR, TRVs, OpenTherm)...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SECTION 2: LIVE TRAFFIC STREAM & PACKET INSPECTOR -->
+    <div class="card">
+      <div class="card-header">
+        <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+          <span class="card-title">📡 Live RF Packet Stream &amp; Inspector</span>
+          <span id="traffic-status-pill" class="status-pill"><span class="status-dot"></span> Live Stream</span>
+        </div>
+        <div style="display: flex; gap: 0.4rem; align-items: center;">
+          <button id="btn-pause-stream" class="small secondary" onclick="togglePauseStream()">⏸️ Pause</button>
+          <button class="small secondary" onclick="clearPackets()">🗑️ Clear</button>
+          <button class="small secondary" onclick="copyAllPackets()">📋 Copy Logs</button>
+        </div>
+      </div>
+      <div style="padding: 0.55rem 1.25rem; border-bottom: 1px solid var(--card-border); display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+        <input type="text" id="traffic-filter" class="search-box" style="flex: 1; min-width: 220px;" placeholder="🔍 Filter packets by address (e.g. 32:137527), opcode (31DA, 30C9), or verb..." oninput="renderTrafficTable()" />
+        <span id="traffic-count" style="font-size: 0.75rem; color: var(--text-muted);">0 packets captured (click row to fold out parsed fields)</span>
+      </div>
+      <div style="overflow-x: auto; max-height: 500px;">
+        <table id="traffic-table">
+          <thead>
+            <tr>
+              <th style="width: 24px;"></th>
+              <th>Time</th>
+              <th>Signal</th>
+              <th>Verb</th>
+              <th>Source &rarr; Target</th>
+              <th>Opcode &amp; Type</th>
+              <th>Decoded Preview</th>
+            </tr>
+          </thead>
+          <tbody id="traffic-tbody">
+            <tr>
+              <td colspan="7" class="empty-state">
+                Waiting for incoming radio packets...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SECTION 3: GENERATED YAML PREVIEW -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">⚙️ Generated ESPHome Configuration (YAML)</span>
+        <div style="display: flex; gap: 0.4rem;">
+          <button class="small secondary" onclick="copyFullYaml()">📋 Copy YAML</button>
+          <button class="small secondary" onclick="downloadYaml()">⬇️ Download</button>
+        </div>
+      </div>
+      <div style="padding: 0.85rem 1rem;">
+        <pre id="yaml-preview"># Waiting for devices to be discovered...</pre>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast">Copied to clipboard!</div>
+
+  <script>
+    const STORAGE_KEY = "ramses_discovery_prefs_v1";
+    let currentData = { devices: [], packets: [] };
+    let devicePrefs = {}; // { [address]: { friendlyName: string, ignored: boolean } }
+    let packetHistory = []; // Buffered recent packets
+    let isStreamPaused = false;
+    let expandedPacketKeys = new Set(); // Set of expanded packet keys (hgi80 + time)
+
+    function loadPreferences() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          devicePrefs = JSON.parse(raw);
+        }
+      } catch (e) {
+        console.error("Failed to load discovery preferences", e);
+        devicePrefs = {};
+      }
+    }
+
+    function savePreferences() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(devicePrefs));
+      } catch (e) {
+        console.error("Failed to save discovery preferences", e);
+      }
+    }
+
+    function resetPreferences() {
+      if (confirm("Reset all custom friendly names and ignore settings?")) {
+        devicePrefs = {};
+        savePreferences();
+        renderTable();
+        updateYamlPreview();
+        showToast("Preferences reset to default.");
+      }
+    }
+
+    function slugify(text) {
+      if (!text) return "ramses_device";
+      return text.toString().toLowerCase()
+        .replace(/[:]/g, "_")
+        .replace(/[^a-z0-9_]/g, "_")
+        .replace(/_+/g, "_")
+        .replace(/^_+|_+$/g, "");
+    }
+
+    function getDeviceSlug(address) {
+      return "ramses_" + address.replace(":", "_");
+    }
+
+    function getDefaultDeviceName(dev) {
+      if (dev.device_type === "controller") return `Evohome Controller ${dev.address}`;
+      if (dev.device_type === "trv") return `Radiator TRV ${dev.address}`;
+      if (dev.device_type === "opentherm") return `OpenTherm Bridge ${dev.address}`;
+      if (dev.device_type === "remote") return `HVAC Remote ${dev.address}`;
+      if (dev.is_hvac || dev.device_type === "hvac") return `Ventilation Unit ${dev.address}`;
+      if (dev.device_type === "sensor") return `Room Sensor ${dev.address}`;
+      if (dev.device_type === "relay") return `BDR91 Relay ${dev.address}`;
+      if (dev.device_type === "gateway") return `RF Gateway ${dev.address}`;
+      return `RAMSES Device ${dev.address}`;
+    }
+
+    function getDeviceFriendlyName(dev) {
+      if (devicePrefs[dev.address] && devicePrefs[dev.address].friendlyName !== undefined && devicePrefs[dev.address].friendlyName.trim() !== "") {
+        return devicePrefs[dev.address].friendlyName.trim();
+      }
+      return getDefaultDeviceName(dev);
+    }
+
+    function isDeviceIgnored(address) {
+      return !!(devicePrefs[address] && devicePrefs[address].ignored);
+    }
+
+    function setDeviceFriendlyName(address, name) {
+      if (!devicePrefs[address]) devicePrefs[address] = {};
+      devicePrefs[address].friendlyName = name;
+      savePreferences();
+      
+      const previewEl = document.getElementById(`slug-preview-${address.replace(":", "_")}`);
+      if (previewEl) {
+        const subSlug = getDeviceSlug(address);
+        previewEl.innerText = `device_id: ${subSlug}`;
+      }
+
+      updateYamlPreview();
+    }
+
+    function toggleDeviceIgnored(address) {
+      if (!devicePrefs[address]) devicePrefs[address] = {};
+      devicePrefs[address].ignored = !devicePrefs[address].ignored;
+      savePreferences();
+      renderTable();
+      updateYamlPreview();
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById("toast");
+      t.innerText = msg;
+      t.style.display = "block";
+      setTimeout(() => { t.style.display = "none"; }, 2500);
+    }
+
+    function copyToClipboard(text, msg = "Copied to clipboard!") {
+      if (!text) return;
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text)
+          .then(() => showToast(msg))
+          .catch(() => fallbackCopy(text, msg));
+      } else {
+        fallbackCopy(text, msg);
+      }
+    }
+
+    function fallbackCopy(text, msg) {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.top = "0";
+      textArea.style.left = "0";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        showToast(msg);
+      } catch (err) {
+        showToast("Failed to copy. Please copy manually.");
+      }
+      document.body.removeChild(textArea);
+    }
+
+    function downloadYaml() {
+      const yaml = generateFullYaml();
+      const blob = new Blob([yaml], { type: "text/yaml" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "ramses_devices.yaml";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast("YAML file downloaded!");
+    }
+
+    function triggerProbe() {
+      const btn = document.getElementById("btn-probe");
+      btn.innerText = "⏳ Probing...";
+      btn.disabled = true;
+      fetch("/ramses/probe", { method: "POST" })
+        .then(() => {
+          showToast("Probing queries sent (RQ 0004 / RQ 10E0)!");
+          setTimeout(fetchData, 1000);
+        })
+        .catch(() => showToast("Probe request sent"))
+        .finally(() => {
+          setTimeout(() => {
+            btn.innerText = "⚡ Trigger Probing";
+            btn.disabled = false;
+          }, 2000);
+        });
+    }
+
+    function togglePauseStream() {
+      isStreamPaused = !isStreamPaused;
+      const btn = document.getElementById("btn-pause-stream");
+      const pill = document.getElementById("traffic-status-pill");
+      if (isStreamPaused) {
+        btn.innerText = "▶️ Resume";
+        pill.className = "status-pill paused";
+        pill.innerHTML = '<span class="status-dot"></span> Stream Paused';
+      } else {
+        btn.innerText = "⏸️ Pause";
+        pill.className = "status-pill";
+        pill.innerHTML = '<span class="status-dot"></span> Live Stream';
+      }
+    }
+
+    function clearPackets() {
+      packetHistory = [];
+      expandedPacketKeys.clear();
+      renderTrafficTable();
+      showToast("Traffic stream cleared.");
+    }
+
+    function copyAllPackets() {
+      if (packetHistory.length === 0) {
+        showToast("No packet logs to copy.");
+        return;
+      }
+      const rawLines = packetHistory.map(p => p.hgi80).join("\n");
+      copyToClipboard(rawLines, `Copied ${packetHistory.length} packet logs!`);
+    }
+
+    function togglePacketExpand(key) {
+      key = String(key);
+      if (expandedPacketKeys.has(key)) {
+        expandedPacketKeys.delete(key);
+      } else {
+        expandedPacketKeys.add(key);
+      }
+      renderTrafficTable();
+    }
+
+    function deviceHasEntities(dev) {
+      if (!dev) return false;
+      if (dev.device_type === "controller") {
+        return (dev.zones && dev.zones.length > 0) || !!dev.has_dhw;
+      }
+      if (dev.is_hvac || dev.device_type === "hvac") {
+        return true;
+      }
+      if (dev.device_type === "trv" || dev.device_type === "opentherm" ||
+          dev.device_type === "relay" || dev.device_type === "sensor") {
+        return true;
+      }
+      return false;
+    }
+
+    function generateSingleDeviceYaml(dev) {
+      if (isDeviceIgnored(dev.address)) {
+        return `# Device ${dev.address} is marked as ignored.\n`;
+      }
+
+      const friendly = getDeviceFriendlyName(dev);
+      const subSlug = getDeviceSlug(dev.address);
+      const addr = dev.address;
+
+      if (!deviceHasEntities(dev)) {
+        if (dev.device_type === "remote") {
+          let out = `# Discovered RF Remote Control: ${friendly} (${addr})\n`;
+          if (dev.associated_target) {
+            out += `# Controls Ventilation Unit: ${dev.associated_target}\n`;
+            out += `# (To clone this remote, you can optionally set 'fake_remote_address: "${addr}"' under your fan configuration)\n`;
+          } else {
+            out += `# (RF remotes transmit control frames and do not define standalone entities)\n`;
+          }
+          return out;
+        }
+        return `# Device ${friendly} (${addr}) does not define standalone entities.\n`;
+      }
+
+      let out = "";
+      out += `# Sub-Device: ${friendly} (${addr})\n`;
+      out += `esphome:\n`;
+      out += `  devices:\n`;
+      out += `    - id: ${subSlug}\n`;
+      out += `      name: "${friendly}"\n\n`;
+
+      if (dev.device_type === "controller") {
+        if (dev.zones && dev.zones.length > 0) {
+          out += `climate:\n`;
+          dev.zones.forEach(z => {
+            const zName = z.name || `Zone ${z.index}`;
+            out += `  - platform: ramses_devices\n`;
+            out += `    ramses_esp_id: ramses_hub\n`;
+            out += `    name: "${zName} Heating"\n`;
+            out += `    controller_address: "${addr}"\n`;
+            out += `    zone_index: ${z.index}\n`;
+            out += `    zone_name: "${zName}"\n`;
+            out += `    device_id: ${subSlug}\n\n`;
+          });
+        }
+        if (dev.has_dhw) {
+          out += `water_heater:\n`;
+          out += `  - platform: ramses_devices\n`;
+          out += `    ramses_esp_id: ramses_hub\n`;
+          out += `    name: "Domestic Hot Water"\n`;
+          out += `    controller_address: "${addr}"\n`;
+          out += `    device_id: ${subSlug}\n\n`;
+        }
+      } else if (dev.is_hvac || dev.device_type === "hvac") {
+        out += `fan:\n`;
+        out += `  - platform: ramses_devices\n`;
+        out += `    ramses_esp_id: ramses_hub\n`;
+        out += `    name: "${friendly}"\n`;
+        out += `    device_address: "${addr}"\n`;
+        if (dev.associated_remote) {
+          out += `    # fake_remote_address: "${dev.associated_remote}"  # Optional: uncomment if cloning this remote\n`;
+        }
+        out += `    scheme: ${dev.oem_name || "orcon"}\n`;
+        out += `    device_id: ${subSlug}\n`;
+        out += `    pairing_button:\n`;
+        out += `      name: "Pair with ${dev.oem_name || 'Fan'}"\n\n`;
+
+        const tel = dev.telemetry || {};
+        const hvacSensors = [];
+        if (tel.supply_temperature !== undefined)
+          hvacSensors.push(["supply_temperature", "Supply Temperature"]);
+        if (tel.exhaust_temperature !== undefined)
+          hvacSensors.push(["exhaust_temperature", "Exhaust Temperature"]);
+        if (tel.indoor_temperature !== undefined || tel.air_quality_temperature !== undefined)
+          hvacSensors.push(["air_quality_temperature", "Indoor Temperature"]);
+        if (tel.outdoor_temperature !== undefined)
+          hvacSensors.push(["outdoor_temperature", "Outdoor Temperature"]);
+        if (tel.bypass_position !== undefined)
+          hvacSensors.push(["bypass_position", "Bypass Position"]);
+        if (tel.supply_fan_speed !== undefined)
+          hvacSensors.push(["supply_fan_speed", "Supply Fan Speed"]);
+        if (tel.exhaust_fan_speed !== undefined)
+          hvacSensors.push(["exhaust_fan_speed", "Exhaust Fan Speed"]);
+        if (tel.timer_minutes !== undefined || tel.remaining_mins !== undefined)
+          hvacSensors.push(["remaining_mins", "Remaining Timer"]);
+        if (tel.filter_remaining_days !== undefined)
+          hvacSensors.push(["filter_remaining_days", "Filter Remaining Days"]);
+        if (tel.filter_lifetime_days !== undefined)
+          hvacSensors.push(["filter_lifetime_days", "Filter Lifetime"]);
+        if (tel.filter_remaining_percent !== undefined)
+          hvacSensors.push(["filter_remaining_percent", "Filter Remaining Percent"]);
+        if (tel.indoor_humidity !== undefined)
+          hvacSensors.push(["indoor_humidity", "Indoor Humidity"]);
+        if (tel.outdoor_humidity !== undefined)
+          hvacSensors.push(["outdoor_humidity", "Outdoor Humidity"]);
+        if (tel.co2 !== undefined)
+          hvacSensors.push(["co2", "CO2 Level"]);
+
+        if (hvacSensors.length > 0) {
+          out += `sensor:\n`;
+          hvacSensors.forEach(([stype, sname]) => {
+            out += `  - platform: ramses_devices\n`;
+            out += `    ramses_esp_id: ramses_hub\n`;
+            out += `    type: ${stype}\n`;
+            out += `    name: "${sname}"\n`;
+            out += `    ramses_address: "${addr}"\n`;
+            out += `    device_id: ${subSlug}\n\n`;
+          });
+        }
+
+        const hvacBinary = [];
+        if (tel.filter_dirty !== undefined)
+          hvacBinary.push(["filter_alarm", "Filter Dirty Warning"]);
+        if (tel.bypass_active !== undefined)
+          hvacBinary.push(["bypass_active", "Bypass Active"]);
+
+        if (hvacBinary.length > 0) {
+          out += `binary_sensor:\n`;
+          hvacBinary.forEach(([btype, bname]) => {
+            out += `  - platform: ramses_devices\n`;
+            out += `    ramses_esp_id: ramses_hub\n`;
+            out += `    type: ${btype}\n`;
+            out += `    name: "${bname}"\n`;
+            out += `    ramses_address: "${addr}"\n`;
+            out += `    device_id: ${subSlug}\n\n`;
+          });
+        }
+
+      } else if (dev.device_type === "trv") {
+        const tel = dev.telemetry || {};
+        const trvSensors = [];
+        if (tel.heat_demand !== undefined || (dev.seen_opcodes && dev.seen_opcodes.includes("3150")))
+          trvSensors.push(["heat_demand", "Heat Demand"]);
+        if (tel.battery_level !== undefined || (dev.seen_opcodes && dev.seen_opcodes.includes("1060")))
+          trvSensors.push(["battery_level", "Battery Level"]);
+
+        if (trvSensors.length > 0) {
+          out += `sensor:\n`;
+          trvSensors.forEach(([stype, sname]) => {
+            out += `  - platform: ramses_devices\n`;
+            out += `    ramses_esp_id: ramses_hub\n`;
+            out += `    type: ${stype}\n`;
+            out += `    name: "${sname}"\n`;
+            out += `    ramses_address: "${addr}"\n`;
+            out += `    device_id: ${subSlug}\n\n`;
+          });
+        }
+
+        if (tel.battery_low !== undefined || tel.battery_level !== undefined || (dev.seen_opcodes && dev.seen_opcodes.includes("1060"))) {
+          out += `binary_sensor:\n`;
+          out += `  - platform: ramses_devices\n`;
+          out += `    ramses_esp_id: ramses_hub\n`;
+          out += `    type: battery_low\n`;
+          out += `    name: "Battery Low Warning"\n`;
+          out += `    ramses_address: "${addr}"\n`;
+          out += `    device_id: ${subSlug}\n\n`;
+        }
+
+      } else if (dev.device_type === "opentherm") {
+        const tel = dev.telemetry || {};
+        const otSensors = [];
+        if (tel.modulation !== undefined)
+          otSensors.push(["opentherm_modulation", "Boiler Modulation"]);
+        if (tel.flow_temperature !== undefined)
+          otSensors.push(["flow_temperature", "Flow Temperature"]);
+        if (tel.return_temperature !== undefined)
+          otSensors.push(["return_temperature", "Return Temperature"]);
+
+        if (otSensors.length > 0) {
+          out += `sensor:\n`;
+          otSensors.forEach(([stype, sname]) => {
+            out += `  - platform: ramses_devices\n`;
+            out += `    ramses_esp_id: ramses_hub\n`;
+            out += `    type: ${stype}\n`;
+            out += `    name: "${sname}"\n`;
+            out += `    ramses_address: "${addr}"\n`;
+            out += `    device_id: ${subSlug}\n\n`;
+          });
+        }
+
+        const otBinary = [];
+        if (tel.flame_active !== undefined)
+          otBinary.push(["flame_active", "Flame Active"]);
+        if (tel.fault !== undefined || tel.fault_code !== undefined)
+          otBinary.push(["fault_alarm", "Fault Warning"]);
+
+        if (otBinary.length > 0) {
+          out += `binary_sensor:\n`;
+          otBinary.forEach(([btype, bname]) => {
+            out += `  - platform: ramses_devices\n`;
+            out += `    ramses_esp_id: ramses_hub\n`;
+            out += `    type: ${btype}\n`;
+            out += `    name: "${bname}"\n`;
+            out += `    ramses_address: "${addr}"\n`;
+            out += `    device_id: ${subSlug}\n\n`;
+          });
+        }
+
+      } else if (dev.device_type === "relay") {
+        const tel = dev.telemetry || {};
+        if (tel.relay_demand !== undefined || (dev.seen_opcodes && dev.seen_opcodes.includes("0008"))) {
+          out += `sensor:\n`;
+          out += `  - platform: ramses_devices\n`;
+          out += `    ramses_esp_id: ramses_hub\n`;
+          out += `    type: relay_demand\n`;
+          out += `    name: "Relay Demand"\n`;
+          out += `    ramses_address: "${addr}"\n`;
+          out += `    relay_index: 0\n`;
+          out += `    device_id: ${subSlug}\n\n`;
+        }
+
+      } else if (dev.device_type === "sensor") {
+        const tel = dev.telemetry || {};
+        const sSensors = [];
+        if (tel.outdoor_temperature !== undefined)
+          sSensors.push(["outdoor_temperature", "Outdoor Temperature"]);
+        if (tel.indoor_temperature !== undefined)
+          sSensors.push(["air_quality_temperature", "Indoor Temperature"]);
+        if (tel.indoor_humidity !== undefined)
+          sSensors.push(["indoor_humidity", "Indoor Humidity"]);
+        if (tel.co2 !== undefined)
+          sSensors.push(["co2", "CO2 Level"]);
+
+        if (sSensors.length > 0) {
+          out += `sensor:\n`;
+          sSensors.forEach(([stype, sname]) => {
+            out += `  - platform: ramses_devices\n`;
+            out += `    ramses_esp_id: ramses_hub\n`;
+            out += `    type: ${stype}\n`;
+            out += `    name: "${sname}"\n`;
+            out += `    ramses_address: "${addr}"\n`;
+            out += `    device_id: ${subSlug}\n\n`;
+          });
+        }
+      }
+
+      return out;
+    }
+
+    function generateFullYaml() {
+      const activeDevices = (currentData.devices || []).filter(d => !isDeviceIgnored(d.address));
+      const entityDevices = activeDevices.filter(d => deviceHasEntities(d));
+      if (entityDevices.length === 0) {
+        return "# No active RAMSES devices with entities discovered or all discovered devices are ignored.\n";
+      }
+
+      let yaml = "# ==========================================================\n";
+      yaml += "# Automatically Generated RAMSES Configuration\n";
+      yaml += "# Generated by ramses_discovery with Sub-Device Support\n";
+      yaml += "# ==========================================================\n\n";
+
+      yaml += "esphome:\n";
+      yaml += "  devices:\n";
+      entityDevices.forEach(dev => {
+        const friendly = getDeviceFriendlyName(dev);
+        const subSlug = getDeviceSlug(dev.address);
+        yaml += `    - id: ${subSlug}\n`;
+        yaml += `      name: "${friendly}"\n`;
+      });
+      yaml += "\n";
+
+      let hasClimate = false;
+      activeDevices.forEach(dev => {
+        if (dev.device_type === "controller" && dev.zones && dev.zones.length > 0) {
+          if (!hasClimate) {
+            yaml += "climate:\n";
+            hasClimate = true;
+          }
+          const subSlug = getDeviceSlug(dev.address);
+          dev.zones.forEach(z => {
+            const zName = z.name || `Zone ${z.index}`;
+            yaml += `  - platform: ramses_devices\n`;
+            yaml += `    ramses_esp_id: ramses_hub\n`;
+            yaml += `    name: "${zName} Heating"\n`;
+            yaml += `    controller_address: "${dev.address}"\n`;
+            yaml += `    zone_index: ${z.index}\n`;
+            yaml += `    zone_name: "${zName}"\n`;
+            yaml += `    device_id: ${subSlug}\n\n`;
+          });
+        }
+      });
+
+      let hasDhw = false;
+      activeDevices.forEach(dev => {
+        if (dev.has_dhw) {
+          if (!hasDhw) {
+            yaml += "water_heater:\n";
+            hasDhw = true;
+          }
+          const subSlug = getDeviceSlug(dev.address);
+          yaml += `  - platform: ramses_devices\n`;
+          yaml += `    ramses_esp_id: ramses_hub\n`;
+          yaml += `    name: "Domestic Hot Water"\n`;
+          yaml += `    controller_address: "${dev.address}"\n`;
+          yaml += `    device_id: ${subSlug}\n\n`;
+        }
+      });
+
+      let hasFan = false;
+      activeDevices.forEach(dev => {
+        if (dev.is_hvac || dev.device_type === "hvac") {
+          if (!hasFan) {
+            yaml += "fan:\n";
+            hasFan = true;
+          }
+          const friendly = getDeviceFriendlyName(dev);
+          const subSlug = getDeviceSlug(dev.address);
+          yaml += `  - platform: ramses_devices\n`;
+          yaml += `    ramses_esp_id: ramses_hub\n`;
+          yaml += `    name: "${friendly}"\n`;
+          yaml += `    device_address: "${dev.address}"\n`;
+          if (dev.associated_remote) {
+            yaml += `    # fake_remote_address: "${dev.associated_remote}"  # Optional: uncomment if cloning this remote\n`;
+          }
+          yaml += `    scheme: ${dev.oem_name || "orcon"}\n`;
+          yaml += `    device_id: ${subSlug}\n`;
+          yaml += `    pairing_button:\n`;
+          yaml += `      name: "Pair with ${dev.oem_name || 'Fan'}"\n\n`;
+        }
+      });
+
+      let hasSensor = false;
+      activeDevices.forEach(dev => {
+        const subSlug = getDeviceSlug(dev.address);
+        const addr = dev.address;
+        const tel = dev.telemetry || {};
+
+        if (dev.device_type === "trv") {
+          const trvSensors = [];
+          if (tel.heat_demand !== undefined || (dev.seen_opcodes && dev.seen_opcodes.includes("3150")))
+            trvSensors.push(["heat_demand", "Heat Demand"]);
+          if (tel.battery_level !== undefined || (dev.seen_opcodes && dev.seen_opcodes.includes("1060")))
+            trvSensors.push(["battery_level", "Battery Level"]);
+
+          if (trvSensors.length > 0) {
+            if (!hasSensor) { yaml += "sensor:\n"; hasSensor = true; }
+            trvSensors.forEach(([stype, sname]) => {
+              yaml += `  - platform: ramses_devices\n    ramses_esp_id: ramses_hub\n    type: ${stype}\n    name: "${sname}"\n    ramses_address: "${addr}"\n    device_id: ${subSlug}\n\n`;
+            });
+          }
+        } else if (dev.device_type === "opentherm") {
+          const otSensors = [];
+          if (tel.modulation !== undefined)
+            otSensors.push(["opentherm_modulation", "Boiler Modulation"]);
+          if (tel.flow_temperature !== undefined)
+            otSensors.push(["flow_temperature", "Flow Temperature"]);
+          if (tel.return_temperature !== undefined)
+            otSensors.push(["return_temperature", "Return Temperature"]);
+
+          if (otSensors.length > 0) {
+            if (!hasSensor) { yaml += "sensor:\n"; hasSensor = true; }
+            otSensors.forEach(([stype, sname]) => {
+              yaml += `  - platform: ramses_devices\n    ramses_esp_id: ramses_hub\n    type: ${stype}\n    name: "${sname}"\n    ramses_address: "${addr}"\n    device_id: ${subSlug}\n\n`;
+            });
+          }
+        } else if (dev.is_hvac || dev.device_type === "hvac") {
+          const hvacSensors = [];
+          if (tel.supply_temperature !== undefined)
+            hvacSensors.push(["supply_temperature", "Supply Temperature"]);
+          if (tel.exhaust_temperature !== undefined)
+            hvacSensors.push(["exhaust_temperature", "Exhaust Temperature"]);
+          if (tel.indoor_temperature !== undefined || tel.air_quality_temperature !== undefined)
+            hvacSensors.push(["air_quality_temperature", "Indoor Temperature"]);
+          if (tel.outdoor_temperature !== undefined)
+            hvacSensors.push(["outdoor_temperature", "Outdoor Temperature"]);
+          if (tel.bypass_position !== undefined)
+            hvacSensors.push(["bypass_position", "Bypass Position"]);
+          if (tel.supply_fan_speed !== undefined)
+            hvacSensors.push(["supply_fan_speed", "Supply Fan Speed"]);
+          if (tel.exhaust_fan_speed !== undefined)
+            hvacSensors.push(["exhaust_fan_speed", "Exhaust Fan Speed"]);
+          if (tel.timer_minutes !== undefined || tel.remaining_mins !== undefined)
+            hvacSensors.push(["remaining_mins", "Remaining Timer"]);
+          if (tel.filter_remaining_days !== undefined)
+            hvacSensors.push(["filter_remaining_days", "Filter Remaining Days"]);
+          if (tel.filter_lifetime_days !== undefined)
+            hvacSensors.push(["filter_lifetime_days", "Filter Lifetime"]);
+          if (tel.filter_remaining_percent !== undefined)
+            hvacSensors.push(["filter_remaining_percent", "Filter Remaining Percent"]);
+          if (tel.indoor_humidity !== undefined)
+            hvacSensors.push(["indoor_humidity", "Indoor Humidity"]);
+          if (tel.outdoor_humidity !== undefined)
+            hvacSensors.push(["outdoor_humidity", "Outdoor Humidity"]);
+          if (tel.co2 !== undefined)
+            hvacSensors.push(["co2", "CO2 Level"]);
+
+          if (hvacSensors.length > 0) {
+            if (!hasSensor) { yaml += "sensor:\n"; hasSensor = true; }
+            hvacSensors.forEach(([stype, sname]) => {
+              yaml += `  - platform: ramses_devices\n    ramses_esp_id: ramses_hub\n    type: ${stype}\n    name: "${sname}"\n    ramses_address: "${addr}"\n    device_id: ${subSlug}\n\n`;
+            });
+          }
+        } else if (dev.device_type === "relay") {
+          if (tel.relay_demand !== undefined || (dev.seen_opcodes && dev.seen_opcodes.includes("0008"))) {
+            if (!hasSensor) { yaml += "sensor:\n"; hasSensor = true; }
+            yaml += `  - platform: ramses_devices\n    ramses_esp_id: ramses_hub\n    type: relay_demand\n    name: "Relay Demand"\n    ramses_address: "${addr}"\n    relay_index: 0\n    device_id: ${subSlug}\n\n`;
+          }
+        } else if (dev.device_type === "sensor") {
+          const sSensors = [];
+          if (tel.outdoor_temperature !== undefined)
+            sSensors.push(["outdoor_temperature", "Outdoor Temperature"]);
+          if (tel.indoor_temperature !== undefined)
+            sSensors.push(["air_quality_temperature", "Indoor Temperature"]);
+          if (tel.indoor_humidity !== undefined)
+            sSensors.push(["indoor_humidity", "Indoor Humidity"]);
+          if (tel.co2 !== undefined)
+            sSensors.push(["co2", "CO2 Level"]);
+
+          if (sSensors.length > 0) {
+            if (!hasSensor) { yaml += "sensor:\n"; hasSensor = true; }
+            sSensors.forEach(([stype, sname]) => {
+              yaml += `  - platform: ramses_devices\n    ramses_esp_id: ramses_hub\n    type: ${stype}\n    name: "${sname}"\n    ramses_address: "${addr}"\n    device_id: ${subSlug}\n\n`;
+            });
+          }
+        }
+      });
+
+      let hasBin = false;
+      activeDevices.forEach(dev => {
+        const subSlug = getDeviceSlug(dev.address);
+        const addr = dev.address;
+        const tel = dev.telemetry || {};
+
+        if (dev.device_type === "trv") {
+          if (tel.battery_low !== undefined || tel.battery_level !== undefined || (dev.seen_opcodes && dev.seen_opcodes.includes("1060"))) {
+            if (!hasBin) { yaml += "binary_sensor:\n"; hasBin = true; }
+            yaml += `  - platform: ramses_devices\n    ramses_esp_id: ramses_hub\n    type: battery_low\n    name: "Battery Low Warning"\n    ramses_address: "${addr}"\n    device_id: ${subSlug}\n\n`;
+          }
+        } else if (dev.device_type === "opentherm") {
+          const otBinary = [];
+          if (tel.flame_active !== undefined)
+            otBinary.push(["flame_active", "Flame Active"]);
+          if (tel.fault !== undefined || tel.fault_code !== undefined)
+            otBinary.push(["fault_alarm", "Fault Warning"]);
+
+          if (otBinary.length > 0) {
+            if (!hasBin) { yaml += "binary_sensor:\n"; hasBin = true; }
+            otBinary.forEach(([btype, bname]) => {
+              yaml += `  - platform: ramses_devices\n    ramses_esp_id: ramses_hub\n    type: ${btype}\n    name: "${bname}"\n    ramses_address: "${addr}"\n    device_id: ${subSlug}\n\n`;
+            });
+          }
+        } else if (dev.is_hvac || dev.device_type === "hvac") {
+          const hvacBinary = [];
+          if (tel.filter_dirty !== undefined)
+            hvacBinary.push(["filter_alarm", "Filter Dirty Warning"]);
+          if (tel.bypass_active !== undefined)
+            hvacBinary.push(["bypass_active", "Bypass Active"]);
+
+          if (hvacBinary.length > 0) {
+            if (!hasBin) { yaml += "binary_sensor:\n"; hasBin = true; }
+            hvacBinary.forEach(([btype, bname]) => {
+              yaml += `  - platform: ramses_devices\n    ramses_esp_id: ramses_hub\n    type: ${btype}\n    name: "${bname}"\n    ramses_address: "${addr}"\n    device_id: ${subSlug}\n\n`;
+            });
+          }
+        }
+      });
+
+      return yaml;
+    }
+
+    function copyDeviceYaml(address) {
+      const dev = (currentData.devices || []).find(d => d.address === address);
+      if (dev) {
+        copyToClipboard(generateSingleDeviceYaml(dev), `YAML for ${address} copied!`);
+      }
+    }
+
+    function copyFullYaml() {
+      copyToClipboard(generateFullYaml(), "Full YAML configuration copied!");
+    }
+
+    function updateYamlPreview() {
+      const yamlPre = document.getElementById("yaml-preview");
+      if (yamlPre) {
+        yamlPre.innerText = generateFullYaml();
+      }
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById("device-tbody");
+      const devCount = document.getElementById("device-count");
+      const ignoredCountEl = document.getElementById("ignored-count");
+      const showIgnored = document.getElementById("show-ignored").checked;
+      const searchTerm = (document.getElementById("filter-search").value || "").toLowerCase().trim();
+
+      const allDevices = currentData.devices || [];
+      let totalIgnored = 0;
+      allDevices.forEach(d => { if (isDeviceIgnored(d.address)) totalIgnored++; });
+      ignoredCountEl.innerText = totalIgnored;
+      devCount.innerText = `${allDevices.length} device(s) detected (${totalIgnored} ignored)`;
+
+      if (allDevices.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="empty-state">Listening for RAMSES II RF packets...</td></tr>`;
+        return;
+      }
+
+      const activeEl = document.activeElement;
+      const activeId = activeEl ? activeEl.id : null;
+      const cursorStart = activeEl && activeEl.selectionStart;
+      const cursorEnd = activeEl && activeEl.selectionEnd;
+
+      let html = "";
+      let visibleCount = 0;
+
+      allDevices.forEach((dev) => {
+        const ignored = isDeviceIgnored(dev.address);
+        if (ignored && !showIgnored) return;
+
+        const friendly = getDeviceFriendlyName(dev);
+        const subSlug = getDeviceSlug(dev.address);
+
+        if (searchTerm) {
+          const match = dev.address.toLowerCase().includes(searchTerm) ||
+                        friendly.toLowerCase().includes(searchTerm) ||
+                        (dev.type_label || "").toLowerCase().includes(searchTerm) ||
+                        (dev.oem_name || "").toLowerCase().includes(searchTerm);
+          if (!match) return;
+        }
+
+        visibleCount++;
+
+        let badgeClass = "badge-sensor";
+        if (dev.device_type === "controller") badgeClass = "badge-controller";
+        else if (dev.is_hvac || dev.device_type === "hvac") badgeClass = "badge-hvac";
+        else if (dev.device_type === "remote") badgeClass = "badge-remote";
+        else if (dev.device_type === "trv") badgeClass = "badge-trv";
+        else if (dev.device_type === "opentherm") badgeClass = "badge-opentherm";
+        else if (dev.device_type === "relay") badgeClass = "badge-relay";
+
+        let rssiClass = "rssi-good";
+        if (dev.rssi < -85) rssiClass = "rssi-poor";
+        else if (dev.rssi < -70) rssiClass = "rssi-fair";
+
+        let details = "";
+        if (dev.zones && dev.zones.length > 0) {
+          details += `<div class="zones-list">`;
+          dev.zones.forEach(z => {
+            let tStr = z.temp !== undefined ? ` • ${z.temp.toFixed(1)}°C` : "";
+            let sStr = z.setpoint !== undefined ? ` (Target ${z.setpoint.toFixed(1)}°C)` : "";
+            details += `<div class="zone-item"><span class="zone-name">${z.name || "Zone " + z.index}</span>${tStr}${sStr}</div>`;
+          });
+          if (dev.has_dhw) {
+            details += `<div class="zone-item"><span class="zone-name">DHW Cylinder</span> • Configured</div>`;
+          }
+          details += `</div>`;
+        } else if (dev.associated_remote) {
+          details = `<span style="color: #4dd0e1; font-size: 0.8rem; font-weight: 500;">🔗 Cloned Remote: <strong>${dev.associated_remote}</strong></span>`;
+          if (dev.oem_name && dev.oem_name !== "generic") {
+            details += `<br><span style="color: var(--text-muted); font-size: 0.72rem;">OEM Scheme: ${dev.oem_name}</span>`;
+          }
+        } else if (dev.associated_target) {
+          details = `<span style="color: #64b5f6; font-size: 0.8rem;">🎮 Controls MVHR: <strong>${dev.associated_target}</strong></span>`;
+        } else if (dev.oem_name && dev.oem_name !== "generic") {
+          details = `<span style="color: var(--text-muted); font-size: 0.78rem;">OEM Scheme: <strong style="color: var(--text);">${dev.oem_name}</strong></span>`;
+        } else {
+          details = `<span style="color: var(--text-muted); font-size: 0.78rem;">Standard RAMSES device</span>`;
+        }
+
+        const seenStr = dev.last_seen_sec <= 2 ? "Just now" : `${dev.last_seen_sec}s ago`;
+        const inputId = `name-in-${dev.address.replace(":", "_")}`;
+        const rowClass = ignored ? "ignored-row" : "";
+        const ignoreBtnText = ignored ? "👁️ Include" : "🚫 Ignore";
+        const ignoreBtnClass = ignored ? "secondary small" : "warning small";
+
+        html += `<tr class="${rowClass}">
+          <td>
+            <span class="addr-badge">${dev.address}</span>
+            ${ignored ? '<br><span class="badge badge-ignored" style="margin-top: 0.2rem;">Ignored</span>' : ''}
+          </td>
+          <td><span class="badge ${badgeClass}">${dev.type_label || dev.device_type}</span></td>
+          <td>
+            <input type="text" id="${inputId}" class="name-input" 
+                   value="${devicePrefs[dev.address] && devicePrefs[dev.address].friendlyName !== undefined ? devicePrefs[dev.address].friendlyName : ''}" 
+                   placeholder="${getDefaultDeviceName(dev)}"
+                   oninput="setDeviceFriendlyName('${dev.address}', this.value)" />
+            <span id="slug-preview-${dev.address.replace(':', '_')}" class="subdevice-id-preview">device_id: ${subSlug}</span>
+          </td>
+          <td>${details}</td>
+          <td><span class="rssi-pill ${rssiClass}">${dev.rssi !== 0 ? dev.rssi + " dBm" : "N/A"}</span></td>
+          <td style="color: var(--text-muted);">${seenStr}</td>
+          <td style="text-align: right; white-space: nowrap;">
+            <button class="${ignoreBtnClass}" onclick="toggleDeviceIgnored('${dev.address}')">${ignoreBtnText}</button>
+            <button class="small secondary" onclick="copyDeviceYaml('${dev.address}')" title="Copy YAML snippet for this device">Copy</button>
+          </td>
+        </tr>`;
+      });
+
+      if (visibleCount === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="empty-state">No matching devices found.</td></tr>`;
+      } else {
+        tbody.innerHTML = html;
+      }
+
+      if (activeId) {
+        const el = document.getElementById(activeId);
+        if (el) {
+          el.focus();
+          if (cursorStart !== null && cursorEnd !== null) {
+            el.setSelectionRange(cursorStart, cursorEnd);
+          }
+        }
+      }
+
+      document.getElementById("last-update").innerText = `Updated ${new Date().toLocaleTimeString()}`;
+    }
+
+    function renderTrafficTable() {
+      const tbody = document.getElementById("traffic-tbody");
+      const countEl = document.getElementById("traffic-count");
+      const filterTerm = (document.getElementById("traffic-filter").value || "").toLowerCase().trim();
+
+      if (packetHistory.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="empty-state">Waiting for incoming radio packets...</td></tr>`;
+        countEl.innerText = "0 packets captured";
+        return;
+      }
+
+      countEl.innerText = `${packetHistory.length} packet(s) captured (click row to fold out parsed fields)`;
+
+      let html = "";
+      let visibleCount = 0;
+
+      packetHistory.forEach((pkt, idx) => {
+        const packetKey = pkt.id !== undefined ? String(pkt.id) : `${pkt.hgi80}_${idx}`;
+        const isExpanded = expandedPacketKeys.has(packetKey);
+
+        if (filterTerm) {
+          const match = pkt.src.toLowerCase().includes(filterTerm) ||
+                        pkt.dst.toLowerCase().includes(filterTerm) ||
+                        pkt.opcode.toLowerCase().includes(filterTerm) ||
+                        pkt.opcode_name.toLowerCase().includes(filterTerm) ||
+                        pkt.verb.toLowerCase().includes(filterTerm) ||
+                        pkt.hgi80.toLowerCase().includes(filterTerm);
+          if (!match) return;
+        }
+
+        visibleCount++;
+
+        let verbClass = "verb-i";
+        if (pkt.verb === "RP") verbClass = "verb-rp";
+        else if (pkt.verb === "RQ") verbClass = "verb-rq";
+        else if (pkt.verb === "W") verbClass = "verb-w";
+
+        let rssiClass = "rssi-good";
+        if (pkt.rssi < -85) rssiClass = "rssi-poor";
+        else if (pkt.rssi < -70) rssiClass = "rssi-fair";
+
+        const timeStr = pkt.last_seen_sec <= 2 ? "Just now" : `${pkt.last_seen_sec}s ago`;
+
+        let previewStr = "";
+        if (pkt.fields && pkt.fields.length > 0) {
+          const previewItems = pkt.fields
+            .slice(0, 3)
+            .map(f => `<span style="color: var(--text-muted);">${f.name}:</span> <strong style="color: var(--text);">${f.value}</strong>`);
+          previewStr = previewItems.join(" &bull; ");
+        }
+        if (!previewStr) {
+          previewStr = `<span style="color: var(--text-muted); font-family: 'Roboto Mono', monospace;">${pkt.hgi80.substring(0, 45)}...</span>`;
+        }
+
+        const expandIcon = isExpanded ? "▼" : "▶";
+        const rowExpandedClass = isExpanded ? "expanded" : "";
+
+        html += `<tr class="traffic-row ${rowExpandedClass}" onclick="togglePacketExpand('${packetKey}')">
+          <td style="color: var(--primary); font-size: 0.75rem; text-align: center;">${expandIcon}</td>
+          <td style="color: var(--text-muted); font-size: 0.78rem; white-space: nowrap;">${timeStr}</td>
+          <td><span class="rssi-pill ${rssiClass}">${pkt.rssi !== 0 ? pkt.rssi + " dBm" : "N/A"}</span></td>
+          <td><span class="verb-badge ${verbClass}">${pkt.verb}</span></td>
+          <td style="font-family: 'Roboto Mono', ui-monospace, monospace; font-size: 0.8rem; white-space: nowrap;">
+            <span style="color: var(--primary);">${pkt.src}</span>
+            <span style="color: var(--text-dim); margin: 0 0.25rem;">&rarr;</span>
+            <span style="color: var(--text-muted);">${pkt.dst}</span>
+          </td>
+          <td style="white-space: nowrap;">
+            <span style="font-family: 'Roboto Mono', monospace; font-weight: 700; color: #818cf8; background: rgba(129, 140, 248, 0.12); padding: 0.15rem 0.35rem; border-radius: 4px; font-size: 0.75rem; border: 1px solid rgba(129, 140, 248, 0.25);">${pkt.opcode}</span>
+            <span style="font-size: 0.8rem; margin-left: 0.35rem;">${pkt.opcode_name}</span>
+          </td>
+          <td style="font-size: 0.8rem; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${previewStr}</td>
+        </tr>`;
+
+        if (isExpanded) {
+          let fieldsHtml = "";
+          if (pkt.fields && pkt.fields.length > 0) {
+            pkt.fields.forEach(f => {
+              fieldsHtml += `<div class="field-card">
+                <span class="field-label">${f.name}</span>
+                <span class="field-value">${f.value}</span>
+              </div>`;
+            });
+          } else {
+            fieldsHtml = `<div style="color: var(--text-muted); font-size: 0.82rem;">No parsed telemetry fields for this opcode.</div>`;
+          }
+
+          html += `<tr>
+            <td colspan="7" style="padding: 0; border-bottom: 1px solid var(--card-border);">
+              <div class="foldout-container">
+                <div class="foldout-header">
+                  <span class="foldout-title">🔍 Decoded Message &bull; Opcode ${pkt.opcode} (${pkt.opcode_name})</span>
+                  <button class="small secondary" onclick="event.stopPropagation(); copyToClipboard('${pkt.hgi80}', 'Raw packet copied!')">📋 Copy Raw HGI80</button>
+                </div>
+                <div class="fields-grid">
+                  ${fieldsHtml}
+                </div>
+                <div class="raw-hgi80-box">${pkt.hgi80}</div>
+              </div>
+            </td>
+          </tr>`;
+        }
+      });
+
+      if (visibleCount === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="empty-state">No packets matching filter.</td></tr>`;
+      } else {
+        tbody.innerHTML = html;
+      }
+    }
+
+    function renderDevices(data) {
+      currentData = data;
+      renderTable();
+      updateYamlPreview();
+
+      if (!isStreamPaused && data.packets && data.packets.length > 0) {
+        // Merge backend packet ring buffer into history
+        packetHistory = data.packets;
+        renderTrafficTable();
+      }
+    }
+
+    function fetchData() {
+      fetch("/ramses/devices.json")
+        .then(res => res.json())
+        .then(data => renderDevices(data))
+        .catch(err => {
+          console.debug("Fetch error:", err);
+        });
+    }
+
+    /* Theme Management: Auto (System) / Light / Dark */
+    function applyTheme(theme) {
+      const root = document.documentElement;
+      const btn = document.getElementById("btn-theme-toggle");
+      const isSystemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      
+      if (theme === "dark") {
+        root.setAttribute("data-theme", "dark");
+        if (btn) btn.innerHTML = `🌙 <span id="theme-btn-label">Dark</span>`;
+      } else if (theme === "light") {
+        root.setAttribute("data-theme", "light");
+        if (btn) btn.innerHTML = `☀️ <span id="theme-btn-label">Light</span>`;
+      } else {
+        root.removeAttribute("data-theme");
+        if (btn) btn.innerHTML = `${isSystemDark ? "🌓" : "🌤️"} <span id="theme-btn-label">Auto (${isSystemDark ? "Dark" : "Light"})</span>`;
+      }
+    }
+
+    function toggleTheme() {
+      const current = localStorage.getItem("ramses_theme") || "auto";
+      let next = "dark";
+      if (current === "auto") {
+        const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        next = isDark ? "light" : "dark";
+      } else if (current === "dark") {
+        next = "light";
+      } else if (current === "light") {
+        next = "auto";
+      }
+      localStorage.setItem("ramses_theme", next);
+      applyTheme(next);
+      showToast(`Theme switched to: ${next.toUpperCase()}`);
+    }
+
+    function initTheme() {
+      const saved = localStorage.getItem("ramses_theme") || "auto";
+      applyTheme(saved);
+      try {
+        window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+          const current = localStorage.getItem("ramses_theme") || "auto";
+          if (current === "auto") {
+            applyTheme("auto");
+          }
+        });
+      } catch (e) {
+        console.debug("Theme media listener error:", e);
+      }
+    }
+
+    initTheme();
+    loadPreferences();
+    fetchData();
+    setInterval(fetchData, 2500);
+  </script>
+</body>
+</html>

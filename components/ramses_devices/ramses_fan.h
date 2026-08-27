@@ -1,7 +1,13 @@
 #pragma once
 
+#include "esphome/core/defines.h"
+
+#ifdef USE_FAN
+
+#include "components/ramses_devices/ramses_entity.h"
 #include "components/ramses_esp/ramses_decoder.h"
 #include "components/ramses_esp/ramses_message.h"
+#include "esphome/components/button/button.h"
 #include "esphome/components/fan/fan.h"
 #include "esphome/core/component.h"
 #include <set>
@@ -13,10 +19,6 @@
 #endif
 
 namespace esphome {
-namespace ramses_esp {
-class RamsesESPComponent;
-}
-
 namespace ramses_devices {
 
 // Compact serialisation: upper 10 bits = dev_class, lower 22 bits = device id.
@@ -36,13 +38,10 @@ static inline ramses_esp::RamsesAddress u32_to_addr(uint32_t v) {
   };
 }
 
-class RamsesFan : public fan::Fan, public Component {
+class RamsesFan : public fan::Fan, public Component, public RamsesEntityBase {
 public:
   RamsesFan() = default;
 
-  void set_parent(ramses_esp::RamsesESPComponent *parent) {
-    this->parent_ = parent;
-  }
   void set_device_address(const std::string &addr) {
     this->device_address_ = ramses_esp::RamsesAddress::from_string(addr);
     this->device_address_from_yaml_ = this->device_address_;
@@ -57,22 +56,23 @@ public:
   void loop() override;
   fan::FanTraits get_traits() override;
   void control(const fan::FanCall &call) override;
-  void on_message(const ramses_esp::RamsesMessage &msg);
 
   void start_pairing(uint32_t timeout_ms = 30000);
   void stop_pairing();
   bool is_pairing() const { return this->pairing_active_; }
 
-  const ramses_esp::RamsesAddress &get_device_address() const {
-    return this->device_address_;
-  }
   const ramses_esp::RamsesAddress &get_remote_address() const {
     return this->remote_address_;
   }
 
 protected:
-  ramses_esp::RamsesESPComponent *parent_{nullptr};
-  ramses_esp::RamsesAddress device_address_;
+  bool matches(const ramses_esp::RamsesMessage &msg) const override {
+    return address_matches(this->device_address_, msg) ||
+           address_matches(this->remote_address_, msg);
+  }
+
+  void handle_message(const ramses_esp::RamsesMessage &msg) override;
+
   ramses_esp::RamsesAddress remote_address_;
 
   // Yaml-originating addresses — kept for mismatch detection after NVS load
@@ -101,5 +101,22 @@ protected:
   void save_remote_address();
 };
 
+class RamsesFanPairingButton : public button::Button, public Component {
+public:
+  void set_fan(RamsesFan *fan) { this->fan_ = fan; }
+  void set_timeout_ms(uint32_t ms) { this->timeout_ms_ = ms; }
+  void setup() override {}
+  void press_action() override {
+    if (this->fan_ != nullptr)
+      this->fan_->start_pairing(this->timeout_ms_);
+  }
+
+protected:
+  RamsesFan *fan_{nullptr};
+  uint32_t timeout_ms_{30000};
+};
+
 } // namespace ramses_devices
 } // namespace esphome
+
+#endif // USE_FAN

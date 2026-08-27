@@ -52,6 +52,8 @@ light:
     output: led_output
     id: activity_led
     restore_mode: ALWAYS_OFF
+    internal: true
+
 
 script:
   - id: pulse_activity_led

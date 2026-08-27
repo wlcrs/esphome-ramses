@@ -3,6 +3,17 @@ substitutions:
 
 esphome:
   name: "${name}"
+  devices:
+    - id: ramses_01_145678
+      name: "Evohome Controller 01:145678"
+    - id: ramses_32_155617
+      name: "Ventilation Unit 32:155617"
+    - id: ramses_04_089123
+      name: "Radiator TRV 04:089123"
+    - id: ramses_10_045678
+      name: "OpenTherm Bridge 10:045678"
+    - id: ramses_13_123456
+      name: "BDR91 Relay 13:123456"
 
 esp32:
   board: esp32-c6-devkitc-1
@@ -16,6 +27,11 @@ external_components:
 
 logger:
   level: DEBUG
+
+output:
+  - platform: gpio
+    pin: GPIO19
+    id: led_output
 
 ramses_esp:
   id: ramses_hub
@@ -34,6 +50,7 @@ sensor:
     name: "Living Room Temperature"
     ramses_address: "01:145678"
     zone_index: 0
+    device_id: ramses_01_145678
 
   - platform: ramses_devices
     ramses_esp_id: ramses_hub
@@ -41,6 +58,7 @@ sensor:
     name: "Living Room Setpoint"
     ramses_address: "01:145678"
     zone_index: 0
+    device_id: ramses_01_145678
 
   - platform: ramses_devices
     ramses_esp_id: ramses_hub
@@ -53,42 +71,49 @@ sensor:
     type: heat_demand
     name: "Radiator Heat Demand"
     ramses_address: "04:089123"
+    device_id: ramses_04_089123
 
   - platform: ramses_devices
     ramses_esp_id: ramses_hub
     type: co2
     name: "Ventilation CO2"
     ramses_address: "32:155617"
+    device_id: ramses_32_155617
 
   - platform: ramses_devices
     ramses_esp_id: ramses_hub
     type: indoor_humidity
     name: "Indoor Humidity"
     ramses_address: "32:155617"
+    device_id: ramses_32_155617
 
   - platform: ramses_devices
     ramses_esp_id: ramses_hub
     type: filter_remaining_days
     name: "Filter Life Remaining"
     ramses_address: "32:155617"
+    device_id: ramses_32_155617
 
   - platform: ramses_devices
     ramses_esp_id: ramses_hub
     type: filter_lifetime_days
     name: "Filter Lifetime"
     ramses_address: "32:155617"
+    device_id: ramses_32_155617
 
   - platform: ramses_devices
     ramses_esp_id: ramses_hub
     type: filter_remaining_percent
     name: "Filter Remaining Percent"
     ramses_address: "32:155617"
+    device_id: ramses_32_155617
 
   - platform: ramses_devices
     ramses_esp_id: ramses_hub
     type: bypass_position
     name: "Ventilation Bypass Position"
     ramses_address: "32:155617"
+    device_id: ramses_32_155617
 
   - platform: ramses_devices
     ramses_esp_id: ramses_hub
@@ -96,18 +121,21 @@ sensor:
     name: "Relay Demand"
     ramses_address: "13:123456"
     relay_index: 0
+    device_id: ramses_13_123456
 
   - platform: ramses_devices
     ramses_esp_id: ramses_hub
     type: opentherm_modulation
     name: "Boiler Modulation"
     ramses_address: "10:045678"
+    device_id: ramses_10_045678
 
   - platform: ramses_devices
     ramses_esp_id: ramses_hub
     type: battery_level
     name: "TRV Battery Level"
     ramses_address: "04:089123"
+    device_id: ramses_04_089123
 
 binary_sensor:
   - platform: ramses_devices
@@ -115,24 +143,36 @@ binary_sensor:
     type: filter_alarm
     name: "Filter Dirty Warning"
     ramses_address: "32:155617"
+    device_id: ramses_32_155617
 
   - platform: ramses_devices
     ramses_esp_id: ramses_hub
     type: flame_active
     name: "Boiler Flame Active"
     ramses_address: "10:045678"
+    device_id: ramses_10_045678
 
   - platform: ramses_devices
     ramses_esp_id: ramses_hub
     type: bypass_active
     name: "Ventilation Bypass Active"
     ramses_address: "32:155617"
+    device_id: ramses_32_155617
 
   - platform: ramses_devices
     ramses_esp_id: ramses_hub
     type: battery_low
     name: "TRV Battery Low"
     ramses_address: "04:089123"
+    device_id: ramses_04_089123
+
+light:
+  - platform: binary
+    name: "Activity LED"
+    output: led_output
+    id: activity_led
+    restore_mode: ALWAYS_OFF
+    internal: true
 
 climate:
   - platform: ramses_devices
@@ -141,6 +181,7 @@ climate:
     controller_address: "01:145678"
     zone_index: 0
     zone_name: "Living Room"
+    device_id: ramses_01_145678
 
 fan:
   - platform: ramses_devices
@@ -148,9 +189,11 @@ fan:
     name: "MVHR Ventilation Fan"
     device_address: "32:155617"
     scheme: orcon
+    device_id: ramses_32_155617
 
 water_heater:
   - platform: ramses_devices
     ramses_esp_id: ramses_hub
     name: "Domestic Hot Water"
     controller_address: "01:145678"
+    device_id: ramses_01_145678

@@ -7,6 +7,7 @@
 #include "esphome/components/web_server_base/web_server_base.h"
 #define RAMSES_HAS_WEB_SERVER_BASE 1
 #endif
+#include <deque>
 #include <map>
 #include <set>
 #include <string>
@@ -27,6 +28,28 @@ struct DiscoveredZone {
   bool has_temp{false};
   bool has_setpoint{false};
   bool name_probed{false};
+};
+
+struct DiscoveredPacketField {
+  std::string name;
+  std::string value;
+
+  DiscoveredPacketField() = default;
+  DiscoveredPacketField(std::string n, std::string v)
+      : name(std::move(n)), value(std::move(v)) {}
+};
+
+struct DiscoveredPacket {
+  uint32_t id{0};
+  uint32_t timestamp_ms{0};
+  int8_t rssi{0};
+  std::string hgi80;
+  std::string verb;
+  std::string src;
+  std::string dst;
+  std::string opcode_hex;
+  std::string opcode_name;
+  std::vector<DiscoveredPacketField> fields;
 };
 
 struct DiscoveredDevice {
@@ -60,6 +83,8 @@ public:
   void set_probing_interval(uint32_t interval_ms) {
     this->probing_interval_ms_ = interval_ms;
   }
+  void set_html(const char *html) { this->html_ = html; }
+  const char *get_html() const { return this->html_; }
 
 #ifdef RAMSES_HAS_WEB_SERVER_BASE
   void set_web_server_base(web_server_base::WebServerBase *base) {
@@ -83,6 +108,9 @@ public:
   const std::map<std::string, DiscoveredDevice> &get_devices() const {
     return this->devices_;
   }
+  const std::deque<DiscoveredPacket> &get_recent_packets() const {
+    return this->recent_packets_;
+  }
 
 protected:
   ramses_esp::RamsesESPComponent *parent_{nullptr};
@@ -93,10 +121,16 @@ protected:
   uint32_t probing_interval_ms_{30000};
   uint32_t last_probe_time_{0};
   uint32_t last_dump_time_{0};
+  const char *html_{nullptr};
 
   std::map<std::string, DiscoveredDevice> devices_;
+  std::deque<DiscoveredPacket> recent_packets_;
+  uint32_t packet_seq_id_{1};
+  static constexpr size_t MAX_RECENT_PACKETS = 60;
 
   DiscoveredDevice &get_or_create_device(const ramses_esp::RamsesAddress &addr);
+  void decode_packet_details(const ramses_esp::RamsesMessage &msg,
+                             DiscoveredPacket &pkt);
   void process_controller_packet(DiscoveredDevice &dev,
                                  const ramses_esp::RamsesMessage &msg,
                                  uint16_t opcode);

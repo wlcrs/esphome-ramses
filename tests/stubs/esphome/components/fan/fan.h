@@ -15,16 +15,20 @@ class Fan;
 class FanTraits {
 public:
   void set_speed(bool val) { speed_ = val; }
+  void set_supported_speed_count(int count) { speed_count_ = count; }
   void set_supported_preset_modes(const std::set<std::string> &modes) {
+
     supported_preset_modes_ = modes;
   }
   bool supports_speed() const { return speed_; }
+  int supported_speed_count() const { return speed_count_; }
   bool supports_preset_modes() const {
     return !supported_preset_modes_.empty();
   }
 
 private:
   bool speed_{true};
+  int speed_count_{100};
   std::set<std::string> supported_preset_modes_;
 };
 

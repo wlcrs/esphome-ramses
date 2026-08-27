@@ -1,4 +1,8 @@
 #include "ramses_climate.h"
+#include "esphome/core/defines.h"
+
+#ifdef USE_CLIMATE
+
 #include "esphome/core/log.h"
 
 #ifdef USE_ESP_IDF
@@ -10,16 +14,7 @@ namespace ramses_devices {
 
 static const char *const TAG = "ramses_climate";
 
-void RamsesClimate::setup() {
-#ifdef USE_ESP_IDF
-  if (this->parent_ != nullptr) {
-    this->parent_->add_raw_message_callback(
-        [this](const ramses_esp::RamsesMessage &msg) {
-          this->on_message(msg);
-        });
-  }
-#endif
-}
+void RamsesClimate::setup() { this->setup_base(); }
 
 climate::ClimateTraits RamsesClimate::traits() {
   auto traits = climate::ClimateTraits();
@@ -36,28 +31,7 @@ climate::ClimateTraits RamsesClimate::traits() {
   return traits;
 }
 
-static inline bool
-climate_address_matches(const ramses_esp::RamsesAddress &configured,
-                        const ramses_esp::RamsesMessage &msg) {
-  if (!configured.is_valid)
-    return true;
-  ramses_esp::RamsesAddress src =
-      ramses_esp::RamsesAddress::from_bytes(msg.addr[0]);
-  if (src == configured)
-    return true;
-  if (msg.fields & RAMSES_F_ADDR2) {
-    ramses_esp::RamsesAddress targ =
-        ramses_esp::RamsesAddress::from_bytes(msg.addr[2]);
-    if (targ == configured)
-      return true;
-  }
-  return false;
-}
-
-void RamsesClimate::on_message(const ramses_esp::RamsesMessage &msg) {
-  if (!climate_address_matches(this->controller_address_, msg))
-    return;
-
+void RamsesClimate::handle_message(const ramses_esp::RamsesMessage &msg) {
   uint16_t opcode = ((uint16_t)msg.opcode[0] << 8) | msg.opcode[1];
 
   if (opcode == 0x30C9) {
@@ -151,7 +125,7 @@ void RamsesClimate::control(const climate::ClimateCall &call) {
     this->target_temperature = new_sp;
 
     ramses_esp::RamsesMessage msg = ramses_esp::SetpointPayload::encode_write(
-        hgi_src, this->controller_address_, this->zone_index_, new_sp);
+        hgi_src, this->device_address_, this->zone_index_, new_sp);
 
 #ifdef USE_ESP_IDF
     if (this->parent_ != nullptr) {
@@ -172,7 +146,7 @@ void RamsesClimate::control(const climate::ClimateCall &call) {
     }
 
     ramses_esp::RamsesMessage msg = ramses_esp::SystemModePayload::encode_write(
-        hgi_src, this->controller_address_, sys_mode);
+        hgi_src, this->device_address_, sys_mode);
 
 #ifdef USE_ESP_IDF
     if (this->parent_ != nullptr) {
@@ -206,7 +180,7 @@ void RamsesClimate::control(const climate::ClimateCall &call) {
     }
 
     ramses_esp::RamsesMessage msg = ramses_esp::SystemModePayload::encode_write(
-        hgi_src, this->controller_address_, sys_mode);
+        hgi_src, this->device_address_, sys_mode);
 
 #ifdef USE_ESP_IDF
     if (this->parent_ != nullptr) {
@@ -220,3 +194,5 @@ void RamsesClimate::control(const climate::ClimateCall &call) {
 
 } // namespace ramses_devices
 } // namespace esphome
+
+#endif // USE_CLIMATE

@@ -1,18 +1,22 @@
 #pragma once
 
+#include "components/ramses_devices/ramses_entity.h"
 #include "components/ramses_esp/ramses_decoder.h"
 #include "components/ramses_esp/ramses_message.h"
-#include "esphome/components/binary_sensor/binary_sensor.h"
-#include "esphome/components/sensor/sensor.h"
 #include "esphome/core/component.h"
+#include "esphome/core/defines.h"
 #include <optional>
 #include <string>
 
-namespace esphome {
-namespace ramses_esp {
-class RamsesESPComponent;
-}
+#ifdef USE_SENSOR
+#include "esphome/components/sensor/sensor.h"
+#endif
 
+#ifdef USE_BINARY_SENSOR
+#include "esphome/components/binary_sensor/binary_sensor.h"
+#endif
+
+namespace esphome {
 namespace ramses_devices {
 
 // ----------------------------------------------------------------------
@@ -49,30 +53,27 @@ enum class RamsesSensorType {
   FAULT_CODE,
 };
 
-class RamsesSensor : public sensor::Sensor, public Component {
+#ifdef USE_SENSOR
+class RamsesSensor : public sensor::Sensor,
+                     public Component,
+                     public RamsesEntityBase {
 public:
   RamsesSensor() = default;
 
-  void set_parent(ramses_esp::RamsesESPComponent *parent) {
-    this->parent_ = parent;
-  }
-  void set_device_address(const std::string &addr) {
-    this->device_address_ = ramses_esp::RamsesAddress::from_string(addr);
-  }
   void set_zone_index(uint8_t zone) { this->zone_index_ = zone; }
   void set_relay_index(uint8_t relay) { this->relay_index_ = relay; }
   void set_sensor_type(RamsesSensorType type) { this->sensor_type_ = type; }
 
   void setup() override;
-  void on_message(const ramses_esp::RamsesMessage &msg);
 
 protected:
-  ramses_esp::RamsesESPComponent *parent_{nullptr};
-  ramses_esp::RamsesAddress device_address_;
+  void handle_message(const ramses_esp::RamsesMessage &msg) override;
+
   std::optional<uint8_t> zone_index_;
   std::optional<uint8_t> relay_index_;
   RamsesSensorType sensor_type_{RamsesSensorType::ZONE_TEMPERATURE};
 };
+#endif
 
 // ----------------------------------------------------------------------
 // Base Binary Sensor Types for RAMSES Devices
@@ -88,31 +89,27 @@ enum class RamsesBinarySensorType {
   ACTUATOR_RELAY,
 };
 
+#ifdef USE_BINARY_SENSOR
 class RamsesBinarySensor : public binary_sensor::BinarySensor,
-                           public Component {
+                           public Component,
+                           public RamsesEntityBase {
 public:
   RamsesBinarySensor() = default;
 
-  void set_parent(ramses_esp::RamsesESPComponent *parent) {
-    this->parent_ = parent;
-  }
-  void set_device_address(const std::string &addr) {
-    this->device_address_ = ramses_esp::RamsesAddress::from_string(addr);
-  }
   void set_zone_index(uint8_t zone) { this->zone_index_ = zone; }
   void set_sensor_type(RamsesBinarySensorType type) {
     this->sensor_type_ = type;
   }
 
   void setup() override;
-  void on_message(const ramses_esp::RamsesMessage &msg);
 
 protected:
-  ramses_esp::RamsesESPComponent *parent_{nullptr};
-  ramses_esp::RamsesAddress device_address_;
+  void handle_message(const ramses_esp::RamsesMessage &msg) override;
+
   std::optional<uint8_t> zone_index_;
   RamsesBinarySensorType sensor_type_{RamsesBinarySensorType::FILTER_ALARM};
 };
+#endif
 
 } // namespace ramses_devices
 } // namespace esphome

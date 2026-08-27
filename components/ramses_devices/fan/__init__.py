@@ -1,14 +1,16 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import fan
+from esphome.components import button, fan
 from esphome.const import CONF_ID
 
-AUTO_LOAD = ["ramses_devices"]
+AUTO_LOAD = ["ramses_devices", "button"]
 DEPENDENCIES = ["ramses_esp"]
 
 CONF_SCHEME = "scheme"
 CONF_FAKE_REMOTE_ADDRESS = "fake_remote_address"
 CONF_REMOTE_ADDRESS = "remote_address"
+CONF_PAIRING_BUTTON = "pairing_button"
+CONF_PAIRING_TIMEOUT = "pairing_timeout"
 
 from .. import (
     CONF_DEVICE_ADDRESS,
@@ -20,6 +22,9 @@ from .. import (
 )
 
 RamsesFan = ramses_devices_ns.class_("RamsesFan", fan.Fan, cg.Component)
+RamsesFanPairingButton = ramses_devices_ns.class_(
+    "RamsesFanPairingButton", button.Button, cg.Component
+)
 HvacScheme = ramses_esp_ns.enum("HvacScheme", is_class=True)
 
 HVAC_SCHEMES = {
@@ -44,6 +49,12 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_SCHEME, default="orcon"): cv.enum(
                 HVAC_SCHEMES, lower=True
             ),
+            cv.Optional(CONF_PAIRING_BUTTON): button.button_schema(
+                RamsesFanPairingButton,
+            ),
+            cv.Optional(
+                CONF_PAIRING_TIMEOUT, default="30s"
+            ): cv.positive_time_period_milliseconds,
         }
     )
     .extend(cv.COMPONENT_SCHEMA)
@@ -70,3 +81,10 @@ async def to_code(config):
 
     if CONF_SCHEME in config:
         cg.add(var.set_scheme(config[CONF_SCHEME]))
+
+    if CONF_PAIRING_BUTTON in config:
+        timeout_ms = config[CONF_PAIRING_TIMEOUT]
+        btn = await button.new_button(config[CONF_PAIRING_BUTTON])
+        await cg.register_component(btn, config[CONF_PAIRING_BUTTON])
+        cg.add(btn.set_fan(var))
+        cg.add(btn.set_timeout_ms(timeout_ms))

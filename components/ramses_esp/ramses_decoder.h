@@ -206,6 +206,28 @@ struct FanBoostPayload {
 };
 
 // ----------------------------------------------------------------------
+// Opcode 0x31D9: HVAC Fan Info, Bypass Damper & Mode Status
+// Equivalent to: ramses_rf/payloads/hvac.py:HvacBypassStatePayload
+// ----------------------------------------------------------------------
+struct HvacFanInfoPayload {
+  uint8_t hvac_id{0};
+  uint8_t flags{0};
+  uint8_t raw_fan_mode{0};
+  FanPresetMode preset_mode{FanPresetMode::UNKNOWN};
+  std::optional<float> fan_speed_percent; // 0.0 - 100.0%
+  bool passive{false};
+  bool damper_only{false};
+  bool frost_cycle{false};
+  bool filter_dirty{false};
+  bool has_fault{false};
+  std::optional<float> bypass_position;
+
+  static std::optional<HvacFanInfoPayload>
+  decode(const uint8_t *payload, size_t len,
+         HvacScheme scheme = HvacScheme::AUTO);
+};
+
+// ----------------------------------------------------------------------
 // Opcode 0x31DA: Comprehensive HVAC Status & Telemetry
 // Equivalent to: ramses_rf/payloads/hvac.py:HvacTelemetryPayload
 // ----------------------------------------------------------------------

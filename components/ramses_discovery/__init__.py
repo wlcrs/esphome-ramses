@@ -1,6 +1,11 @@
+from pathlib import Path
+
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.const import CONF_ID
+
+HTML_FILE = Path(__file__).parent / "discovery.html"
+HTML_CONTENT = HTML_FILE.read_text(encoding="utf-8") if HTML_FILE.exists() else None
 
 try:
     from esphome.components import web_server_base
@@ -51,6 +56,9 @@ async def to_code(config):
 
     cg.add(var.set_active_probing(config[CONF_ACTIVE_PROBING]))
     cg.add(var.set_probing_interval(config[CONF_PROBING_INTERVAL]))
+
+    if HTML_CONTENT is not None:
+        cg.add(var.set_html(cg.RawExpression(f'R"rawhtml({HTML_CONTENT})rawhtml"')))
 
     if HAS_WEB_SERVER and CONF_WEB_SERVER_BASE_ID in config:
         web_server = await cg.get_variable(config[CONF_WEB_SERVER_BASE_ID])

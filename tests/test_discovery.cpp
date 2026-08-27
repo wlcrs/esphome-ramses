@@ -164,6 +164,15 @@ void test_yaml_generation() {
 
   std::string yaml = discovery.generate_yaml();
 
+  TEST_ASSERT(yaml.find("devices:") != std::string::npos,
+              "YAML contains esphome devices list");
+  TEST_ASSERT(yaml.find("- id: ramses_01_145678") != std::string::npos,
+              "YAML contains controller subdevice declaration");
+  TEST_ASSERT(yaml.find("name: \"Evohome Controller 01:145678\"") !=
+                  std::string::npos,
+              "YAML contains controller subdevice name");
+  TEST_ASSERT(yaml.find("- id: ramses_32_155617") != std::string::npos,
+              "YAML contains HVAC subdevice declaration");
   TEST_ASSERT(yaml.find("climate:") != std::string::npos,
               "YAML contains climate platform");
   TEST_ASSERT(yaml.find("name: \"Lounge Heating\"") != std::string::npos,
@@ -171,14 +180,22 @@ void test_yaml_generation() {
   TEST_ASSERT(yaml.find("controller_address: \"01:145678\"") !=
                   std::string::npos,
               "YAML contains controller address");
+  TEST_ASSERT(yaml.find("device_id: ramses_01_145678") != std::string::npos,
+              "YAML contains controller device_id");
   TEST_ASSERT(yaml.find("water_heater:") != std::string::npos,
               "YAML contains water_heater platform");
   TEST_ASSERT(yaml.find("fan:") != std::string::npos,
               "YAML contains fan platform");
+  TEST_ASSERT(yaml.find("device_id: ramses_32_155617") != std::string::npos,
+              "YAML contains fan device_id");
   TEST_ASSERT(yaml.find("scheme: orcon") != std::string::npos,
               "YAML contains scheme: orcon");
   TEST_ASSERT(yaml.find("sensor:") != std::string::npos,
               "YAML contains sensor platform");
+  TEST_ASSERT(yaml.find("device_id: ramses_04_089123") != std::string::npos,
+              "YAML contains TRV device_id");
+  TEST_ASSERT(yaml.find("device_id: ramses_10_045678") != std::string::npos,
+              "YAML contains OpenTherm device_id");
   TEST_ASSERT(yaml.find("binary_sensor:") != std::string::npos,
               "YAML contains binary_sensor platform");
 }
@@ -285,15 +302,22 @@ void test_hopper_d375_discovery() {
               "Discovered Hopper D375 HRU 32:137527");
   const auto &hvac = devices.at("32:137527");
   TEST_ASSERT(hvac.is_hvac == true, "Identified as HVAC unit");
-  TEST_ASSERT(hvac.oem_name == "orcon", "Hopper D375 mapped to 'orcon' scheme");
+  TEST_ASSERT(hvac.oem_name == "hopper",
+              "Hopper D375 mapped to 'hopper' scheme");
 
   std::string yaml = discovery.generate_yaml();
+  TEST_ASSERT(yaml.find("devices:") != std::string::npos,
+              "YAML contains esphome devices list");
+  TEST_ASSERT(yaml.find("- id: ramses_32_137527") != std::string::npos,
+              "YAML contains Hopper D375 subdevice declaration");
   TEST_ASSERT(yaml.find("fan:") != std::string::npos,
               "YAML contains fan platform");
   TEST_ASSERT(yaml.find("device_address: \"32:137527\"") != std::string::npos,
               "YAML contains Hopper D375 address");
-  TEST_ASSERT(yaml.find("scheme: orcon") != std::string::npos,
-              "YAML specifies scheme: orcon");
+  TEST_ASSERT(yaml.find("device_id: ramses_32_137527") != std::string::npos,
+              "YAML contains Hopper D375 device_id");
+  TEST_ASSERT(yaml.find("scheme: hopper") != std::string::npos,
+              "YAML specifies scheme: hopper");
 }
 
 void test_json_generation_and_device_yaml() {
@@ -329,6 +353,8 @@ void test_json_generation_and_device_yaml() {
               "Controller YAML contains climate platform");
   TEST_ASSERT(ctl_yaml.find("Living Room") != std::string::npos,
               "Controller YAML contains Living Room");
+  TEST_ASSERT(ctl_yaml.find("device_id: ramses_01_145678") != std::string::npos,
+              "Controller YAML contains device_id");
   TEST_ASSERT(ctl_yaml.find("fan:") == std::string::npos,
               "Controller YAML does NOT contain fan platform");
 
@@ -336,8 +362,11 @@ void test_json_generation_and_device_yaml() {
   std::string hvac_yaml = discovery.generate_device_yaml(hvac);
   TEST_ASSERT(hvac_yaml.find("fan:") != std::string::npos,
               "HVAC YAML contains fan platform");
-  TEST_ASSERT(hvac_yaml.find("scheme: orcon") != std::string::npos,
-              "HVAC YAML specifies scheme: orcon");
+  TEST_ASSERT(hvac_yaml.find("device_id: ramses_32_137527") !=
+                  std::string::npos,
+              "HVAC YAML contains device_id");
+  TEST_ASSERT(hvac_yaml.find("scheme: hopper") != std::string::npos,
+              "HVAC YAML specifies scheme: hopper");
 
   std::string json = discovery.generate_json(2000);
   TEST_ASSERT(!json.empty(), "JSON output is not empty");
@@ -358,6 +387,51 @@ void test_json_generation_and_device_yaml() {
               "JSON contains full_yaml field");
   TEST_ASSERT(json.find("\"yaml\":") != std::string::npos,
               "JSON contains per-device yaml field");
+  TEST_ASSERT(json.find("\"packets\": [") != std::string::npos,
+              "JSON contains live traffic packets list");
+  TEST_ASSERT(json.find("\"opcode\": \"10E0\"") != std::string::npos,
+              "JSON contains 10E0 packet");
+  TEST_ASSERT(json.find("\"opcode_name\": \"Device Info / Signature\"") !=
+                  std::string::npos,
+              "JSON contains decoded opcode name");
+}
+
+void test_traffic_stream_and_foldout_decoding() {
+  std::cout
+      << "\n--- Testing Traffic Stream & Hopper D375 Fold-Out Decoding ---\n";
+  RamsesDiscoveryComponent discovery;
+
+  // Ingest Hopper D375 31DA telemetry packet
+  discovery.on_message(parse_msg(
+      "072  I --- 32:137527 63:262142 --:------ 31DA 030 "
+      "00EE180800085C0000000000000000000000000000000000000000000000"));
+
+  const auto &packets = discovery.get_recent_packets();
+  TEST_ASSERT(!packets.empty(),
+              "Packets list is populated in discovery engine");
+  TEST_ASSERT(packets.front().opcode_hex == "31DA",
+              "Latest packet opcode is 31DA");
+  TEST_ASSERT(packets.front().opcode_name == "Ventilation Status & Telemetry",
+              "Opcode name is Ventilation Status & Telemetry");
+
+  bool has_supply_temp = false;
+  for (const auto &f : packets.front().fields) {
+    if (f.name == "Supply Temperature" &&
+        f.value.find("°C") != std::string::npos) {
+      has_supply_temp = true;
+      break;
+    }
+  }
+  TEST_ASSERT(has_supply_temp,
+              "Decoded Supply Temperature field in fold-out breakdown");
+
+  std::string json = discovery.generate_json(1000);
+  TEST_ASSERT(json.find("\"packets\":") != std::string::npos,
+              "JSON output contains packets array");
+  TEST_ASSERT(json.find("Ventilation Status & Telemetry") != std::string::npos,
+              "JSON contains Ventilation Status name");
+  TEST_ASSERT(json.find("Supply Temperature") != std::string::npos,
+              "JSON contains decoded field name");
 }
 
 int main() {
@@ -371,6 +445,7 @@ int main() {
   test_real_world_opentherm_log();
   test_hopper_d375_discovery();
   test_json_generation_and_device_yaml();
+  test_traffic_stream_and_foldout_decoding();
 
   std::cout << "\n========================================\n";
   std::cout << "Results: " << tests_passed << "/" << tests_run

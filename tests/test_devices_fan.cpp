@@ -75,9 +75,10 @@ void test_fan_control_tx() {
   RamsesAddress dev = RamsesAddress::from_string("32:155617");
   RamsesMessage boost_write = FanStatePayload::encode_write(
       hgi_src, dev, FanPresetMode::BOOST, HvacScheme::ORCON);
-  TEST_ASSERT(boost_write.type == RAMSES_MSG_W, "Fan write message type is W");
+  TEST_ASSERT(boost_write.type == RAMSES_MSG_I, "Fan write message type is I");
   TEST_ASSERT(boost_write.opcode[0] == 0x22 && boost_write.opcode[1] == 0xF1,
               "Opcode is 22F1");
+
   TEST_ASSERT(boost_write.payload[0] == 0x00 && boost_write.payload[1] == 0x06,
               "Payload contains Orcon boost code 0x06");
 
@@ -145,6 +146,10 @@ void test_binding_codec() {
   TEST_ASSERT(encoded_offer.opcode[0] == 0x1F &&
                   encoded_offer.opcode[1] == 0xC9,
               "Opcode is 1FC9");
+  TEST_ASSERT(RamsesAddress::from_bytes(encoded_offer.addr[0]) == remote,
+              "Offer addr0 is remote address");
+  TEST_ASSERT(RamsesAddress::from_bytes(encoded_offer.addr[2]) == remote,
+              "Offer addr2 is remote address");
   TEST_ASSERT(encoded_offer.n_payload == 24,
               "Offer payload is 24 bytes (4 tuples)");
   TEST_ASSERT(encoded_offer.payload[0] == 0x00, "First tuple OEM code is 0x00");
@@ -153,6 +158,12 @@ void test_binding_codec() {
               "First tuple opcode is 22F1");
   TEST_ASSERT(encoded_offer.payload[12] == 0x67,
               "10E0 tuple OEM code is 0x67 (Orcon)");
+
+  // Test encode_offer for Hopper scheme (OEM 0x6A)
+  RamsesMessage hopper_offer =
+      BindingPayload::encode_offer(remote, HvacScheme::HOPPER);
+  TEST_ASSERT(hopper_offer.payload[12] == 0x6A,
+              "Hopper offer OEM code is 0x6A");
 
   // Test encode_offer for Vasco scheme (OEM 0x66)
   RamsesMessage vasco_offer =

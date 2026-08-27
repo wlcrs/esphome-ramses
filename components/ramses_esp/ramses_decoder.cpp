@@ -378,6 +378,8 @@ uint8_t get_hvac_oem_code(HvacScheme scheme) {
     return 0x01;
   case HvacScheme::ZEHNDER:
     return 0x02;
+  case HvacScheme::HOPPER:
+    return 0x6A;
   case HvacScheme::AUTO:
   case HvacScheme::ORCON:
   default:
@@ -506,11 +508,16 @@ RamsesMessage FanStatePayload::encode_write(const RamsesAddress &src,
     }
   }
 
-  return RamsesMessageBuilder::write()
+  uint8_t param_byte = 0x07;
+  if (scheme == HvacScheme::ORCON) {
+    param_byte = (target_mode == FanPresetMode::BOOST) ? 0x1E : 0xFF;
+  }
+
+  return RamsesMessageBuilder::info()
       .from(src)
       .to(dst)
       .opcode(0x22F1)
-      .payload_packed<FanState3Fmt>(0x00, mode_byte, 0xFF);
+      .payload_packed<FanState3Fmt>(0x00, mode_byte, param_byte);
 }
 
 using FanBoostFmt = binary::Struct<"!BBB">;
@@ -550,6 +557,115 @@ RamsesMessage FanBoostPayload::encode_write(const RamsesAddress &src,
       .to(dst)
       .opcode(0x22F3)
       .payload_packed<FanBoostFmt>(0x00, flags, min_byte);
+}
+
+// ----------------------------------------------------------------------
+// Opcode 0x31D9: HVAC Fan Info, Bypass Damper & Mode Status
+// ramses_rf reference: ramses_rf/payloads/hvac.py:HvacBypassStatePayload
+// ----------------------------------------------------------------------
+std::optional<HvacFanInfoPayload>
+HvacFanInfoPayload::decode(const uint8_t *payload, size_t len,
+                           HvacScheme scheme) {
+  if (payload == nullptr || len < 2)
+    return std::nullopt;
+
+  HvacFanInfoPayload res;
+
+  if (len == 2) {
+    res.bypass_position = static_cast<float>(payload[0]);
+    res.flags = payload[1];
+    return res;
+  }
+
+  res.hvac_id = payload[0];
+  res.flags = payload[1];
+  res.raw_fan_mode = payload[2];
+
+  uint8_t flg = res.flags;
+  res.passive = bool(flg & 0x02);
+  res.damper_only = bool(flg & 0x04);
+  res.frost_cycle = bool(flg & 0x10);
+  res.filter_dirty = bool(flg & 0x20);
+  res.has_fault = bool(flg & 0x80);
+
+  uint8_t mode_val = res.raw_fan_mode;
+  if (scheme == HvacScheme::ORCON || scheme == HvacScheme::HOPPER || len == 4) {
+    switch (mode_val) {
+    case 0:
+      res.preset_mode = FanPresetMode::OFF;
+      res.fan_speed_percent = 0.0f;
+      break;
+    case 1:
+      res.preset_mode = FanPresetMode::LOW;
+      res.fan_speed_percent = 33.0f;
+      break;
+    case 2:
+      res.preset_mode = FanPresetMode::MEDIUM;
+      res.fan_speed_percent = 66.0f;
+      break;
+    case 3:
+      res.preset_mode = FanPresetMode::HIGH;
+      res.fan_speed_percent = 100.0f;
+      break;
+    case 4:
+      res.preset_mode = FanPresetMode::BOOST;
+      res.fan_speed_percent = 100.0f;
+      break;
+    case 5:
+      res.preset_mode = FanPresetMode::AUTO;
+      break;
+    default:
+      res.preset_mode = FanPresetMode::UNKNOWN;
+      break;
+    }
+  } else {
+    // Vasco / Itho / ClimaRad
+    switch (mode_val) {
+    case 0:
+      res.preset_mode = FanPresetMode::OFF;
+      res.fan_speed_percent = 0.0f;
+      break;
+    case 1:
+      res.preset_mode = FanPresetMode::LOW;
+      res.fan_speed_percent = 0.5f;
+      break;
+    case 2:
+      res.preset_mode = FanPresetMode::LOW;
+      res.fan_speed_percent = 1.0f;
+      break;
+    case 3:
+      res.preset_mode = FanPresetMode::MEDIUM;
+      res.fan_speed_percent = 50.0f;
+      break;
+    case 4:
+      res.preset_mode = FanPresetMode::HIGH;
+      res.fan_speed_percent = 100.0f;
+      break;
+    case 5:
+      res.preset_mode = FanPresetMode::AUTO;
+      break;
+    case 0x1E: // 30
+      res.preset_mode = FanPresetMode::AWAY;
+      res.fan_speed_percent = 15.0f;
+      break;
+    case 0x50: // 80
+      res.preset_mode = FanPresetMode::LOW;
+      res.fan_speed_percent = 40.0f;
+      break;
+    case 0xC8: // 200 (100% boost)
+      res.preset_mode = FanPresetMode::BOOST;
+      res.fan_speed_percent = 100.0f;
+      break;
+    default:
+      if (mode_val <= 200) {
+        res.fan_speed_percent = static_cast<float>(mode_val) / 2.0f;
+      }
+      res.preset_mode = FanPresetMode::UNKNOWN;
+      break;
+    }
+  }
+
+  return res;
 }
 
 // ----------------------------------------------------------------------
@@ -1164,12 +1280,11 @@ std::optional<BindingPayload> BindingPayload::decode(const RamsesMessage &msg) {
 
 RamsesMessage BindingPayload::encode_offer(const RamsesAddress &remote_addr,
                                            HvacScheme scheme) {
-  RamsesAddress bcast_addr{.dev_class = 63, .id = 262142, .is_valid = true};
   uint8_t oem = get_hvac_oem_code(scheme);
 
   return RamsesMessageBuilder::info()
-      .from(remote_addr)
-      .to(bcast_addr)
+      .addr0(remote_addr)
+      .addr2(remote_addr)
       .opcode(0x1FC9)
       .append_binding(0x00, 0x22F1, remote_addr)
       .append_binding(0x00, 0x22F3, remote_addr)

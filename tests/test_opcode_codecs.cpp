@@ -282,7 +282,7 @@ void test_hvac_fan_codec_22f1() {
   RamsesAddress dst = RamsesAddress::from_string("32:155617");
   RamsesMessage w_msg = FanStatePayload::encode_write(
       src, dst, FanPresetMode::HIGH, HvacScheme::ORCON);
-  TEST_ASSERT(w_msg.type == RAMSES_MSG_W, "Fan command is W");
+  TEST_ASSERT(w_msg.type == RAMSES_MSG_I, "Fan command is I");
   TEST_ASSERT(w_msg.payload[1] == 0x03, "Orcon High mode encoded as 0x03");
 
   uint8_t boost_timer[] = {0x00, 0x00, 0x0A};
@@ -552,6 +552,45 @@ void test_spider_temperatures_4e01() {
               "Spider temp is 21.00 C");
 }
 
+void test_hvac_fan_info_31d9() {
+  std::cout << "\n--- Testing Opcode 0x31D9 (HVAC Fan Info & Status) ---\n";
+  // 1. Orcon 4-byte frame: 00 00 03 00 (Mode 3 / High)
+  const uint8_t orcon_payload[] = {0x00, 0x00, 0x03, 0x00};
+  auto dec_orcon = HvacFanInfoPayload::decode(
+      orcon_payload, sizeof(orcon_payload), HvacScheme::ORCON);
+  TEST_ASSERT(dec_orcon.has_value(), "0x31D9 Orcon 4-byte payload decoded");
+  TEST_ASSERT(dec_orcon->preset_mode == FanPresetMode::HIGH,
+              "Orcon mode 03 decoded as HIGH preset");
+  TEST_ASSERT(dec_orcon->filter_dirty == false, "Filter is clean");
+  TEST_ASSERT(dec_orcon->has_fault == false, "No fault");
+
+  // 2. Status flags: 00 20 01 00 (Filter dirty + Mode 1 / Low)
+  const uint8_t dirty_payload[] = {0x00, 0x20, 0x01, 0x00};
+  auto dec_dirty = HvacFanInfoPayload::decode(
+      dirty_payload, sizeof(dirty_payload), HvacScheme::ORCON);
+  TEST_ASSERT(dec_dirty.has_value(), "0x31D9 filter dirty payload decoded");
+  TEST_ASSERT(dec_dirty->filter_dirty == true, "Filter dirty flag detected");
+  TEST_ASSERT(dec_dirty->preset_mode == FanPresetMode::LOW,
+              "Mode 01 decoded as LOW preset");
+
+  // 3. Short 2-byte bypass payload: 64 00 (100% bypass)
+  const uint8_t bypass_payload[] = {0x64, 0x00};
+  auto dec_bypass = HvacFanInfoPayload::decode(
+      bypass_payload, sizeof(bypass_payload), HvacScheme::AUTO);
+  TEST_ASSERT(dec_bypass.has_value(), "0x31D9 2-byte bypass payload decoded");
+  TEST_ASSERT(dec_bypass->bypass_position.has_value() &&
+                  *dec_bypass->bypass_position == 100.0f,
+              "Bypass position is 100%");
+
+  // 4. Short 3-byte Vasco payload: 00 00 C8 (Boost / 100%)
+  const uint8_t vasco_payload[] = {0x00, 0x00, 0xC8};
+  auto dec_vasco = HvacFanInfoPayload::decode(
+      vasco_payload, sizeof(vasco_payload), HvacScheme::VASCO);
+  TEST_ASSERT(dec_vasco.has_value(), "0x31D9 3-byte Vasco payload decoded");
+  TEST_ASSERT(dec_vasco->preset_mode == FanPresetMode::BOOST,
+              "Vasco 0xC8 decoded as BOOST");
+}
+
 int main() {
   std::cout << "========================================\n";
   std::cout << "Running Ramses Opcode Codecs & Edge Cases Unit Tests\n";
@@ -565,6 +604,7 @@ int main() {
   test_heat_demand_codec_3150();
   test_zone_name_codec_0004();
   test_hvac_fan_codec_22f1();
+  test_hvac_fan_info_31d9();
   test_hvac_telemetry_31da();
   test_window_contact_12b0();
   test_ufh_bounds_22c9();

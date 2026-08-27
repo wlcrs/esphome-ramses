@@ -1,4 +1,5 @@
 #include "ramses_devices.h"
+#include "esphome/core/defines.h"
 #include "esphome/core/log.h"
 
 #ifdef USE_ESP_IDF
@@ -10,54 +11,16 @@ namespace ramses_devices {
 
 static const char *const TAG = "ramses_devices";
 
-void RamsesSensor::setup() {
-#ifdef USE_ESP_IDF
-  if (this->parent_ != nullptr) {
-    this->parent_->add_raw_message_callback(
-        [this](const ramses_esp::RamsesMessage &msg) {
-          this->on_message(msg);
-        });
-  }
-#endif
-}
+#ifdef USE_SENSOR
+void RamsesSensor::setup() { this->setup_base(); }
 
-void RamsesBinarySensor::setup() {
-#ifdef USE_ESP_IDF
-  if (this->parent_ != nullptr) {
-    this->parent_->add_raw_message_callback(
-        [this](const ramses_esp::RamsesMessage &msg) {
-          this->on_message(msg);
-        });
-  }
-#endif
-}
-
-static inline bool address_matches(const ramses_esp::RamsesAddress &configured,
-                                   const ramses_esp::RamsesMessage &msg) {
-  if (!configured.is_valid)
-    return true;
-  ramses_esp::RamsesAddress src =
-      ramses_esp::RamsesAddress::from_bytes(msg.addr[0]);
-  if (src == configured)
-    return true;
-  if (msg.fields & RAMSES_F_ADDR2) {
-    ramses_esp::RamsesAddress targ =
-        ramses_esp::RamsesAddress::from_bytes(msg.addr[2]);
-    if (targ == configured)
-      return true;
-  }
-  return false;
-}
-
-void RamsesSensor::on_message(const ramses_esp::RamsesMessage &msg) {
-  if (!address_matches(this->device_address_, msg))
-    return;
-
+void RamsesSensor::handle_message(const ramses_esp::RamsesMessage &msg) {
   uint16_t opcode = ((uint16_t)msg.opcode[0] << 8) | msg.opcode[1];
 
   switch (this->sensor_type_) {
   case RamsesSensorType::ZONE_TEMPERATURE:
     if (opcode == 0x30C9) {
+
       auto dec =
           ramses_esp::TemperaturePayload::decode(msg.payload, msg.n_payload);
       if (dec.has_value()) {
@@ -399,11 +362,12 @@ void RamsesSensor::on_message(const ramses_esp::RamsesMessage &msg) {
     break;
   }
 }
+#endif // USE_SENSOR
 
-void RamsesBinarySensor::on_message(const ramses_esp::RamsesMessage &msg) {
-  if (!address_matches(this->device_address_, msg))
-    return;
+#ifdef USE_BINARY_SENSOR
+void RamsesBinarySensor::setup() { this->setup_base(); }
 
+void RamsesBinarySensor::handle_message(const ramses_esp::RamsesMessage &msg) {
   uint16_t opcode = ((uint16_t)msg.opcode[0] << 8) | msg.opcode[1];
 
   switch (this->sensor_type_) {
@@ -419,6 +383,12 @@ void RamsesBinarySensor::on_message(const ramses_esp::RamsesMessage &msg) {
           ramses_esp::FilterInfoPayload::decode(msg.payload, msg.n_payload);
       if (dec.has_value()) {
         this->publish_state(dec->remaining_days == 0);
+      }
+    } else if (opcode == 0x31D9) {
+      auto dec =
+          ramses_esp::HvacFanInfoPayload::decode(msg.payload, msg.n_payload);
+      if (dec.has_value()) {
+        this->publish_state(dec->filter_dirty);
       }
     }
     break;
@@ -496,3 +466,5 @@ void RamsesBinarySensor::on_message(const ramses_esp::RamsesMessage &msg) {
 
 } // namespace ramses_devices
 } // namespace esphome
+
+#endif // USE_BINARY_SENSOR

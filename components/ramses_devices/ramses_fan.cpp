@@ -1,4 +1,8 @@
 #include "ramses_fan.h"
+#include "esphome/core/defines.h"
+
+#ifdef USE_FAN
+
 #include "esphome/core/log.h"
 #include <algorithm>
 
@@ -130,14 +134,13 @@ void RamsesFan::setup() {
   // previously completed)
   this->load_preferences();
 
-#ifdef USE_ESP_IDF
-  if (this->parent_ != nullptr) {
-    this->parent_->add_raw_message_callback(
-        [this](const ramses_esp::RamsesMessage &msg) {
-          this->on_message(msg);
-        });
-  }
-#endif
+  // Publish initial state so entity is immediately available in HA
+  this->state = true;
+  this->speed = 33;
+  this->set_preset_mode_("low");
+  this->publish_state();
+
+  this->setup_base();
 }
 
 void RamsesFan::loop() {
@@ -178,12 +181,15 @@ void RamsesFan::start_pairing(uint32_t timeout_ms) {
   this->last_offer_time_ = 0;
 
   ESP_LOGI(TAG,
-           "Starting 1FC9 Pairing Mode for Ventilation Unit (Remote ID: %s, "
-           "Timeout: %u ms)",
-           this->remote_address_.to_string().c_str(), (unsigned int)timeout_ms);
+           "Starting pairing mode (%u s)... Press pair/prog button on your fan "
+           "unit now.",
+           (unsigned int)(timeout_ms / 1000));
 }
 
-void RamsesFan::stop_pairing() { this->pairing_active_ = false; }
+void RamsesFan::stop_pairing() {
+  this->pairing_active_ = false;
+  ESP_LOGI(TAG, "Ventilation pairing mode ended.");
+}
 
 ramses_esp::RamsesAddress RamsesFan::get_effective_sender_address() const {
   if (this->remote_address_.is_valid) {
@@ -198,28 +204,11 @@ ramses_esp::RamsesAddress RamsesFan::get_effective_sender_address() const {
 fan::FanTraits RamsesFan::get_traits() {
   fan::FanTraits traits;
   traits.set_speed(true);
+  traits.set_supported_speed_count(100);
   return traits;
 }
 
-static inline bool
-fan_address_matches(const ramses_esp::RamsesAddress &configured,
-                    const ramses_esp::RamsesMessage &msg) {
-  if (!configured.is_valid)
-    return true;
-  ramses_esp::RamsesAddress src =
-      ramses_esp::RamsesAddress::from_bytes(msg.addr[0]);
-  if (src == configured)
-    return true;
-  if (msg.fields & RAMSES_F_ADDR2) {
-    ramses_esp::RamsesAddress targ =
-        ramses_esp::RamsesAddress::from_bytes(msg.addr[2]);
-    if (targ == configured)
-      return true;
-  }
-  return false;
-}
-
-void RamsesFan::on_message(const ramses_esp::RamsesMessage &msg) {
+void RamsesFan::handle_message(const ramses_esp::RamsesMessage &msg) {
   uint16_t opcode = ((uint16_t)msg.opcode[0] << 8) | msg.opcode[1];
 
   // Handle 1FC9 Binding Handshake when pairing is active
@@ -261,19 +250,29 @@ void RamsesFan::on_message(const ramses_esp::RamsesMessage &msg) {
     }
   }
 
-  if (!fan_address_matches(this->device_address_, msg))
-    return;
+  // 22F1 commands are sent by the *remote* to the fan unit, so we accept them
+  // from either the configured device address or the remote address.
+  bool from_device = address_matches(this->device_address_, msg);
+  bool from_remote = address_matches(this->remote_address_, msg);
 
-  if (opcode == 0x22F1) {
+  if (opcode == 0x22F1 && (from_device || from_remote)) {
     auto dec = ramses_esp::FanStatePayload::decode(msg.payload, msg.n_payload,
                                                    this->scheme_);
     if (dec.has_value()) {
       this->set_preset_mode_(
           ramses_esp::fan_preset_to_string(dec->preset_mode));
-      this->state = (dec->preset_mode != ramses_esp::FanPresetMode::OFF);
+      this->state = (dec->preset_mode != ramses_esp::FanPresetMode::OFF &&
+                     dec->preset_mode != ramses_esp::FanPresetMode::AWAY);
       this->speed = dec->speed_percent;
       this->publish_state();
     }
+  } else if (!from_device) {
+    return;
+  } else if (opcode == 0x31DA) {
+    // 31DA reports motor feedback / actual airflow (not commanded preset).
+    // Do not update the fan entity state from it — state comes from 22F1 only.
+    // Sensor-level values (temperatures, bypass %, etc.) are handled by
+    // RamsesSensor entities that share this same subscription.
   }
 }
 
@@ -283,9 +282,7 @@ void RamsesFan::control(const fan::FanCall &call) {
   if (call.has_preset_mode()) {
     std::string pm = call.get_preset_mode();
     std::transform(pm.begin(), pm.end(), pm.begin(), ::tolower);
-    if (pm == "auto")
-      target_mode = ramses_esp::FanPresetMode::AUTO;
-    else if (pm == "low")
+    if (pm == "low")
       target_mode = ramses_esp::FanPresetMode::LOW;
     else if (pm == "medium" || pm == "med")
       target_mode = ramses_esp::FanPresetMode::MEDIUM;
@@ -295,14 +292,10 @@ void RamsesFan::control(const fan::FanCall &call) {
       target_mode = ramses_esp::FanPresetMode::BOOST;
     else if (pm == "away")
       target_mode = ramses_esp::FanPresetMode::AWAY;
+    else if (pm == "auto")
+      target_mode = ramses_esp::FanPresetMode::AUTO;
     else if (pm == "off")
       target_mode = ramses_esp::FanPresetMode::OFF;
-  } else if (call.get_state().has_value()) {
-    if (!*call.get_state()) {
-      target_mode = ramses_esp::FanPresetMode::OFF;
-    } else {
-      target_mode = ramses_esp::FanPresetMode::AUTO;
-    }
   } else if (call.get_speed().has_value()) {
     int sp = *call.get_speed();
     if (sp == 0)
@@ -311,10 +304,14 @@ void RamsesFan::control(const fan::FanCall &call) {
       target_mode = ramses_esp::FanPresetMode::LOW;
     else if (sp <= 66)
       target_mode = ramses_esp::FanPresetMode::MEDIUM;
-    else if (sp <= 90)
-      target_mode = ramses_esp::FanPresetMode::HIGH;
     else
-      target_mode = ramses_esp::FanPresetMode::BOOST;
+      target_mode = ramses_esp::FanPresetMode::HIGH;
+  } else if (call.get_state().has_value()) {
+    if (!*call.get_state()) {
+      target_mode = ramses_esp::FanPresetMode::OFF;
+    } else {
+      target_mode = ramses_esp::FanPresetMode::LOW;
+    }
   }
 
   this->set_preset_mode_(ramses_esp::fan_preset_to_string(target_mode));
@@ -343,3 +340,5 @@ void RamsesFan::control(const fan::FanCall &call) {
 
 } // namespace ramses_devices
 } // namespace esphome
+
+#endif // USE_FAN
