@@ -211,10 +211,10 @@ CONFIG_SCHEMA = (
 
 async def to_code(config):
     sensor_type = config[CONF_TYPE]
-    raw_type = config.get(CONF_TYPE)
+    type_key = next((k for k, v in SENSOR_TYPES.items() if v == sensor_type), None)
 
     # Inject defaults into config before register_sensor
-    meta = SENSOR_METADATA.get(raw_type)
+    meta = SENSOR_METADATA.get(type_key)
     if meta:
         if "unit" in meta and CONF_UNIT_OF_MEASUREMENT not in config:
             config[CONF_UNIT_OF_MEASUREMENT] = meta["unit"]
