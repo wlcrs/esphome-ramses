@@ -254,22 +254,19 @@ void RamsesESPComponent::process_tx_queue() {
       this->cc1101_.enter_idle_mode();
 
       std::vector<uint8_t> raw_frame = tx_msg.to_raw_frame();
-      this->cc1101_.enter_tx_mode();
-
-      size_t sent = 0;
-      uint32_t start_ms = millis();
-      while (sent < raw_frame.size() && (millis() - start_ms < 500)) {
-        uint8_t space = this->cc1101_.write_fifo(raw_frame[sent++]);
-        if (space < 2) {
-          vTaskDelay(pdMS_TO_TICKS(2));
-        }
+      // The FIFO path wrote the bytes without the UART start/stop bits and
+      // LSB-first order that RAMSES-II uses on air. Send through the UART
+      // into GDO0 in asynchronous serial mode instead, which adds them.
+      this->cc1101_.enter_async_tx_mode();
+      if (!this->frame_handler_.tx_write(raw_frame)) {
+        ESP_LOGW(TAG, "UART TX did not complete");
       }
+      // let the last stop bit leave the modulator
+      delayMicroseconds(300);
 
-      this->cc1101_.fifo_end();
-      // Wait for transmission completion
-      vTaskDelay(pdMS_TO_TICKS(15));
-
-      this->cc1101_.apply_ramses_config();
+      // Only PKTCTRL0/IOCFG0 changed for TX, so go straight back to RX instead
+      // of reloading every register: the destination replies within a few ms.
+      this->cc1101_.enter_rx_mode();
       this->frame_handler_.rx_enable();
 
       xSemaphoreGive(this->radio_mutex_);

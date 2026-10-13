@@ -271,6 +271,10 @@ bool RamsesMessage::from_hgi80(const std::string &line) {
     this->type = RAMSES_MSG_RP;
   else
     return false;
+  // The on-air header is built from `fields`, so its type bits must match
+  // `type`; otherwise every command went out as RQ (type 0).
+  this->fields = (this->fields & ~RAMSES_F_MASK) |
+                 (static_cast<uint8_t>(this->type) & RAMSES_F_MASK);
 
   size_t idx = verb_idx + 1;
 

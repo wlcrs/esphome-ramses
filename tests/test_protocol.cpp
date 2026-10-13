@@ -117,6 +117,31 @@ void test_raw_frame_construction() {
   TEST_ASSERT(raw[raw.size() - 2] == 0x35, "Trailer byte is 0x35");
 }
 
+// The header is the first Manchester-encoded byte after the sync word.
+static uint8_t raw_frame_header(const std::vector<uint8_t> &raw) {
+  return (manchester_decode(raw[25]) << 4) | manchester_decode(raw[26]);
+}
+
+void test_raw_frame_header_type() {
+  std::cout << "\nTesting Raw Frame Header Message Type...\n";
+  const struct {
+    const char *hgi80;
+    RamsesMsgType type;
+  } cases[] = {
+      {" I --- 29:087038 32:023802 --:------ 22F1 003 000206", RAMSES_MSG_I},
+      {"RQ --- 18:000730 32:023802 --:------ 10E0 001 00", RAMSES_MSG_RQ},
+      {" W --- 18:000730 01:123456 --:------ 2309 003 0007D0", RAMSES_MSG_W},
+      {"RP --- 32:023802 18:000730 --:------ 22F1 003 000206", RAMSES_MSG_RP},
+  };
+  for (const auto &c : cases) {
+    RamsesMessage msg;
+    TEST_ASSERT(msg.from_hgi80(c.hgi80), "Parsed TX command");
+    uint8_t header = raw_frame_header(msg.to_raw_frame());
+    TEST_ASSERT(((header & HDR_T_MASK) >> HDR_T_SHIFT) == c.type,
+                "On-air header carries the parsed message type");
+  }
+}
+
 int main() {
   std::cout << "========================================\n";
   std::cout << " Running ESPHome RAMSES Native Unit Tests\n";
@@ -126,6 +151,7 @@ int main() {
   test_ramses_address();
   test_hgi80_parsing_and_formatting();
   test_raw_frame_construction();
+  test_raw_frame_header_type();
 
   std::cout << "\n========================================\n";
   std::cout << " Test Summary: " << tests_passed << "/" << tests_run
