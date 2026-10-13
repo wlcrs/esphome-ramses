@@ -88,6 +88,14 @@ void RamsesFrameHandler::rx_disable() {
   this->rx_state_ = FRM_RX_OFF;
 }
 
+// Send raw frame bytes through the UART (8N1, 38400 baud) into CC1101 GDO0.
+bool RamsesFrameHandler::tx_write(const std::vector<uint8_t> &bytes) {
+  int written = uart_write_bytes(this->uart_num_, bytes.data(), bytes.size());
+  // 10 bits per byte at 38400 baud is ~0.26 ms per byte
+  esp_err_t ret = uart_wait_tx_done(this->uart_num_, pdMS_TO_TICKS(100));
+  return written == static_cast<int>(bytes.size()) && ret == ESP_OK;
+}
+
 void RamsesFrameHandler::rx_flush() {
   if (this->uart_queue_ != nullptr) {
     UBaseType_t n = uxQueueMessagesWaiting(this->uart_queue_);

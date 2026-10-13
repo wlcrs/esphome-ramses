@@ -222,6 +222,18 @@ void CC1101Driver::enter_tx_mode() {
   }
 }
 
+// Asynchronous serial TX: the CC1101 modulates whatever level the ESP UART
+// drives onto GDO0, so the UART supplies the start/stop bits and LSB-first
+// bit order that RAMSES-II needs on air.
+void CC1101Driver::enter_async_tx_mode() {
+  this->enter_idle_mode();
+  this->write_reg(CC_IOCFG0, 0x2E);   // GDO0 high impedance: TX data input
+  this->write_reg(CC_PKTCTRL0, 0x32); // Asynchronous serial, infinite packet
+  while (CC_STATE(this->strobe(CC_STX)) != CC_STATE_TX) {
+    delayMicroseconds(10);
+  }
+}
+
 void CC1101Driver::fifo_end() {
   this->write_reg(CC_IOCFG0, 0x05); // Rising edge, TX Fifo empty
 }
@@ -239,9 +251,13 @@ void CC1101Driver::apply_ramses_config() {
   }
   // TX Fifo Threshold 17
   this->write_reg(CC_FIFOTHR, (CC_RAMSES_CFG[CC_FIFOTHR] & 0xF0) + 11);
-  for (uint8_t i = 0; i < CC_PA_MAX; i++) {
-    this->write_reg(CC_PATABLE, CC_DEFAULT_PA[i]);
-  }
+  // Burst write: separate single-byte writes all land on PATABLE[0] (the index
+  // resets when CSn goes high), so the trailing zeros switched the PA off.
+  uint8_t pa_buf[CC_PA_MAX + 1];
+  pa_buf[0] = CC_PATABLE | CC_BURST;
+  memcpy(pa_buf + 1, CC_DEFAULT_PA, CC_PA_MAX);
+  uint8_t pa_rx[sizeof(pa_buf)];
+  this->spi_read_bytes(pa_rx, pa_buf, sizeof(pa_buf));
   this->enter_rx_mode();
   ESP_LOGI(TAG, "CC1101 configured for RAMSES II RX (868.3 MHz)");
 }

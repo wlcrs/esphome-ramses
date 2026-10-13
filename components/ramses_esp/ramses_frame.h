@@ -34,6 +34,7 @@ public:
   void rx_enable();
   void rx_disable();
   void rx_flush();
+  bool tx_write(const std::vector<uint8_t> &bytes);
 
   void work();
 
