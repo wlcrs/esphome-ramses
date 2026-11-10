@@ -266,7 +266,10 @@ void RamsesFrameHandler::process_rx_byte(uint8_t b) {
         if (this->current_msg_.len == 0) {
           this->msg_parse_state_ = STATE_CHECKSUM;
         } else if (this->current_msg_.len > RAMSES_MAX_PAYLOAD) {
-          this->rx_state_ = FRM_RX_ABORT;
+          // Discard invalid frames and resume synchronization.
+          this->rx_state_ = FRM_RX_IDLE;
+          this->reset_rx();
+          return;
         } else {
           this->msg_parse_state_ = STATE_PAYLOAD;
         }
