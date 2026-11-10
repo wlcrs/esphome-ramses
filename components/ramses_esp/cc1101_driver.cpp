@@ -170,9 +170,10 @@ uint8_t CC1101Driver::read_reg(uint8_t addr) {
 
 uint8_t CC1101Driver::write_reg(uint8_t addr, uint8_t val) {
   uint8_t tx[2] = {addr, val};
-  uint8_t status = 0;
-  this->spi_write_bytes(&status, tx, 2);
-  return status;
+  // Reserve RX space for the full-duplex SPI transaction.
+  uint8_t rx[2] = {0, 0};
+  this->spi_write_bytes(rx, tx, 2);
+  return rx[0];
 }
 
 uint8_t CC1101Driver::strobe(uint8_t cmd) {
@@ -192,8 +193,9 @@ void CC1101Driver::write_fifo_burst(const uint8_t *data, size_t len) {
   std::vector<uint8_t> buf(len + 1);
   buf[0] = CC_FIFO | CC_BURST;
   memcpy(buf.data() + 1, data, len);
-  uint8_t status = 0;
-  this->spi_write_bytes(&status, buf.data(), buf.size());
+  // Reserve RX space for the entire burst.
+  std::vector<uint8_t> rx(buf.size(), 0);
+  this->spi_write_bytes(rx.data(), buf.data(), buf.size());
 }
 
 void CC1101Driver::enter_idle_mode() {
